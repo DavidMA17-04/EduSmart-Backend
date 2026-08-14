@@ -1,0 +1,25 @@
+/node_modules
+/dist
+/coverage
+/build
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+logs
+
+# Editors / OS
+.idea
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# TypeScript / build caches
+*.tsbuildinfo
+.eslintcache
