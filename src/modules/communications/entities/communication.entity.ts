@@ -11,13 +11,13 @@ export class Communication {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'nvarchar', length: 200 })
+  @Column({ type: 'varchar', length: 200 })
   title!: string;
 
   @Column({ type: 'text' })
   body!: string;
 
-  @Column({ type: 'nvarchar', length: 30, default: 'DRAFT' })
+  @Column({ type: 'varchar', length: 30, default: 'DRAFT' })
   status!: string;
 
   @CreateDateColumn({ name: 'created_at' })

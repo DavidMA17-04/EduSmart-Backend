@@ -11,16 +11,16 @@ export class Appeal {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'student_id', type: 'uniqueidentifier' })
+  @Column({ name: 'student_id', type: 'char', length: 36 })
   studentId!: string;
 
-  @Column({ type: 'nvarchar', length: 200 })
+  @Column({ type: 'varchar', length: 200 })
   subject!: string;
 
   @Column({ type: 'text' })
   description!: string;
 
-  @Column({ type: 'nvarchar', length: 30, default: 'SUBMITTED' })
+  @Column({ type: 'varchar', length: 30, default: 'SUBMITTED' })
   status!: string;
 
   @CreateDateColumn({ name: 'created_at' })

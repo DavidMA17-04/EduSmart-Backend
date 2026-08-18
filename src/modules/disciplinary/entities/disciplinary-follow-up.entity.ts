@@ -5,10 +5,10 @@ export class DisciplinaryFollowUp {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'disciplinary_action_id', type: 'uniqueidentifier' })
+  @Column({ name: 'disciplinary_action_id', type: 'char', length: 36 })
   disciplinaryActionId!: string;
 
-  @Column({ type: 'nvarchar', length: 500 })
+  @Column({ type: 'varchar', length: 500 })
   notes!: string;
 
   @CreateDateColumn({ name: 'created_at' })

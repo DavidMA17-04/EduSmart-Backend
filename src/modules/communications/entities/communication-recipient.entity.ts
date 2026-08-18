@@ -5,12 +5,12 @@ export class CommunicationRecipient {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'communication_id', type: 'uniqueidentifier' })
+  @Column({ name: 'communication_id', type: 'char', length: 36 })
   communicationId!: string;
 
-  @Column({ name: 'recipient_id', type: 'uniqueidentifier' })
+  @Column({ name: 'recipient_id', type: 'char', length: 36 })
   recipientId!: string;
 
-  @Column({ name: 'recipient_type', type: 'nvarchar', length: 50 })
+  @Column({ name: 'recipient_type', type: 'varchar', length: 50 })
   recipientType!: string;
 }

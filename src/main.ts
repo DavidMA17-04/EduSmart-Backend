@@ -10,8 +10,17 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
 
+  const configuredCorsOrigin =
+    configService.get<string>('app.corsOrigin') ?? '*';
+  const corsOrigins =
+    configuredCorsOrigin === '*'
+      ? true
+      : configuredCorsOrigin.split(',').map((origin) => origin.trim());
+
   app.enableCors({
-    origin: configService.get<string>('app.corsOrigin') ?? '*',
+    origin: corsOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(

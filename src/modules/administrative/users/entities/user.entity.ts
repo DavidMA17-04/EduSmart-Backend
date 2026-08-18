@@ -11,7 +11,7 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'nvarchar', length: 150, nullable: true })
+  @Column({ type: 'varchar', length: 150, nullable: true })
   name?: string;
 
   @CreateDateColumn({ name: 'created_at' })

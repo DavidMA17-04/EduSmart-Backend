@@ -5,13 +5,13 @@ export class AppealResolution {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'appeal_id', type: 'uniqueidentifier' })
+  @Column({ name: 'appeal_id', type: 'char', length: 36 })
   appealId!: string;
 
-  @Column({ type: 'nvarchar', length: 500 })
+  @Column({ type: 'varchar', length: 500 })
   resolution!: string;
 
-  @Column({ type: 'nvarchar', length: 30 })
+  @Column({ type: 'varchar', length: 30 })
   outcome!: string;
 
   @CreateDateColumn({ name: 'created_at' })
