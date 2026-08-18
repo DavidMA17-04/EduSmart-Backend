@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateAcademicPeriodDto } from '../dto/create-academic-period.dto';
+import { UpdateAcademicPeriodDto } from '../dto/update-academic-period.dto';
 import { AcademicPeriodsService } from '../services/academic-periods.service';
 
 @ApiTags('Administrative - AcademicPeriods')
@@ -19,5 +20,11 @@ export class AcademicPeriodsController {
   @ApiOperation({ summary: 'Listar academic-periods (stub)' })
   findAll() {
     return this.service.findAll();
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Editar período académico' })
+  update(@Param('id') id: string, @Body() dto: UpdateAcademicPeriodDto) {
+    return this.service.update(id, dto);
   }
 }
