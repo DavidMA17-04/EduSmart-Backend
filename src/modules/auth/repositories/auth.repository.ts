@@ -1,15 +1,26 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AuthUser } from '../entities/auth-user.entity';
+
+export type AuthUserRecord = Pick<AuthUser, 'id' | 'email' | 'name' | 'passwordHash'>;
 
 @Injectable()
 export class AuthRepository {
-  // Data access stub — wire TypeORM user lookups in a later phase.
-  async findByEmail(
-    _email: string,
-  ): Promise<{ id: string; email: string; passwordHash: string } | null> {
-    return null;
+  constructor(
+    @InjectRepository(AuthUser)
+    private readonly users: Repository<AuthUser>,
+  ) {}
+
+  findByEmail(email: string): Promise<AuthUserRecord | null> {
+    return this.users.findOne({ where: { email } });
   }
 
-  async findById(_id: string): Promise<{ id: string; email: string } | null> {
-    return null;
+  findById(id: string): Promise<AuthUserRecord | null> {
+    return this.users.findOne({ where: { id } });
+  }
+
+  createUser(data: Pick<AuthUser, 'email' | 'name' | 'passwordHash'>): Promise<AuthUser> {
+    return this.users.save(this.users.create(data));
   }
 }

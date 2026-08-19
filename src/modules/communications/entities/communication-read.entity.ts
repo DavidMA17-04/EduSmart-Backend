@@ -5,10 +5,10 @@ export class CommunicationRead {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'communication_id', type: 'uniqueidentifier' })
+  @Column({ name: 'communication_id', type: 'char', length: 36 })
   communicationId!: string;
 
-  @Column({ name: 'user_id', type: 'uniqueidentifier' })
+  @Column({ name: 'user_id', type: 'char', length: 36 })
   userId!: string;
 
   @CreateDateColumn({ name: 'read_at' })
