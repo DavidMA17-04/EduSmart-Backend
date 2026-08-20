@@ -39,4 +39,10 @@ export class AcademicPeriodsController {
   activate(@Param('id') id: string) {
     return this.service.activate(id);
   }
+
+  @Patch(':id/reopen')
+  @ApiOperation({ summary: 'Reabrir período académico' })
+  reopen(@Param('id') id: string) {
+    return this.service.reopen(id);
+  }
 }
