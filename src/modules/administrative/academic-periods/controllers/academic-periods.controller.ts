@@ -33,4 +33,10 @@ export class AcademicPeriodsController {
   close(@Param('id') id: string) {
     return this.service.close(id);
   }
+
+  @Patch(':id/activate')
+  @ApiOperation({ summary: 'Activar período académico' })
+  activate(@Param('id') id: string) {
+    return this.service.activate(id);
+  }
 }

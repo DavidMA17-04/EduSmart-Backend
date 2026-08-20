@@ -70,4 +70,20 @@ export class AcademicPeriodsService {
 
     return this.repository.save(period);
   }
+
+  async activate(id: string): Promise<AcademicPeriod> {
+    const period = await this.repository.findById(id);
+
+    if (!period) {
+      throw new NotFoundException('Período académico no encontrado');
+    }
+
+    if (period.status === AcademicPeriodStatus.CLOSED) {
+      throw new BadRequestException('No se puede activar un período académico cerrado');
+    }
+
+    period.status = AcademicPeriodStatus.ACTIVE;
+
+    return this.repository.save(period);
+  }
 }
