@@ -35,6 +35,10 @@ export class AcademicPeriodsService {
       throw new NotFoundException('Período académico no encontrado');
     }
 
+    if (period.status === AcademicPeriodStatus.CLOSED) {
+      throw new BadRequestException('No se puede editar un período académico cerrado');
+    }
+
     const startDate = dto.startDate ?? period.startDate;
     const endDate = dto.endDate ?? period.endDate;
 
