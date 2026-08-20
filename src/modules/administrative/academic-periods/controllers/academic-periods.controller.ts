@@ -27,4 +27,10 @@ export class AcademicPeriodsController {
   update(@Param('id') id: string, @Body() dto: UpdateAcademicPeriodDto) {
     return this.service.update(id, dto);
   }
+
+  @Patch(':id/close')
+  @ApiOperation({ summary: 'Cerrar período académico' })
+  close(@Param('id') id: string) {
+    return this.service.close(id);
+  }
 }
