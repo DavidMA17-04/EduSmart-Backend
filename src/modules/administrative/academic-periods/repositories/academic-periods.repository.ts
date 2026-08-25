@@ -13,4 +13,17 @@ export class AcademicPeriodsRepository {
   async findAll(): Promise<AcademicPeriod[]> {
     return this.repository.find();
   }
+
+  async findById(id: string): Promise<AcademicPeriod | null> {
+    return this.repository.findOne({ where: { id } });
+  }
+
+  async create(data: Partial<AcademicPeriod>): Promise<AcademicPeriod> {
+    const entity = this.repository.create(data);
+    return this.repository.save(entity);
+  }
+
+  async save(entity: AcademicPeriod): Promise<AcademicPeriod> {
+    return this.repository.save(entity);
+  }
 }
