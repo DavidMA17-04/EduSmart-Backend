@@ -5,14 +5,28 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { AcademicPeriodStatus } from '../enums/academic-period-status.enum';
 
 @Entity({ name: 'academic_periods' })
 export class AcademicPeriod {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', length: 150, nullable: true })
-  name?: string;
+  @Column({ type: 'varchar', length: 150 })
+  name!: string;
+
+  @Column({ name: 'start_date', type: 'date' })
+  startDate!: string;
+
+  @Column({ name: 'end_date', type: 'date' })
+  endDate!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: AcademicPeriodStatus.PLANNED,
+  })
+  status!: AcademicPeriodStatus;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
