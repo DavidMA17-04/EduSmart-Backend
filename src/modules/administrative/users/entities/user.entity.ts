@@ -15,33 +15,79 @@ export class User {
   @PrimaryGeneratedColumn({ type: 'int', name: 'id_users' })
   id!: number;
 
+  /** Alias de compatibilidad id_users */
+  get id_users(): number {
+    return this.id;
+  }
+  set id_users(value: number) {
+    this.id = value;
+  }
+
+  /** Identificación / Cédula única (national_id) */
+  @Column({ name: 'national_id', type: 'varchar', length: 30, unique: true })
+  national_id!: string;
+
+  get nationalId(): string {
+    return this.national_id;
+  }
+  set nationalId(value: string) {
+    this.national_id = value;
+  }
+
+  /** Nombre de visualización o completo */
   @Column({ type: 'varchar', length: 150, nullable: true })
   name?: string;
 
-  @Column({ name: 'national_id', type: 'varchar', length: 30, unique: true })
-  nationalId!: string;
+  /** Primer nombre / Nombres de pila */
+  @Column({ name: 'first_name', type: 'varchar', length: 100, nullable: true })
+  firstName?: string;
 
-  @Column({ name: 'first_name', type: 'varchar', length: 100 })
-  firstName!: string;
+  get first_name(): string | undefined {
+    return this.firstName;
+  }
+  set first_name(value: string | undefined) {
+    this.firstName = value;
+  }
 
-  @Column({ name: 'last_name', type: 'varchar', length: 100 })
-  lastName!: string;
+  /** Apellidos combinados */
+  @Column({ name: 'last_name', type: 'varchar', length: 100, nullable: true })
+  lastName?: string;
 
+  get last_name(): string | undefined {
+    return this.lastName;
+  }
+  set last_name(value: string | undefined) {
+    this.lastName = value;
+  }
+
+  /** Primer Apellido */
   @Column({ name: 'first_lastname', type: 'varchar', length: 100, nullable: true })
   first_lastname?: string | null;
 
+  /** Segundo Apellido */
   @Column({ name: 'second_lastname', type: 'varchar', length: 100, nullable: true })
   second_lastname?: string | null;
 
+  /** Correo Electrónico Institucional único */
   @Column({ type: 'varchar', length: 255, unique: true })
   email!: string;
 
+  /** Teléfono de contacto */
   @Column({ type: 'varchar', length: 30, nullable: true })
   phone?: string | null;
 
+  /** Hash de contraseña de acceso */
   @Column({ name: 'password_hash', type: 'varchar', length: 255 })
-  passwordHash!: string;
+  password_hash!: string;
 
+  get passwordHash(): string {
+    return this.password_hash;
+  }
+  set passwordHash(value: string) {
+    this.password_hash = value;
+  }
+
+  /** Estado del usuario */
   @Column({
     type: 'enum',
     enum: UserStatus,
@@ -49,12 +95,29 @@ export class User {
   })
   status!: UserStatus;
 
+  /** Indicador de cambio obligatorio de contraseña en primer inicio */
   @Column({ name: 'must_change_password', type: 'boolean', default: true })
   mustChangePassword!: boolean;
 
+  get must_change_password(): boolean {
+    return this.mustChangePassword;
+  }
+  set must_change_password(value: boolean) {
+    this.mustChangePassword = value;
+  }
+
+  /** Última fecha de inicio de sesión */
   @Column({ name: 'last_login_at', type: 'datetime', nullable: true })
   lastLoginAt?: Date | null;
 
+  get last_login_at(): Date | null | undefined {
+    return this.lastLoginAt;
+  }
+  set last_login_at(value: Date | null | undefined) {
+    this.lastLoginAt = value;
+  }
+
+  /** Roles institucionales asignados a través de user_roles */
   @OneToMany(() => UserRoleEntity, (userRole) => userRole.user, {
     cascade: true,
   })

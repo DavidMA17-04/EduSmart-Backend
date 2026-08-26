@@ -49,15 +49,20 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto): Promise<UserPublicView> {
-    const nationalId = dto.nationalId.replace(/-/g, '').trim();
+    const rawNationalId = dto.nationalId ?? dto.national_id ?? '';
+    const nationalId = rawNationalId.replace(/-/g, '').trim();
     const email = dto.email.trim().toLowerCase();
 
     await this.ensureUniqueNationalId(nationalId);
     await this.ensureUniqueEmail(email);
 
     const roles = await this.resolveRoles(dto.roleIds);
-    const displayName =
-      dto.name?.trim() || `${dto.firstName.trim()} ${dto.lastName.trim()}`;
+    const firstName = dto.name?.trim() || dto.firstName?.trim() || '';
+    const firstLastName = dto.first_lastname?.trim() || dto.lastName?.trim() || '';
+    const secondLastName = dto.second_lastname?.trim() || null;
+    const computedName =
+      dto.name?.trim() ||
+      [firstName, firstLastName, secondLastName].filter(Boolean).join(' ').trim();
 
     const password = dto.password?.trim();
     const passwordHash = password
@@ -65,14 +70,18 @@ export class UsersService {
       : await bcrypt.hash(randomUUID(), 10);
 
     const user = this.repository.create({
-      nationalId,
-      firstName: dto.firstName.trim(),
-      lastName: dto.lastName.trim(),
+      national_id: nationalId,
+      nationalId: nationalId,
+      name: computedName || firstName,
+      firstName: firstName || computedName,
+      lastName:
+        [firstLastName, secondLastName].filter(Boolean).join(' ').trim() || firstLastName,
+      first_lastname: firstLastName,
+      second_lastname: secondLastName,
       email,
       phone: dto.phone?.trim() || null,
-      name: displayName,
       status: dto.status ?? UserStatus.ACTIVE,
-      passwordHash,
+      password_hash: passwordHash,
       mustChangePassword: true,
     });
 
@@ -91,9 +100,10 @@ export class UsersService {
     const user = await this.getByIdOrFail(id);
     const before = toUserPublicView(user) as unknown as Record<string, unknown>;
 
-    if (dto.nationalId) {
-      const nationalId = dto.nationalId.replace(/-/g, '').trim();
+    if (dto.nationalId || dto.national_id) {
+      const nationalId = (dto.nationalId || dto.national_id)!.replace(/-/g, '').trim();
       await this.ensureUniqueNationalId(nationalId, id);
+      user.national_id = nationalId;
       user.nationalId = nationalId;
     }
 
@@ -103,11 +113,20 @@ export class UsersService {
       user.email = email;
     }
 
-    if (dto.firstName !== undefined) {
-      user.firstName = dto.firstName.trim();
+    if (dto.name !== undefined || dto.firstName !== undefined) {
+      const val = (dto.name || dto.firstName)?.trim();
+      user.name = val;
+      user.firstName = val;
     }
-    if (dto.lastName !== undefined) {
-      user.lastName = dto.lastName.trim();
+    if (dto.first_lastname !== undefined || dto.lastName !== undefined) {
+      const val = (dto.first_lastname || dto.lastName)?.trim();
+      user.first_lastname = val;
+    }
+    if (dto.second_lastname !== undefined) {
+      user.second_lastname = dto.second_lastname?.trim() || null;
+    }
+    if (user.first_lastname || user.second_lastname) {
+      user.lastName = [user.first_lastname, user.second_lastname].filter(Boolean).join(' ').trim();
     }
     if (dto.phone !== undefined) {
       user.phone = dto.phone?.trim() || null;
@@ -116,13 +135,10 @@ export class UsersService {
       user.status = dto.status;
     }
     if (dto.password) {
-      user.passwordHash = await bcrypt.hash(dto.password, 10);
+      const hashed = await bcrypt.hash(dto.password, 10);
+      user.password_hash = hashed;
+      user.passwordHash = hashed;
     }
-
-    user.name =
-      dto.name?.trim() ||
-      [user.firstName, user.lastName].filter(Boolean).join(' ') ||
-      user.name;
 
     const saved = await this.repository.save(user);
 
@@ -148,7 +164,19 @@ export class UsersService {
 
   async createGuideTeacher(dto: CreateGuideTeacherDto): Promise<UserPublicView> {
     const teacherRole = await this.getTeacherRole();
-    return this.create({ ...dto, roleIds: [teacherRole.id] });
+    const parts = dto.lastName?.trim().split(/\s+/) || [];
+    const firstLast = parts[0] || '';
+    const secondLast = parts.slice(1).join(' ') || undefined;
+
+    return this.create({
+      ...dto,
+      name: dto.firstName,
+      firstName: dto.firstName,
+      first_lastname: firstLast,
+      second_lastname: secondLast,
+      lastName: dto.lastName,
+      roleIds: [teacherRole.id],
+    });
   }
 
   async updateGuideTeacher(

@@ -362,15 +362,13 @@ export class BulkImportService {
 
       for (const record of validRecords) {
         const user = queryRunner.manager.create(User, {
-          nationalId: record.national_id.trim(),
+          national_id: record.national_id.trim(),
           name: record.name.trim(),
-          firstName: record.name.trim(),
-          lastName: [record.first_lastname, record.second_lastname].filter(Boolean).join(' '),
           first_lastname: record.first_lastname.trim(),
           second_lastname: record.second_lastname ? record.second_lastname.trim() : null,
           email: record.email.trim().toLowerCase(),
           phone: record.phone ? record.phone.trim() : null,
-          passwordHash: defaultPasswordHash,
+          password_hash: defaultPasswordHash,
           status: UserStatus.ACTIVE,
           mustChangePassword: true,
           lastLoginAt: null,

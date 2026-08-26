@@ -25,19 +25,42 @@ export class CreateUserDto {
   })
   nationalId!: string;
 
-  @ApiProperty({ example: 'María' })
+  @ApiPropertyOptional({ example: '109870543' })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
-  @MaxLength(80)
-  firstName!: string;
+  national_id?: string;
 
-  @ApiProperty({ example: 'Vargas Soto' })
+  @ApiPropertyOptional({ example: 'María' })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
-  @MaxLength(120)
-  lastName!: string;
+  @MaxLength(150)
+  name?: string;
 
-  @ApiProperty({ example: 'maria.vargas@gmail.com' })
+  @ApiPropertyOptional({ example: 'María' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  firstName?: string;
+
+  @ApiPropertyOptional({ example: 'Vargas' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  first_lastname?: string;
+
+  @ApiPropertyOptional({ example: 'Vargas Soto' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  lastName?: string;
+
+  @ApiPropertyOptional({ example: 'Soto' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  second_lastname?: string;
+
+  @ApiProperty({ example: 'maria.vargas@ctphojancha.ed.cr' })
   @IsEmail()
   @MaxLength(150)
   email!: string;
@@ -73,13 +96,4 @@ export class CreateUserDto {
   @Type(() => Number)
   @IsInt({ each: true })
   roleIds!: number[];
-
-  @ApiPropertyOptional({
-    description: 'Nombre de visualización. Si se omite se arma con nombre y apellidos.',
-  })
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(150)
-  name?: string;
 }
