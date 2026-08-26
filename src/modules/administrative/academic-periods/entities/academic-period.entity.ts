@@ -9,8 +9,8 @@ import { AcademicPeriodStatus } from '../enums/academic-period-status.enum';
 
 @Entity({ name: 'academic_periods' })
 export class AcademicPeriod {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'id_academic_periods' })
+  id!: number;
 
   @Column({ type: 'varchar', length: 150 })
   name!: string;
@@ -22,8 +22,8 @@ export class AcademicPeriod {
   endDate!: string;
 
   @Column({
-    type: 'varchar',
-    length: 20,
+    type: 'enum',
+    enum: AcademicPeriodStatus,
     default: AcademicPeriodStatus.PLANNED,
   })
   status!: AcademicPeriodStatus;

@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
@@ -33,14 +33,14 @@ export class SpecialtiesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener especialidad por ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Actualizar especialidad' })
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateSpecialtyDto,
   ) {
     return this.service.update(id, dto);
@@ -48,7 +48,7 @@ export class SpecialtiesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Inactivar especialidad (eliminación lógica)' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }
 }

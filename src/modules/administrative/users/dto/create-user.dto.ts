@@ -5,13 +5,14 @@ import {
   IsArray,
   IsEmail,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
 
 const NATIONAL_ID_PATTERN = /^[0-9]{9,12}$/;
@@ -24,26 +25,33 @@ export class CreateUserDto {
   })
   nationalId!: string;
 
-  @ApiProperty({ example: 'María' })
+  @ApiPropertyOptional({ example: '109870543' })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
-  @MaxLength(100)
-  name!: string;
+  national_id?: string;
 
   @ApiPropertyOptional({ example: 'María' })
   @IsOptional()
   @IsString()
+  @MaxLength(150)
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'María' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   firstName?: string;
 
-  @ApiProperty({ example: 'Vargas' })
+  @ApiPropertyOptional({ example: 'Vargas' })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
   @MaxLength(100)
-  first_lastname!: string;
+  first_lastname?: string;
 
   @ApiPropertyOptional({ example: 'Vargas Soto' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   lastName?: string;
 
   @ApiPropertyOptional({ example: 'Soto' })
@@ -79,13 +87,13 @@ export class CreateUserDto {
   status?: UserStatus;
 
   @ApiProperty({
-    type: [String],
-    format: 'uuid',
+    type: [Number],
     description: 'IDs de roles institucionales (obligatorio; al menos uno)',
   })
   @IsArray()
   @ArrayMinSize(1, { message: 'Debe asignar al menos un rol' })
   @ArrayUnique()
-  @IsUUID('4', { each: true })
-  roleIds!: string[];
+  @Type(() => Number)
+  @IsInt({ each: true })
+  roleIds!: number[];
 }

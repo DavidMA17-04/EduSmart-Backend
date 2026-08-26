@@ -34,7 +34,7 @@ export class PermissionsService {
     return this.repository.findAll();
   }
 
-  async findOne(id: string): Promise<PermissionEntity> {
+  async findOne(id: number): Promise<PermissionEntity> {
     const permission = await this.repository.findById(id);
     if (!permission) {
       throw new NotFoundException(`Permission ${id} not found`);
@@ -43,7 +43,7 @@ export class PermissionsService {
   }
 
   async update(
-    id: string,
+    id: number,
     dto: UpdatePermissionDto,
   ): Promise<PermissionEntity> {
     const permission = await this.findOne(id);
@@ -77,7 +77,7 @@ export class PermissionsService {
     return this.repository.save(permission);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const permission = await this.findOne(id);
     const usage = await this.repository.countRolesUsingPermission(id);
 
@@ -90,7 +90,7 @@ export class PermissionsService {
     await this.repository.remove(permission);
   }
 
-  async findByIdsOrFail(ids: string[]): Promise<PermissionEntity[]> {
+  async findByIdsOrFail(ids: number[]): Promise<PermissionEntity[]> {
     const uniqueIds = [...new Set(ids)];
     const permissions = await this.repository.findByIds(uniqueIds);
 
@@ -114,7 +114,7 @@ export class PermissionsService {
 
   private async ensureUniqueCode(
     code: string,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findByCode(code);
     if (existing && existing.id !== excludeId) {
@@ -125,7 +125,7 @@ export class PermissionsService {
   private async ensureUniqueModuleAction(
     module: PermissionModule,
     action: PermissionAction,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findByModuleAndAction(
       module,

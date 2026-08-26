@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { AuditLog } from '../entities/audit-log.entity';
 
 export interface AuditLogEntry {
-  actorId?: string | null;
+  actorId?: number | null;
   action: string;
   entity: string;
   entityId: string;

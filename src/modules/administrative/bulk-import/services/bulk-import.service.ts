@@ -25,9 +25,11 @@ import {
 } from '../dto/bulk-import.dto';
 import { ImportSummaryDto } from '../dto/import-summary.dto';
 import { RegisterImportResultDto } from '../dto/register-import-result.dto';
-import { ImportJob } from '../entities/import-job.entity';
+import { ImportBatch } from '../entities/import-batch.entity';
+import { ImportRecord } from '../entities/import-record.entity';
+import { ImportRecordStatus } from '../enums/import-record-status.enum';
 import { ImportResult } from '../interfaces/import-result.interface';
-import { ImportJobsRepository } from '../repositories/import-jobs.repository';
+import { ImportBatchesRepository } from '../repositories/import-batches.repository';
 
 @Injectable()
 export class BulkImportService {
@@ -36,7 +38,7 @@ export class BulkImportService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly dataSource: DataSource,
-    private readonly importJobsRepository: ImportJobsRepository,
+    private readonly importBatchesRepository: ImportBatchesRepository,
   ) {}
 
   /**
@@ -368,8 +370,8 @@ export class BulkImportService {
           phone: record.phone ? record.phone.trim() : null,
           password_hash: defaultPasswordHash,
           status: UserStatus.ACTIVE,
-          must_change_password: true,
-          last_login_at: null,
+          mustChangePassword: true,
+          lastLoginAt: null,
         });
 
         await queryRunner.manager.save(user);
@@ -411,22 +413,36 @@ export class BulkImportService {
 
   async registerResult(dto: RegisterImportResultDto): Promise<ImportResult> {
     const summary = this.resolveSummary(dto);
-    const job = this.importJobsRepository.create({
+    const records: Partial<ImportRecord>[] = [
+      ...dto.successfulRecords.map((item) => ({
+        rowNumber: item.rowNumber,
+        status: ImportRecordStatus.SUCCESS,
+        payload: item as unknown as Record<string, unknown>,
+      })),
+      ...dto.errorRecords.map((item) => ({
+        rowNumber: item.rowNumber,
+        status: ImportRecordStatus.ERROR,
+        payload: item as unknown as Record<string, unknown>,
+        errorMessage: item.message,
+      })),
+    ];
+
+    const batch = this.importBatchesRepository.create({
       type: dto.type?.trim() || 'users',
-      successfulRecords: dto.successfulRecords,
-      errorRecords: dto.errorRecords,
-      summary,
+      summary: summary as unknown as Record<string, number>,
+      records: records as ImportRecord[],
     });
-    const saved = await this.importJobsRepository.save(job);
-    return this.toResult(saved);
+    const saved = await this.importBatchesRepository.save(batch);
+    const persisted = (await this.importBatchesRepository.findById(saved.id)) ?? saved;
+    return this.toResult(persisted);
   }
 
-  async findResult(jobId: string): Promise<ImportResult> {
-    const job = await this.importJobsRepository.findById(jobId);
-    if (!job) {
-      throw new NotFoundException(`Import job ${jobId} not found`);
+  async findResult(jobId: number): Promise<ImportResult> {
+    const batch = await this.importBatchesRepository.findById(jobId);
+    if (!batch) {
+      throw new NotFoundException(`Import batch ${jobId} not found`);
     }
-    return this.toResult(job);
+    return this.toResult(batch);
   }
 
   private resolveSummary(dto: RegisterImportResultDto): ImportSummaryDto {
@@ -439,13 +455,26 @@ export class BulkImportService {
     };
   }
 
-  private toResult(job: ImportJob): ImportResult {
+  private toResult(batch: ImportBatch): ImportResult {
+    const records = batch.records ?? [];
     return {
-      jobId: job.id,
-      type: job.type,
-      successfulRecords: job.successfulRecords ?? [],
-      errorRecords: job.errorRecords ?? [],
-      summary: job.summary,
+      jobId: batch.id,
+      type: batch.type,
+      successfulRecords: records
+        .filter((record) => record.status === ImportRecordStatus.SUCCESS)
+        .map((record) => (record.payload ?? { rowNumber: record.rowNumber }) as never),
+      errorRecords: records
+        .filter((record) => record.status === ImportRecordStatus.ERROR)
+        .map((record) =>
+          (record.payload ?? {
+            rowNumber: record.rowNumber,
+            message: record.errorMessage ?? 'Error de importación',
+          }) as never,
+        ),
+      summary: (batch.summary ?? this.resolveSummary({
+        successfulRecords: [],
+        errorRecords: [],
+      })) as ImportSummaryDto,
     };
   }
 }

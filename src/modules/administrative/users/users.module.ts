@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from '../../auth/auth.module';
+import { AcademicPeriodsModule } from '../academic-periods/academic-periods.module';
+import { PermissionsModule } from '../permissions/permissions.module';
 import { RolesModule } from '../roles/roles.module';
+import { SpecialtiesModule } from '../specialties/specialties.module';
+import { TeachingAssignment } from '../teaching-assignments/entities/teaching-assignment.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { User } from './entities/user.entity';
+import { UserRoleEntity } from './entities/user-role.entity';
 import { UsersService } from './services/users.service';
 import { UsersBootstrapService } from './services/users-bootstrap.service';
 import { AuditLogService } from './services/audit-log.service';
@@ -13,9 +17,11 @@ import { UsersController } from './controllers/users.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, AuditLog]),
+    TypeOrmModule.forFeature([User, UserRoleEntity, AuditLog, TeachingAssignment]),
     RolesModule,
-    AuthModule,
+    PermissionsModule,
+    AcademicPeriodsModule,
+    SpecialtiesModule,
   ],
   controllers: [UsersController],
   providers: [
@@ -27,4 +33,4 @@ import { UsersController } from './controllers/users.controller';
   ],
   exports: [UsersService, UsersRepository],
 })
-export class UsersModule { }
+export class UsersModule {}

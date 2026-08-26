@@ -2,26 +2,44 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { SectionStatus } from '../../../../common/enums/section-status.enum';
+import { AcademicPeriod } from '../../academic-periods/entities/academic-period.entity';
+import { SpecialtyEntity } from '../../specialties/entities/specialty.entity';
 import { GroupEntity } from './group.entity';
 
 @Entity({ name: 'sections' })
 export class SectionEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
-  @Column({ type: 'varchar', length: 20, unique: true })
-  code!: string;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'id_sections' })
+  id!: number;
 
   @Column({ type: 'varchar', length: 150 })
   name!: string;
 
+  @Column({ name: 'grade_level', type: 'int' })
+  gradeLevel!: number;
+
   @Column({ type: 'text', nullable: true })
   description?: string | null;
+
+  @Column({ name: 'id_academic_periods', type: 'int' })
+  academicPeriodId!: number;
+
+  @ManyToOne(() => AcademicPeriod, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'id_academic_periods' })
+  academicPeriod!: AcademicPeriod;
+
+  @Column({ name: 'id_specialties', type: 'int', nullable: true })
+  specialtyId!: number | null;
+
+  @ManyToOne(() => SpecialtyEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'id_specialties' })
+  specialty?: SpecialtyEntity | null;
 
   @Column({
     type: 'enum',

@@ -5,17 +5,13 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-/**
- * Bitácora de cambios en entidades administrativas.
- * PBI-08 escribe eventos; la consulta UI (WF-24) es de otro responsable.
- */
 @Entity({ name: 'audit_logs' })
 export class AuditLog {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'id_audit_logs' })
+  id!: number;
 
-  @Column({ name: 'actor_id', type: 'varchar', length: 36, nullable: true })
-  actorId?: string | null;
+  @Column({ name: 'actor_id', type: 'int', nullable: true })
+  actorId?: number | null;
 
   @Column({ type: 'varchar', length: 40 })
   action!: string;

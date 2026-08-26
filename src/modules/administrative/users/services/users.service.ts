@@ -4,11 +4,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
+import { Repository } from 'typeorm';
+import {
+  INSTITUTIONAL_ROLE_ADMIN,
+  INSTITUTIONAL_ROLE_TEACHER,
+} from '../../../../common/constants/institutional-roles.constant';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
-import { AuthRepository } from '../../../auth/repositories/auth.repository';
 import { RolesRepository } from '../../roles/repositories/roles.repository';
+import { TeachingAssignment } from '../../teaching-assignments/entities/teaching-assignment.entity';
+import { CreateGuideTeacherDto } from '../dto/create-guide-teacher.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
+import { UpdateGuideTeacherDto } from '../dto/update-guide-teacher.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { User } from '../entities/user.entity';
 import { toUserPublicView, UserPublicView } from '../mappers/user-public.mapper';
@@ -21,7 +30,8 @@ export class UsersService {
     private readonly repository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
     private readonly auditLogService: AuditLogService,
-    private readonly authRepository: AuthRepository,
+    @InjectRepository(TeachingAssignment)
+    private readonly teachingAssignments: Repository<TeachingAssignment>,
   ) {}
 
   async findAll(): Promise<UserPublicView[]> {
@@ -34,67 +44,67 @@ export class UsersService {
     return users.map(toUserPublicView);
   }
 
-  async findOne(id: string): Promise<UserPublicView> {
+  async findOne(id: number): Promise<UserPublicView> {
     return toUserPublicView(await this.getByIdOrFail(id));
   }
 
   async create(dto: CreateUserDto): Promise<UserPublicView> {
-    const nationalId = dto.nationalId.replace(/-/g, '').trim();
+    const rawNationalId = dto.nationalId ?? dto.national_id ?? '';
+    const nationalId = rawNationalId.replace(/-/g, '').trim();
     const email = dto.email.trim().toLowerCase();
 
     await this.ensureUniqueNationalId(nationalId);
     await this.ensureUniqueEmail(email);
 
-    const password = dto.password?.trim();
-    if (password) {
-      await this.ensureUniqueAuthEmail(email);
-    }
-
     const roles = await this.resolveRoles(dto.roleIds);
     const firstName = dto.name?.trim() || dto.firstName?.trim() || '';
     const firstLastName = dto.first_lastname?.trim() || dto.lastName?.trim() || '';
     const secondLastName = dto.second_lastname?.trim() || null;
+    const computedName =
+      dto.name?.trim() ||
+      [firstName, firstLastName, secondLastName].filter(Boolean).join(' ').trim();
 
-    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+    const password = dto.password?.trim();
+    const passwordHash = password
+      ? await bcrypt.hash(password, 10)
+      : await bcrypt.hash(randomUUID(), 10);
 
     const user = this.repository.create({
       national_id: nationalId,
-      name: firstName,
+      nationalId: nationalId,
+      name: computedName || firstName,
+      firstName: firstName || computedName,
+      lastName:
+        [firstLastName, secondLastName].filter(Boolean).join(' ').trim() || firstLastName,
       first_lastname: firstLastName,
       second_lastname: secondLastName,
       email,
       phone: dto.phone?.trim() || null,
       status: dto.status ?? UserStatus.ACTIVE,
       password_hash: passwordHash,
-      roles,
+      mustChangePassword: true,
     });
 
     const saved = await this.repository.save(user);
-
-    if (password && passwordHash) {
-      await this.authRepository.createUser({
-        email,
-        name: `${firstName} ${firstLastName}`.trim(),
-        passwordHash,
-      });
-    }
+    await this.repository.replaceRoles(saved.id, roles);
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
     return toUserPublicView(persisted);
   }
 
   async update(
-    id: string,
+    id: number,
     dto: UpdateUserDto,
-    actorId?: string,
+    actorId?: number,
   ): Promise<UserPublicView> {
     const user = await this.getByIdOrFail(id);
     const before = toUserPublicView(user) as unknown as Record<string, unknown>;
 
-    if (dto.nationalId) {
-      const nationalId = dto.nationalId.replace(/-/g, '').trim();
+    if (dto.nationalId || dto.national_id) {
+      const nationalId = (dto.nationalId || dto.national_id)!.replace(/-/g, '').trim();
       await this.ensureUniqueNationalId(nationalId, id);
       user.national_id = nationalId;
+      user.nationalId = nationalId;
     }
 
     if (dto.email) {
@@ -104,13 +114,19 @@ export class UsersService {
     }
 
     if (dto.name !== undefined || dto.firstName !== undefined) {
-      user.name = (dto.name || dto.firstName)?.trim();
+      const val = (dto.name || dto.firstName)?.trim();
+      user.name = val;
+      user.firstName = val;
     }
     if (dto.first_lastname !== undefined || dto.lastName !== undefined) {
-      user.first_lastname = (dto.first_lastname || dto.lastName)?.trim();
+      const val = (dto.first_lastname || dto.lastName)?.trim();
+      user.first_lastname = val;
     }
     if (dto.second_lastname !== undefined) {
       user.second_lastname = dto.second_lastname?.trim() || null;
+    }
+    if (user.first_lastname || user.second_lastname) {
+      user.lastName = [user.first_lastname, user.second_lastname].filter(Boolean).join(' ').trim();
     }
     if (dto.phone !== undefined) {
       user.phone = dto.phone?.trim() || null;
@@ -119,13 +135,18 @@ export class UsersService {
       user.status = dto.status;
     }
     if (dto.password) {
-      user.password_hash = await bcrypt.hash(dto.password, 10);
-    }
-    if (dto.roleIds !== undefined) {
-      user.roles = await this.resolveRoles(dto.roleIds);
+      const hashed = await bcrypt.hash(dto.password, 10);
+      user.password_hash = hashed;
+      user.passwordHash = hashed;
     }
 
     const saved = await this.repository.save(user);
+
+    if (dto.roleIds !== undefined) {
+      const roles = await this.resolveRoles(dto.roleIds);
+      await this.repository.replaceRoles(saved.id, roles);
+    }
+
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
     const after = toUserPublicView(persisted);
 
@@ -133,7 +154,7 @@ export class UsersService {
       actorId: actorId ?? null,
       action: 'USER_UPDATED',
       entity: 'User',
-      entityId: String(saved.id ?? (saved as any).id_users),
+      entityId: String(saved.id),
       before,
       after: after as unknown as Record<string, unknown>,
     });
@@ -141,7 +162,72 @@ export class UsersService {
     return after;
   }
 
-  private async getByIdOrFail(id: string): Promise<User> {
+  async createGuideTeacher(dto: CreateGuideTeacherDto): Promise<UserPublicView> {
+    const teacherRole = await this.getTeacherRole();
+    const parts = dto.lastName?.trim().split(/\s+/) || [];
+    const firstLast = parts[0] || '';
+    const secondLast = parts.slice(1).join(' ') || undefined;
+
+    return this.create({
+      ...dto,
+      name: dto.firstName,
+      firstName: dto.firstName,
+      first_lastname: firstLast,
+      second_lastname: secondLast,
+      lastName: dto.lastName,
+      roleIds: [teacherRole.id],
+    });
+  }
+
+  async updateGuideTeacher(
+    id: number,
+    dto: UpdateGuideTeacherDto,
+    actorId?: number,
+  ): Promise<UserPublicView> {
+    await this.getGuideTeacherOrFail(id);
+    return this.update(id, dto, actorId);
+  }
+
+  async removeGuideTeacher(id: number, actorId?: number): Promise<UserPublicView> {
+    const user = await this.getGuideTeacherOrFail(id);
+    if (user.roles.some((role) => role.name === INSTITUTIONAL_ROLE_ADMIN)) {
+      throw new BadRequestException(
+        'No se puede eliminar un administrador desde docentes guía.',
+      );
+    }
+
+    await this.teachingAssignments.update(
+      { userId: id, isGuideTeacher: true },
+      { isGuideTeacher: false },
+    );
+
+    return this.update(
+      id,
+      { status: UserStatus.INACTIVE },
+      actorId,
+    );
+  }
+
+  private async getTeacherRole() {
+    const role = await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_TEACHER);
+    if (!role) {
+      throw new NotFoundException('El rol Docente no está configurado.');
+    }
+    return role;
+  }
+
+  private async getGuideTeacherOrFail(id: number): Promise<User> {
+    const user = await this.getByIdOrFail(id);
+    const isTeacher = user.roles.some(
+      (role) => role.name === INSTITUTIONAL_ROLE_TEACHER,
+    );
+    if (!isTeacher) {
+      throw new NotFoundException(`Guide teacher ${id} not found`);
+    }
+    return user;
+  }
+
+  private async getByIdOrFail(id: number): Promise<User> {
     const user = await this.repository.findById(id);
     if (!user) {
       throw new NotFoundException(`User ${id} not found`);
@@ -151,7 +237,7 @@ export class UsersService {
 
   private async ensureUniqueNationalId(
     nationalId: string,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findByNationalId(nationalId, excludeId);
     if (existing) {
@@ -163,7 +249,7 @@ export class UsersService {
 
   private async ensureUniqueEmail(
     email: string,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findByEmail(email, excludeId);
     if (existing) {
@@ -171,16 +257,7 @@ export class UsersService {
     }
   }
 
-  private async ensureUniqueAuthEmail(email: string): Promise<void> {
-    const existing = await this.authRepository.findByEmail(email);
-    if (existing) {
-      throw new ConflictException(
-        `Ya existe una cuenta de acceso con el correo ${email}`,
-      );
-    }
-  }
-
-  private async resolveRoles(roleIds?: string[]) {
+  private async resolveRoles(roleIds?: number[]) {
     if (!roleIds?.length) {
       throw new BadRequestException('Debe asignar al menos un rol');
     }
