@@ -107,7 +107,7 @@ export class GroupsService {
     }
   }
 
-  private async ensureGuideTeacher(id: string): Promise<void> {
+  private async ensureGuideTeacher(id: number): Promise<void> {
     if (!(await this.repository.findUserById(id))) {
       throw new NotFoundException(`Guide teacher ${id} not found`);
     }

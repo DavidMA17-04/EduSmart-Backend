@@ -1,9 +1,389 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
-import { BulkImportDto } from '../dto/bulk-import.dto';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import { DataSource } from 'typeorm';
+import * as XLSX from 'xlsx';
+import { User } from '../../users/entities/user.entity';
+import { UsersRepository } from '../../users/repositories/users.repository';
+import {
+  BulkImportBreakdownDto,
+  ConfirmBulkImportDto,
+  ConfirmBulkImportResponseDto,
+  ImportedUserRowDto,
+  KPISummaryDto,
+  RowValidationStatus,
+  UserRoleEnum,
+  ValidateBulkImportResponseDto,
+} from '../dto/bulk-import.dto';
 
 @Injectable()
 export class BulkImportService {
-  importData(_dto: BulkImportDto) {
-    throw new NotImplementedException('Carga masiva pendiente de implementar');
+  private readonly logger = new Logger(BulkImportService.name);
+
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  /**
+   * Normaliza una clave de cabecera eliminando tildes, caracteres especiales y espacios
+   */
+  private normalizeKey(key: string): string {
+    return key
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  /**
+   * Valida un buffer de archivo Excel/CSV y analiza inconsistencias en memoria O(1)
+   */
+  async validateBulkFile(fileBuffer: Buffer): Promise<ValidateBulkImportResponseDto> {
+    if (!fileBuffer || fileBuffer.length === 0) {
+      throw new BadRequestException('Debe adjuntar un archivo válido (.xlsx, .xls o .csv).');
+    }
+
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+    } catch (error) {
+      this.logger.error('Error al leer el archivo Excel/CSV', error);
+      throw new BadRequestException('El archivo proporcionado está dañado o no tiene un formato Excel/CSV válido.');
+    }
+
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      throw new BadRequestException('El archivo no contiene hojas de cálculo.');
+    }
+
+    const worksheet = workbook.Sheets[firstSheetName];
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
+      defval: '',
+    });
+
+    if (!rawRows || rawRows.length === 0) {
+      throw new BadRequestException('El archivo cargado se encuentra vacío.');
+    }
+
+    // Pre-consulta a la BD MySQL para validación de duplicados O(1) con Sets
+    const existingUsers = await this.usersRepository.findAll();
+    const dbNationalIds = new Set<string>(
+      existingUsers.map((u) => u.national_id?.trim().toLowerCase()).filter(Boolean),
+    );
+    const dbEmails = new Set<string>(
+      existingUsers.map((u) => u.email?.trim().toLowerCase()).filter(Boolean),
+    );
+
+    const seenFileNationalIds = new Set<string>();
+    const seenFileEmails = new Set<string>();
+
+    const records: ImportedUserRowDto[] = [];
+    let validCount = 0;
+    let warningCount = 0;
+    let errorCount = 0;
+
+    // Métricas de desglose de incidencias
+    const breakdown: BulkImportBreakdownDto = {
+      duplicateNationalId: 0,
+      duplicateEmail: 0,
+      requiredFieldsMissing: 0,
+      invalidEmail: 0,
+    };
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    rawRows.forEach((raw, index) => {
+      const row = index + 1;
+      const normalizedRow: Record<string, string> = {};
+
+      Object.entries(raw).forEach(([k, v]) => {
+        normalizedRow[this.normalizeKey(k)] = String(v).trim();
+      });
+
+      // Mapeo polimórfico de cabeceras oficiales
+      const national_id =
+        normalizedRow['identificacion'] ||
+        normalizedRow['cedula'] ||
+        normalizedRow['id'] ||
+        normalizedRow['national_id'] ||
+        '';
+
+      const name =
+        normalizedRow['nombres'] ||
+        normalizedRow['nombre'] ||
+        normalizedRow['name'] ||
+        normalizedRow['first_name'] ||
+        '';
+
+      const first_lastname =
+        normalizedRow['primer_apellido'] ||
+        normalizedRow['primerapellido'] ||
+        normalizedRow['apellidos'] ||
+        normalizedRow['first_lastname'] ||
+        '';
+
+      const second_lastname =
+        normalizedRow['segundo_apellido'] ||
+        normalizedRow['segundoapellido'] ||
+        normalizedRow['second_lastname'] ||
+        '';
+
+      const email =
+        normalizedRow['correo'] ||
+        normalizedRow['email'] ||
+        normalizedRow['correo_institucional'] ||
+        '';
+
+      let role = (
+        normalizedRow['rol'] ||
+        normalizedRow['role'] ||
+        'ESTUDIANTE'
+      ).toUpperCase();
+
+      const section =
+        normalizedRow['seccion'] ||
+        normalizedRow['seccion_academica'] ||
+        normalizedRow['section'] ||
+        '';
+
+      const phone =
+        normalizedRow['telefono'] ||
+        normalizedRow['celular'] ||
+        normalizedRow['phone'] ||
+        '';
+
+      const invalidFields: string[] = [];
+      const errorMessages: string[] = [];
+      const warningMessages: string[] = [];
+      const observations: string[] = [];
+
+      // Validar Identificación / Cédula
+      if (!national_id) {
+        invalidFields.push('national_id');
+        errorMessages.push('La identificación (cédula) es obligatoria.');
+        breakdown.requiredFieldsMissing++;
+      } else {
+        const idLower = national_id.toLowerCase();
+        if (seenFileNationalIds.has(idLower)) {
+          invalidFields.push('national_id');
+          errorMessages.push(`Cédula duplicada dentro del archivo (${national_id}).`);
+          breakdown.duplicateNationalId++;
+        } else {
+          seenFileNationalIds.add(idLower);
+        }
+
+        if (dbNationalIds.has(idLower)) {
+          invalidFields.push('national_id');
+          errorMessages.push(`La cédula (${national_id}) ya existe en la base de datos.`);
+          breakdown.duplicateNationalId++;
+        }
+
+        if (national_id.length < 7 || national_id.length > 30) {
+          invalidFields.push('national_id');
+          errorMessages.push('La cédula debe contener entre 7 y 30 caracteres.');
+        }
+      }
+
+      // Validar Nombres y Primer Apellido
+      if (!name) {
+        invalidFields.push('name');
+        errorMessages.push('El nombre es obligatorio.');
+        breakdown.requiredFieldsMissing++;
+      }
+
+      if (!first_lastname) {
+        invalidFields.push('first_lastname');
+        errorMessages.push('El primer apellido es obligatorio.');
+        breakdown.requiredFieldsMissing++;
+      }
+
+      // Validar Correo Electrónico
+      if (!email) {
+        invalidFields.push('email');
+        errorMessages.push('El correo electrónico es obligatorio.');
+        breakdown.requiredFieldsMissing++;
+      } else {
+        const emailLower = email.toLowerCase();
+        if (!emailRegex.test(emailLower)) {
+          invalidFields.push('email');
+          errorMessages.push('Formato de correo electrónico inválido.');
+          breakdown.invalidEmail++;
+        }
+
+        if (seenFileEmails.has(emailLower)) {
+          invalidFields.push('email');
+          errorMessages.push(`Correo electrónico duplicado dentro del archivo (${email}).`);
+          breakdown.duplicateEmail++;
+        } else {
+          seenFileEmails.add(emailLower);
+        }
+
+        if (dbEmails.has(emailLower)) {
+          invalidFields.push('email');
+          errorMessages.push(`El correo (${email}) ya se encuentra registrado en el sistema.`);
+          breakdown.duplicateEmail++;
+        }
+      }
+
+      // Validar Rol Institucional
+      const validRoles = Object.values(UserRoleEnum);
+      if (!validRoles.includes(role as UserRoleEnum)) {
+        invalidFields.push('role');
+        errorMessages.push(
+          `Rol '${role}' no válido. Valores permitidos: ${validRoles.join(', ')}.`,
+        );
+      }
+
+      // Advertencias (Sin bloqueo pero reportadas)
+      if (!section && role === UserRoleEnum.ESTUDIANTE) {
+        invalidFields.push('section');
+        warningMessages.push('Estudiante sin sección académica asignada.');
+        observations.push('Sin sección asignada');
+      }
+
+      if (phone && phone.replace(/\D/g, '').length < 8) {
+        invalidFields.push('phone');
+        warningMessages.push('Número de teléfono parece incompleto.');
+        observations.push('Teléfono incompleto');
+      }
+
+      // Clasificación de estado
+      let status: RowValidationStatus = 'VALID';
+      if (errorMessages.length > 0) {
+        status = 'ERROR';
+        errorCount++;
+        observations.push(...errorMessages);
+      } else if (warningMessages.length > 0) {
+        status = 'WARNING';
+        warningCount++;
+      } else {
+        validCount++;
+        observations.push('Registro conforme');
+      }
+
+      records.push({
+        row,
+        tempId: `tmp-${row}-${Date.now()}`,
+        status,
+        national_id,
+        name,
+        first_lastname,
+        second_lastname: second_lastname || null,
+        email,
+        role,
+        section: section || null,
+        phone: phone || null,
+        observations: observations.length > 0 ? observations : ['Registro conforme'],
+        invalidFields: invalidFields.length > 0 ? invalidFields : undefined,
+        errorMessages: errorMessages.length > 0 ? errorMessages : undefined,
+        warningMessages: warningMessages.length > 0 ? warningMessages : undefined,
+      });
+    });
+
+    const total = records.length;
+    const validPercentage = total > 0 ? Number(((validCount / total) * 100).toFixed(1)) : 0;
+    const warningsPercentage = total > 0 ? Number(((warningCount / total) * 100).toFixed(1)) : 0;
+    const errorsPercentage = total > 0 ? Number(((errorCount / total) * 100).toFixed(1)) : 0;
+
+    const kpis: KPISummaryDto = {
+      totalRows: total,
+      validRows: validCount,
+      validPercentage,
+      warningRows: warningCount,
+      warningPercentage: warningsPercentage,
+      errorRows: errorCount,
+      errorPercentage: errorsPercentage,
+    };
+
+    return {
+      total,
+      valid: validCount,
+      validPercentage,
+      warnings: warningCount,
+      warningsPercentage,
+      errors: errorCount,
+      errorsPercentage,
+      breakdown,
+      records,
+      kpis,
+      rows: records,
+    };
+  }
+
+  /**
+   * Wrapper para llamadas con Express.Multer.File
+   */
+  async validateFile(file?: Express.Multer.File): Promise<ValidateBulkImportResponseDto> {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Debe adjuntar un archivo válido (.xlsx, .xls o .csv).');
+    }
+    return this.validateBulkFile(file.buffer);
+  }
+
+  /**
+   * Ejecuta la inserción transaccional atómica de registros válidos mediante QueryRunner
+   */
+  async executeBulkImport(
+    validRecords: ImportedUserRowDto[],
+  ): Promise<ConfirmBulkImportResponseDto> {
+    if (!validRecords || validRecords.length === 0) {
+      throw new BadRequestException('No se recibieron usuarios para importar.');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const defaultPasswordHash = await bcrypt.hash('EduSmart2026*', 10);
+      let insertedCount = 0;
+
+      for (const record of validRecords) {
+        const user = queryRunner.manager.create(User, {
+          national_id: record.national_id.trim(),
+          name: record.name.trim(),
+          first_lastname: record.first_lastname.trim(),
+          second_lastname: record.second_lastname ? record.second_lastname.trim() : null,
+          email: record.email.trim().toLowerCase(),
+          password_hash: defaultPasswordHash,
+          status: 'ACTIVE',
+          must_change_password: true,
+          last_login_at: null,
+        });
+
+        await queryRunner.manager.save(user);
+        insertedCount++;
+      }
+
+      await queryRunner.commitTransaction();
+      this.logger.log(`Importación masiva completada: ${insertedCount} usuarios guardados en MySQL.`);
+
+      return {
+        importedCount: insertedCount,
+        message: `Se han importado ${insertedCount} usuario(s) exitosamente en la base de datos.`,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Error durante la transacción de importación masiva. Se ejecutó Rollback.', error);
+      throw new InternalServerErrorException(
+        'Ocurrió un error al persistir el lote de usuarios en MySQL. La transacción fue revertida en su totalidad.',
+      );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Wrapper para ConfirmBulkImportDto
+   */
+  async confirmImport(dto: ConfirmBulkImportDto): Promise<ConfirmBulkImportResponseDto> {
+    const list = dto.validRecords ?? dto.users ?? [];
+    return this.executeBulkImport(list);
   }
 }

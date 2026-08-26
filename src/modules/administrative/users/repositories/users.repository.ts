@@ -8,7 +8,7 @@ export class UsersRepository {
   constructor(
     @InjectRepository(User)
     private readonly repository: Repository<User>,
-  ) {}
+  ) { }
 
   async findAll(): Promise<User[]> {
     return this.repository.find({ order: { name: 'ASC' } });
@@ -22,11 +22,20 @@ export class UsersRepository {
       .getMany();
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.repository.findOne({ where: { id } });
+  async findById(id: number): Promise<User | null> {
+    return this.repository.findOne({ where: { id_users: id } });
   }
 
-  async createGuideTeacher(id: string, name: string): Promise<User> {
-    return this.repository.save(this.repository.create({ id, name }));
+  async findByEmail(email: string): Promise<User | null> {
+    return this.repository.findOne({ where: { email } });
+  }
+
+  async findByNationalId(nationalId: string): Promise<User | null> {
+    return this.repository.findOne({ where: { national_id: nationalId } });
+  }
+
+  async create(userData: Partial<User>): Promise<User> {
+    return this.repository.save(this.repository.create(userData));
   }
 }
+

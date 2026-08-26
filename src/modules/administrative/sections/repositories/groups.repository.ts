@@ -21,7 +21,7 @@ export class GroupsRepository {
     return this.repository.save(entity);
   }
 
-  async updateGuideTeacher(id: string, guideTeacherId: string | null): Promise<void> {
+  async updateGuideTeacher(id: string, guideTeacherId: number | null): Promise<void> {
     await this.repository.update({ id }, { guideTeacherId });
   }
 
@@ -46,8 +46,8 @@ export class GroupsRepository {
     return this.repository.findOne({ where: { sectionId, name } });
   }
 
-  async findUserById(id: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { id } });
+  async findUserById(id: number): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { id_users: id } });
   }
 
   async remove(entity: GroupEntity): Promise<GroupEntity> {
