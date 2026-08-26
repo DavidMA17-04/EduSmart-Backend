@@ -33,8 +33,8 @@ export class GroupEntity {
   @JoinColumn({ name: 'section_id' })
   section!: SectionEntity;
 
-  @Column({ name: 'guide_teacher_id', type: 'int', nullable: true })
-  guideTeacherId?: number | null;
+  @Column({ name: 'guide_teacher_id', type: 'char', length: 36, nullable: true })
+  guideTeacherId?: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'guide_teacher_id' })

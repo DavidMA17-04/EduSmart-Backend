@@ -1,8 +1,11 @@
 import {
   Body,
   Controller,
+  Get,
   HttpStatus,
+  Param,
   ParseFilePipeBuilder,
+  ParseUUIDPipe,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -16,11 +19,13 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { BulkImportDto } from '../dto/bulk-import.dto';
 import {
   ConfirmBulkImportDto,
   ConfirmBulkImportResponseDto,
   ValidateBulkImportResponseDto,
 } from '../dto/bulk-import.dto';
+import { RegisterImportResultDto } from '../dto/register-import-result.dto';
 import { BulkImportService } from '../services/bulk-import.service';
 
 @ApiTags('Administrative - BulkImport')
@@ -82,5 +87,27 @@ export class BulkImportController {
     @Body() dto: ConfirmBulkImportDto,
   ): Promise<ConfirmBulkImportResponseDto> {
     return this.service.confirmImport(dto);
+  }
+
+  @Post('bulk-import')
+  @ApiOperation({ summary: 'Carga masiva (stub: motor Excel pendiente)' })
+  importData(@Body() dto: BulkImportDto) {
+    return this.service.importData(dto);
+  }
+
+  @Post('bulk-import/results')
+  @ApiOperation({
+    summary: 'Registrar resultado de importación (PBI-06)',
+    description:
+      'Guarda el contrato de resultado. No procesa Excel; el origen futuro será el motor de importación.',
+  })
+  registerResult(@Body() dto: RegisterImportResultDto) {
+    return this.service.registerResult(dto);
+  }
+
+  @Get('bulk-import/:jobId')
+  @ApiOperation({ summary: 'Consultar resultado de importación (WF-16)' })
+  findResult(@Param('jobId', ParseUUIDPipe) jobId: string) {
+    return this.service.findResult(jobId);
   }
 }

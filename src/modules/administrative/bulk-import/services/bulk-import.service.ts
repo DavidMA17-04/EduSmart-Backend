@@ -3,14 +3,18 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
+  NotImplementedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 import * as XLSX from 'xlsx';
+import { UserStatus } from '../../../../common/enums/user-status.enum';
 import { User } from '../../users/entities/user.entity';
 import { UsersRepository } from '../../users/repositories/users.repository';
 import {
   BulkImportBreakdownDto,
+  BulkImportDto,
   ConfirmBulkImportDto,
   ConfirmBulkImportResponseDto,
   ImportedUserRowDto,
@@ -19,6 +23,11 @@ import {
   UserRoleEnum,
   ValidateBulkImportResponseDto,
 } from '../dto/bulk-import.dto';
+import { ImportSummaryDto } from '../dto/import-summary.dto';
+import { RegisterImportResultDto } from '../dto/register-import-result.dto';
+import { ImportJob } from '../entities/import-job.entity';
+import { ImportResult } from '../interfaces/import-result.interface';
+import { ImportJobsRepository } from '../repositories/import-jobs.repository';
 
 @Injectable()
 export class BulkImportService {
@@ -27,6 +36,7 @@ export class BulkImportService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly dataSource: DataSource,
+    private readonly importJobsRepository: ImportJobsRepository,
   ) {}
 
   /**
@@ -74,10 +84,14 @@ export class BulkImportService {
     // Pre-consulta a la BD MySQL para validación de duplicados O(1) con Sets
     const existingUsers = await this.usersRepository.findAll();
     const dbNationalIds = new Set<string>(
-      existingUsers.map((u) => u.national_id?.trim().toLowerCase()).filter(Boolean),
+      existingUsers
+        .map((u) => (u.nationalId ?? (u as any).national_id)?.trim().toLowerCase())
+        .filter((id): id is string => Boolean(id)),
     );
     const dbEmails = new Set<string>(
-      existingUsers.map((u) => u.email?.trim().toLowerCase()).filter(Boolean),
+      existingUsers
+        .map((u) => u.email?.trim().toLowerCase())
+        .filter((email): email is string => Boolean(email)),
     );
 
     const seenFileNationalIds = new Set<string>();
@@ -140,7 +154,7 @@ export class BulkImportService {
         normalizedRow['correo_institucional'] ||
         '';
 
-      let role = (
+      const role = (
         normalizedRow['rol'] ||
         normalizedRow['role'] ||
         'ESTUDIANTE'
@@ -346,13 +360,16 @@ export class BulkImportService {
 
       for (const record of validRecords) {
         const user = queryRunner.manager.create(User, {
-          national_id: record.national_id.trim(),
+          nationalId: record.national_id.trim(),
           name: record.name.trim(),
+          firstName: record.name.trim(),
+          lastName: [record.first_lastname, record.second_lastname].filter(Boolean).join(' '),
           first_lastname: record.first_lastname.trim(),
           second_lastname: record.second_lastname ? record.second_lastname.trim() : null,
           email: record.email.trim().toLowerCase(),
-          password_hash: defaultPasswordHash,
-          status: 'ACTIVE',
+          phone: record.phone ? record.phone.trim() : null,
+          passwordHash: defaultPasswordHash,
+          status: UserStatus.ACTIVE,
           must_change_password: true,
           last_login_at: null,
         });
@@ -385,5 +402,52 @@ export class BulkImportService {
   async confirmImport(dto: ConfirmBulkImportDto): Promise<ConfirmBulkImportResponseDto> {
     const list = dto.validRecords ?? dto.users ?? [];
     return this.executeBulkImport(list);
+  }
+
+  /**
+   * Motor de carga (stub de compatibilidad)
+   */
+  importData(_dto: BulkImportDto) {
+    throw new NotImplementedException('Carga masiva pendiente de implementar');
+  }
+
+  async registerResult(dto: RegisterImportResultDto): Promise<ImportResult> {
+    const summary = this.resolveSummary(dto);
+    const job = this.importJobsRepository.create({
+      type: dto.type?.trim() || 'users',
+      successfulRecords: dto.successfulRecords,
+      errorRecords: dto.errorRecords,
+      summary,
+    });
+    const saved = await this.importJobsRepository.save(job);
+    return this.toResult(saved);
+  }
+
+  async findResult(jobId: string): Promise<ImportResult> {
+    const job = await this.importJobsRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundException(`Import job ${jobId} not found`);
+    }
+    return this.toResult(job);
+  }
+
+  private resolveSummary(dto: RegisterImportResultDto): ImportSummaryDto {
+    const successfulRecords = dto.successfulRecords.length;
+    const errorRecords = dto.errorRecords.length;
+    return {
+      totalRecords: dto.summary?.totalRecords ?? successfulRecords + errorRecords,
+      successfulRecords: dto.summary?.successfulRecords ?? successfulRecords,
+      errorRecords: dto.summary?.errorRecords ?? errorRecords,
+    };
+  }
+
+  private toResult(job: ImportJob): ImportResult {
+    return {
+      jobId: job.id,
+      type: job.type,
+      successfulRecords: job.successfulRecords ?? [],
+      errorRecords: job.errorRecords ?? [],
+      summary: job.summary,
+    };
   }
 }

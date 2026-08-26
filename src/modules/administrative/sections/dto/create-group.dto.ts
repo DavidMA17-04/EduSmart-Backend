@@ -32,12 +32,11 @@ export class CreateGroupDto {
   sectionId!: string;
 
   @ApiPropertyOptional({
-    type: Number,
-    example: 1,
-    description: 'ID numérico del usuario asignado como docente guía',
+    format: 'uuid',
+    description: 'ID del usuario asignado como docente guía',
     nullable: true,
   })
   @IsOptional()
-  @IsInt()
-  guideTeacherId?: number | null;
+  @IsUUID('4')
+  guideTeacherId?: string | null;
 }

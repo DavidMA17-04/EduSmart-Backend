@@ -9,6 +9,13 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+export class BulkImportDto {
+  @ApiPropertyOptional({ description: 'Identificador del tipo de carga masiva' })
+  @IsOptional()
+  @IsString()
+  type?: string;
+}
+
 export enum UserRoleEnum {
   ESTUDIANTE = 'ESTUDIANTE',
   DOCENTE = 'DOCENTE',
