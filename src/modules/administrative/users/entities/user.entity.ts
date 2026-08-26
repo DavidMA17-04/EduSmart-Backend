@@ -15,20 +15,26 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  /** Nombre de visualización (docentes guía y compatibilidad con listados existentes). */
+  /** Nombre completo o de visualización (docentes guía y compatibilidad con listados existentes). */
   @Column({ type: 'varchar', length: 150, nullable: true })
   name?: string;
 
-  @Column({ name: 'national_id', type: 'varchar', length: 20, nullable: true, unique: true })
+  @Column({ name: 'national_id', type: 'varchar', length: 30, nullable: true, unique: true })
   nationalId?: string | null;
 
-  @Column({ name: 'first_name', type: 'varchar', length: 80, nullable: true })
+  @Column({ name: 'first_name', type: 'varchar', length: 100, nullable: true })
   firstName?: string | null;
 
-  @Column({ name: 'last_name', type: 'varchar', length: 120, nullable: true })
+  @Column({ name: 'last_name', type: 'varchar', length: 100, nullable: true })
   lastName?: string | null;
 
-  @Column({ type: 'varchar', length: 150, nullable: true, unique: true })
+  @Column({ name: 'first_lastname', type: 'varchar', length: 100, nullable: true })
+  first_lastname?: string | null;
+
+  @Column({ name: 'second_lastname', type: 'varchar', length: 100, nullable: true })
+  second_lastname?: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, unique: true })
   email?: string | null;
 
   @Column({ type: 'varchar', length: 30, nullable: true })
@@ -44,13 +50,19 @@ export class User {
   })
   status!: UserStatus;
 
+  @Column({ name: 'must_change_password', type: 'boolean', default: true })
+  must_change_password?: boolean;
+
+  @Column({ name: 'last_login_at', type: 'datetime', nullable: true, default: null })
+  last_login_at?: Date | null;
+
   @ManyToMany(() => RoleEntity, { cascade: false })
   @JoinTable({
     name: 'user_roles',
     joinColumn: { name: 'user_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
-  roles!: RoleEntity[];
+  roles?: RoleEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

@@ -57,8 +57,4 @@ export class UsersRepository {
       where: excludeId ? { email, id: Not(excludeId) } : { email },
     });
   }
-
-  async createGuideTeacher(id: string, name: string): Promise<User> {
-    return this.repository.save(this.repository.create({ id, name }));
-  }
 }

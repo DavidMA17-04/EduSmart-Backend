@@ -4,7 +4,7 @@ import { IsOptional, IsUUID } from 'class-validator';
 export class AssignGuideTeacherDto {
   @ApiPropertyOptional({
     format: 'uuid',
-    description: 'ID del docente gu�a. Env�e null para quitar la asignaci�n.',
+    description: 'ID del docente guía. Envíe null para quitar la asignación.',
     nullable: true,
   })
   @IsOptional()

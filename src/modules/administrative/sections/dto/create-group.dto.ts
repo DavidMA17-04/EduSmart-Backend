@@ -26,14 +26,14 @@ export class CreateGroupDto {
 
   @ApiProperty({
     format: 'uuid',
-    description: 'ID del nivel o secci�n al que pertenece el grupo',
+    description: 'ID del nivel o seccin al que pertenece el grupo',
   })
   @IsUUID('4')
   sectionId!: string;
 
   @ApiPropertyOptional({
     format: 'uuid',
-    description: 'ID del usuario asignado como docente gu�a',
+    description: 'ID del usuario asignado como docente guía',
     nullable: true,
   })
   @IsOptional()
