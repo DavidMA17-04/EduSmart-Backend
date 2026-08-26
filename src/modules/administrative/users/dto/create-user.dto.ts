@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsEmail,
@@ -35,7 +36,7 @@ export class CreateUserDto {
   @MaxLength(120)
   lastName!: string;
 
-  @ApiProperty({ example: 'maria.vargas@ctphojancha.ed.cr' })
+  @ApiProperty({ example: 'maria.vargas@gmail.com' })
   @IsEmail()
   @MaxLength(150)
   email!: string;
@@ -61,16 +62,16 @@ export class CreateUserDto {
   @IsEnum(UserStatus)
   status?: UserStatus;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: [String],
     format: 'uuid',
-    description: 'IDs de roles institucionales (una persona puede tener más de un rol)',
+    description: 'IDs de roles institucionales (obligatorio; al menos uno)',
   })
-  @IsOptional()
   @IsArray()
+  @ArrayMinSize(1, { message: 'Debe asignar al menos un rol' })
   @ArrayUnique()
   @IsUUID('4', { each: true })
-  roleIds?: string[];
+  roleIds!: string[];
 
   @ApiPropertyOptional({
     description: 'Nombre de visualización. Si se omite se arma con nombre y apellidos.',

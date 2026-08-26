@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { AuthRepository } from '../../../auth/repositories/auth.repository';
 import { RolesRepository } from '../../roles/repositories/roles.repository';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
@@ -19,6 +21,7 @@ export class UsersService {
     private readonly repository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
     private readonly auditLogService: AuditLogService,
+    private readonly authRepository: AuthRepository,
   ) {}
 
   async findAll(): Promise<UserPublicView[]> {
@@ -42,9 +45,16 @@ export class UsersService {
     await this.ensureUniqueNationalId(nationalId);
     await this.ensureUniqueEmail(email);
 
+    const password = dto.password?.trim();
+    if (password) {
+      await this.ensureUniqueAuthEmail(email);
+    }
+
     const roles = await this.resolveRoles(dto.roleIds);
     const displayName =
       dto.name?.trim() || `${dto.firstName.trim()} ${dto.lastName.trim()}`;
+
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
     const user = this.repository.create({
       nationalId,
@@ -54,13 +64,20 @@ export class UsersService {
       phone: dto.phone?.trim() || null,
       name: displayName,
       status: dto.status ?? UserStatus.ACTIVE,
-      passwordHash: dto.password
-        ? await bcrypt.hash(dto.password, 10)
-        : null,
+      passwordHash,
       roles,
     });
 
     const saved = await this.repository.save(user);
+
+    if (password && passwordHash) {
+      await this.authRepository.createUser({
+        email,
+        name: displayName,
+        passwordHash,
+      });
+    }
+
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
     return toUserPublicView(persisted);
   }
@@ -155,9 +172,18 @@ export class UsersService {
     }
   }
 
+  private async ensureUniqueAuthEmail(email: string): Promise<void> {
+    const existing = await this.authRepository.findByEmail(email);
+    if (existing) {
+      throw new ConflictException(
+        `Ya existe una cuenta de acceso con el correo ${email}`,
+      );
+    }
+  }
+
   private async resolveRoles(roleIds?: string[]) {
     if (!roleIds?.length) {
-      return [];
+      throw new BadRequestException('Debe asignar al menos un rol');
     }
 
     const roles = await Promise.all(
