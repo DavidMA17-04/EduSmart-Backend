@@ -21,16 +21,12 @@ export class SpecialtiesRepository {
 
   async findAll(): Promise<SpecialtyEntity[]> {
     return this.repository.find({
-      order: { code: 'ASC' },
+      order: { name: 'ASC' },
     });
   }
 
-  async findById(id: string): Promise<SpecialtyEntity | null> {
+  async findById(id: number): Promise<SpecialtyEntity | null> {
     return this.repository.findOne({ where: { id } });
-  }
-
-  async findByCode(code: string): Promise<SpecialtyEntity | null> {
-    return this.repository.findOne({ where: { code } });
   }
 
   async findByName(name: string): Promise<SpecialtyEntity | null> {

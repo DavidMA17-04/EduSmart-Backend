@@ -26,11 +26,11 @@ export class PermissionsRepository {
     });
   }
 
-  async findById(id: string): Promise<PermissionEntity | null> {
+  async findById(id: number): Promise<PermissionEntity | null> {
     return this.repository.findOne({ where: { id } });
   }
 
-  async findByIds(ids: string[]): Promise<PermissionEntity[]> {
+  async findByIds(ids: number[]): Promise<PermissionEntity[]> {
     if (ids.length === 0) {
       return [];
     }
@@ -55,10 +55,10 @@ export class PermissionsRepository {
     return this.repository.remove(entity);
   }
 
-  async countRolesUsingPermission(permissionId: string): Promise<number> {
+  async countRolesUsingPermission(permissionId: number): Promise<number> {
     return this.repository
       .createQueryBuilder('permission')
-      .innerJoin('permission.roles', 'role')
+      .innerJoin('permission.rolePermissions', 'rolePermission')
       .where('permission.id = :permissionId', { permissionId })
       .getCount();
   }

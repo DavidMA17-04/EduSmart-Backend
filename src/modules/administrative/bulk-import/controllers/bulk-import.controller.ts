@@ -5,7 +5,7 @@ import {
   HttpStatus,
   Param,
   ParseFilePipeBuilder,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -107,7 +107,7 @@ export class BulkImportController {
 
   @Get('bulk-import/:jobId')
   @ApiOperation({ summary: 'Consultar resultado de importación (WF-16)' })
-  findResult(@Param('jobId', ParseUUIDPipe) jobId: string) {
+  findResult(@Param('jobId', ParseIntPipe) jobId: number) {
     return this.service.findResult(jobId);
   }
 }

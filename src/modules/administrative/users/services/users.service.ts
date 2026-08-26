@@ -4,11 +4,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
+import { Repository } from 'typeorm';
+import {
+  INSTITUTIONAL_ROLE_ADMIN,
+  INSTITUTIONAL_ROLE_TEACHER,
+} from '../../../../common/constants/institutional-roles.constant';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
-import { AuthRepository } from '../../../auth/repositories/auth.repository';
 import { RolesRepository } from '../../roles/repositories/roles.repository';
+import { TeachingAssignment } from '../../teaching-assignments/entities/teaching-assignment.entity';
+import { CreateGuideTeacherDto } from '../dto/create-guide-teacher.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
+import { UpdateGuideTeacherDto } from '../dto/update-guide-teacher.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { User } from '../entities/user.entity';
 import { toUserPublicView, UserPublicView } from '../mappers/user-public.mapper';
@@ -21,7 +30,8 @@ export class UsersService {
     private readonly repository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
     private readonly auditLogService: AuditLogService,
-    private readonly authRepository: AuthRepository,
+    @InjectRepository(TeachingAssignment)
+    private readonly teachingAssignments: Repository<TeachingAssignment>,
   ) {}
 
   async findAll(): Promise<UserPublicView[]> {
@@ -34,7 +44,7 @@ export class UsersService {
     return users.map(toUserPublicView);
   }
 
-  async findOne(id: string): Promise<UserPublicView> {
+  async findOne(id: number): Promise<UserPublicView> {
     return toUserPublicView(await this.getByIdOrFail(id));
   }
 
@@ -45,16 +55,14 @@ export class UsersService {
     await this.ensureUniqueNationalId(nationalId);
     await this.ensureUniqueEmail(email);
 
-    const password = dto.password?.trim();
-    if (password) {
-      await this.ensureUniqueAuthEmail(email);
-    }
-
     const roles = await this.resolveRoles(dto.roleIds);
     const displayName =
       dto.name?.trim() || `${dto.firstName.trim()} ${dto.lastName.trim()}`;
 
-    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+    const password = dto.password?.trim();
+    const passwordHash = password
+      ? await bcrypt.hash(password, 10)
+      : await bcrypt.hash(randomUUID(), 10);
 
     const user = this.repository.create({
       nationalId,
@@ -65,27 +73,20 @@ export class UsersService {
       name: displayName,
       status: dto.status ?? UserStatus.ACTIVE,
       passwordHash,
-      roles,
+      mustChangePassword: true,
     });
 
     const saved = await this.repository.save(user);
-
-    if (password && passwordHash) {
-      await this.authRepository.createUser({
-        email,
-        name: displayName,
-        passwordHash,
-      });
-    }
+    await this.repository.replaceRoles(saved.id, roles);
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
     return toUserPublicView(persisted);
   }
 
   async update(
-    id: string,
+    id: number,
     dto: UpdateUserDto,
-    actorId?: string,
+    actorId?: number,
   ): Promise<UserPublicView> {
     const user = await this.getByIdOrFail(id);
     const before = toUserPublicView(user) as unknown as Record<string, unknown>;
@@ -117,9 +118,6 @@ export class UsersService {
     if (dto.password) {
       user.passwordHash = await bcrypt.hash(dto.password, 10);
     }
-    if (dto.roleIds !== undefined) {
-      user.roles = await this.resolveRoles(dto.roleIds);
-    }
 
     user.name =
       dto.name?.trim() ||
@@ -127,6 +125,12 @@ export class UsersService {
       user.name;
 
     const saved = await this.repository.save(user);
+
+    if (dto.roleIds !== undefined) {
+      const roles = await this.resolveRoles(dto.roleIds);
+      await this.repository.replaceRoles(saved.id, roles);
+    }
+
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
     const after = toUserPublicView(persisted);
 
@@ -134,7 +138,7 @@ export class UsersService {
       actorId: actorId ?? null,
       action: 'USER_UPDATED',
       entity: 'User',
-      entityId: saved.id,
+      entityId: String(saved.id),
       before,
       after: after as unknown as Record<string, unknown>,
     });
@@ -142,7 +146,60 @@ export class UsersService {
     return after;
   }
 
-  private async getByIdOrFail(id: string): Promise<User> {
+  async createGuideTeacher(dto: CreateGuideTeacherDto): Promise<UserPublicView> {
+    const teacherRole = await this.getTeacherRole();
+    return this.create({ ...dto, roleIds: [teacherRole.id] });
+  }
+
+  async updateGuideTeacher(
+    id: number,
+    dto: UpdateGuideTeacherDto,
+    actorId?: number,
+  ): Promise<UserPublicView> {
+    await this.getGuideTeacherOrFail(id);
+    return this.update(id, dto, actorId);
+  }
+
+  async removeGuideTeacher(id: number, actorId?: number): Promise<UserPublicView> {
+    const user = await this.getGuideTeacherOrFail(id);
+    if (user.roles.some((role) => role.name === INSTITUTIONAL_ROLE_ADMIN)) {
+      throw new BadRequestException(
+        'No se puede eliminar un administrador desde docentes guía.',
+      );
+    }
+
+    await this.teachingAssignments.update(
+      { userId: id, isGuideTeacher: true },
+      { isGuideTeacher: false },
+    );
+
+    return this.update(
+      id,
+      { status: UserStatus.INACTIVE },
+      actorId,
+    );
+  }
+
+  private async getTeacherRole() {
+    const role = await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_TEACHER);
+    if (!role) {
+      throw new NotFoundException('El rol Docente no está configurado.');
+    }
+    return role;
+  }
+
+  private async getGuideTeacherOrFail(id: number): Promise<User> {
+    const user = await this.getByIdOrFail(id);
+    const isTeacher = user.roles.some(
+      (role) => role.name === INSTITUTIONAL_ROLE_TEACHER,
+    );
+    if (!isTeacher) {
+      throw new NotFoundException(`Guide teacher ${id} not found`);
+    }
+    return user;
+  }
+
+  private async getByIdOrFail(id: number): Promise<User> {
     const user = await this.repository.findById(id);
     if (!user) {
       throw new NotFoundException(`User ${id} not found`);
@@ -152,7 +209,7 @@ export class UsersService {
 
   private async ensureUniqueNationalId(
     nationalId: string,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findByNationalId(nationalId, excludeId);
     if (existing) {
@@ -164,7 +221,7 @@ export class UsersService {
 
   private async ensureUniqueEmail(
     email: string,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findByEmail(email, excludeId);
     if (existing) {
@@ -172,16 +229,7 @@ export class UsersService {
     }
   }
 
-  private async ensureUniqueAuthEmail(email: string): Promise<void> {
-    const existing = await this.authRepository.findByEmail(email);
-    if (existing) {
-      throw new ConflictException(
-        `Ya existe una cuenta de acceso con el correo ${email}`,
-      );
-    }
-  }
-
-  private async resolveRoles(roleIds?: string[]) {
+  private async resolveRoles(roleIds?: number[]) {
     if (!roleIds?.length) {
       throw new BadRequestException('Debe asignar al menos un rol');
     }

@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
@@ -38,14 +38,14 @@ export class RolesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener rol por ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Actualizar rol' })
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateRoleDto,
   ) {
     return this.service.update(id, dto);
@@ -53,14 +53,14 @@ export class RolesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Inactivar rol (eliminación lógica)' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }
 
   @Put(':id/permissions')
   @ApiOperation({ summary: 'Asignar permisos a un rol (reemplaza el set)' })
   assignPermissions(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignPermissionsDto,
   ) {
     return this.service.assignPermissions(id, dto);

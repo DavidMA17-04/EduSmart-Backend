@@ -5,13 +5,14 @@ import {
   IsArray,
   IsEmail,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
 
 const NATIONAL_ID_PATTERN = /^[0-9]{9,12}$/;
@@ -63,15 +64,15 @@ export class CreateUserDto {
   status?: UserStatus;
 
   @ApiProperty({
-    type: [String],
-    format: 'uuid',
+    type: [Number],
     description: 'IDs de roles institucionales (obligatorio; al menos uno)',
   })
   @IsArray()
   @ArrayMinSize(1, { message: 'Debe asignar al menos un rol' })
   @ArrayUnique()
-  @IsUUID('4', { each: true })
-  roleIds!: string[];
+  @Type(() => Number)
+  @IsInt({ each: true })
+  roleIds!: number[];
 
   @ApiPropertyOptional({
     description: 'Nombre de visualización. Si se omite se arma con nombre y apellidos.',

@@ -13,11 +13,11 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthUser } from './entities/auth-user.entity';
+import { User } from '../administrative/users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AuthUser]),
+    TypeOrmModule.forFeature([User]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

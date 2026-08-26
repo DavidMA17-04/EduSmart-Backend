@@ -2,7 +2,7 @@ import { RoleEntity } from '../../roles/entities/role.entity';
 import { User } from '../entities/user.entity';
 
 export interface UserPublicView {
-  id: string;
+  id: number;
   name: string | null;
   nationalId: string | null;
   firstName: string | null;
@@ -10,15 +10,20 @@ export interface UserPublicView {
   email: string | null;
   phone: string | null;
   status: User['status'];
-  roles: Array<{ id: string; name: string; status: RoleEntity['status'] }>;
+  roles: Array<{ id: number; name: string; status: RoleEntity['status'] }>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export function displayUserName(user: User): string {
+  const composed = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+  return user.name?.trim() || composed || user.email;
 }
 
 export function toUserPublicView(user: User): UserPublicView {
   return {
     id: user.id,
-    name: user.name ?? null,
+    name: displayUserName(user),
     nationalId: user.nationalId ?? null,
     firstName: user.firstName ?? null,
     lastName: user.lastName ?? null,

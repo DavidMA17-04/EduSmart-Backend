@@ -6,7 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
@@ -23,36 +23,36 @@ export class GroupsController {
   constructor(private readonly service: GroupsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Crear grupo' })
+  @ApiOperation({ summary: 'Crear sección' })
   create(@Body() dto: CreateGroupDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar grupos' })
+  @ApiOperation({ summary: 'Listar secciones' })
   findAll() {
     return this.service.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener grupo por ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  @ApiOperation({ summary: 'Obtener sección por ID' })
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }
 
   @Put(':id/guide-teacher')
-  @ApiOperation({ summary: 'Asignar docente gu�a al grupo' })
+  @ApiOperation({ summary: 'Asignar docente guía a la sección' })
   assignGuideTeacher(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignGuideTeacherDto,
   ) {
     return this.service.assignGuideTeacher(id, dto);
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Actualizar grupo' })
+  @ApiOperation({ summary: 'Actualizar sección' })
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateGroupDto,
   ) {
     return this.service.update(id, dto);
@@ -60,8 +60,8 @@ export class GroupsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar grupo' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+  @ApiOperation({ summary: 'Eliminar sección' })
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     await this.service.remove(id);
   }
 }

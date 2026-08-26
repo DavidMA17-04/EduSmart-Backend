@@ -1,26 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuthUser } from '../entities/auth-user.entity';
-
-export type AuthUserRecord = Pick<AuthUser, 'id' | 'email' | 'name' | 'passwordHash'>;
+import { User } from '../../administrative/users/entities/user.entity';
 
 @Injectable()
 export class AuthRepository {
   constructor(
-    @InjectRepository(AuthUser)
-    private readonly users: Repository<AuthUser>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
 
-  findByEmail(email: string): Promise<AuthUserRecord | null> {
-    return this.users.findOne({ where: { email } });
+  findByEmail(email: string): Promise<User | null> {
+    return this.users.findOne({
+      where: { email },
+      relations: {
+        userRoles: { role: { rolePermissions: { permission: true } } },
+      },
+    });
   }
 
-  findById(id: string): Promise<AuthUserRecord | null> {
-    return this.users.findOne({ where: { id } });
+  findById(id: number): Promise<User | null> {
+    return this.users.findOne({
+      where: { id },
+      relations: {
+        userRoles: { role: { rolePermissions: { permission: true } } },
+      },
+    });
   }
 
-  createUser(data: Pick<AuthUser, 'email' | 'name' | 'passwordHash'>): Promise<AuthUser> {
-    return this.users.save(this.users.create(data));
+  async touchLastLogin(id: number): Promise<void> {
+    await this.users.update({ id }, { lastLoginAt: new Date() });
   }
 }
