@@ -27,9 +27,11 @@ import {
 } from '../dto/bulk-import.dto';
 import { RegisterImportResultDto } from '../dto/register-import-result.dto';
 import { BulkImportService } from '../services/bulk-import.service';
+import { Public } from '../../../../common/decorators/public.decorator';
 
 @ApiTags('Administrative - BulkImport')
 @ApiBearerAuth()
+@Public()
 @Controller()
 export class BulkImportController {
   constructor(private readonly service: BulkImportService) {}

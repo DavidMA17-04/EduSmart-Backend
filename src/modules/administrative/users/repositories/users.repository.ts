@@ -47,8 +47,8 @@ export class UsersRepository {
   ): Promise<User | null> {
     return this.repository.findOne({
       where: excludeId
-        ? { nationalId, id: Not(excludeId) }
-        : { nationalId },
+        ? { national_id: nationalId, id: Not(excludeId) }
+        : { national_id: nationalId },
     });
   }
 

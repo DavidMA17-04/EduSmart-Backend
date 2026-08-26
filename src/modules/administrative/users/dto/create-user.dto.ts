@@ -27,16 +27,32 @@ export class CreateUserDto {
   @ApiProperty({ example: 'María' })
   @IsString()
   @MinLength(2)
-  @MaxLength(80)
-  firstName!: string;
+  @MaxLength(100)
+  name!: string;
 
-  @ApiProperty({ example: 'Vargas Soto' })
+  @ApiPropertyOptional({ example: 'María' })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiProperty({ example: 'Vargas' })
   @IsString()
   @MinLength(2)
-  @MaxLength(120)
-  lastName!: string;
+  @MaxLength(100)
+  first_lastname!: string;
 
-  @ApiProperty({ example: 'maria.vargas@gmail.com' })
+  @ApiPropertyOptional({ example: 'Vargas Soto' })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional({ example: 'Soto' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  second_lastname?: string;
+
+  @ApiProperty({ example: 'maria.vargas@ctphojancha.ed.cr' })
   @IsEmail()
   @MaxLength(150)
   email!: string;
@@ -72,13 +88,4 @@ export class CreateUserDto {
   @ArrayUnique()
   @IsUUID('4', { each: true })
   roleIds!: string[];
-
-  @ApiPropertyOptional({
-    description: 'Nombre de visualización. Si se omite se arma con nombre y apellidos.',
-  })
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(150)
-  name?: string;
 }

@@ -3,7 +3,9 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
+  IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
@@ -26,14 +28,20 @@ export enum UserRoleEnum {
 export type RowValidationStatus = 'VALID' | 'WARNING' | 'ERROR';
 
 export class ImportedUserRowDto {
-  @ApiProperty({ example: 1 })
-  row!: number;
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  row?: number;
 
   @ApiPropertyOptional({ example: 'tmp-1' })
+  @IsOptional()
+  @IsString()
   tempId?: string;
 
-  @ApiProperty({ enum: ['VALID', 'WARNING', 'ERROR'], example: 'VALID' })
-  status!: RowValidationStatus;
+  @ApiPropertyOptional({ enum: ['VALID', 'WARNING', 'ERROR'], example: 'VALID' })
+  @IsOptional()
+  @IsString()
+  status?: RowValidationStatus;
 
   @ApiProperty({ example: '504120893' })
   @IsString()
@@ -76,15 +84,27 @@ export class ImportedUserRowDto {
   phone?: string | null;
 
   @ApiPropertyOptional({ type: [String], example: ['Sin observaciones'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   observations?: string[];
 
   @ApiPropertyOptional({ type: [String], example: ['national_id'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   invalidFields?: string[];
 
   @ApiPropertyOptional({ type: [String], example: ['Cédula duplicada en archivo'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   errorMessages?: string[];
 
   @ApiPropertyOptional({ type: [String], example: ['Estudiante sin sección'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   warningMessages?: string[];
 }
 

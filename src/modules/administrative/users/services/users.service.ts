@@ -51,20 +51,21 @@ export class UsersService {
     }
 
     const roles = await this.resolveRoles(dto.roleIds);
-    const displayName =
-      dto.name?.trim() || `${dto.firstName.trim()} ${dto.lastName.trim()}`;
+    const firstName = dto.name?.trim() || dto.firstName?.trim() || '';
+    const firstLastName = dto.first_lastname?.trim() || dto.lastName?.trim() || '';
+    const secondLastName = dto.second_lastname?.trim() || null;
 
     const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
     const user = this.repository.create({
-      nationalId,
-      firstName: dto.firstName.trim(),
-      lastName: dto.lastName.trim(),
+      national_id: nationalId,
+      name: firstName,
+      first_lastname: firstLastName,
+      second_lastname: secondLastName,
       email,
       phone: dto.phone?.trim() || null,
-      name: displayName,
       status: dto.status ?? UserStatus.ACTIVE,
-      passwordHash,
+      password_hash: passwordHash,
       roles,
     });
 
@@ -73,7 +74,7 @@ export class UsersService {
     if (password && passwordHash) {
       await this.authRepository.createUser({
         email,
-        name: displayName,
+        name: `${firstName} ${firstLastName}`.trim(),
         passwordHash,
       });
     }
@@ -93,7 +94,7 @@ export class UsersService {
     if (dto.nationalId) {
       const nationalId = dto.nationalId.replace(/-/g, '').trim();
       await this.ensureUniqueNationalId(nationalId, id);
-      user.nationalId = nationalId;
+      user.national_id = nationalId;
     }
 
     if (dto.email) {
@@ -102,11 +103,14 @@ export class UsersService {
       user.email = email;
     }
 
-    if (dto.firstName !== undefined) {
-      user.firstName = dto.firstName.trim();
+    if (dto.name !== undefined || dto.firstName !== undefined) {
+      user.name = (dto.name || dto.firstName)?.trim();
     }
-    if (dto.lastName !== undefined) {
-      user.lastName = dto.lastName.trim();
+    if (dto.first_lastname !== undefined || dto.lastName !== undefined) {
+      user.first_lastname = (dto.first_lastname || dto.lastName)?.trim();
+    }
+    if (dto.second_lastname !== undefined) {
+      user.second_lastname = dto.second_lastname?.trim() || null;
     }
     if (dto.phone !== undefined) {
       user.phone = dto.phone?.trim() || null;
@@ -115,16 +119,11 @@ export class UsersService {
       user.status = dto.status;
     }
     if (dto.password) {
-      user.passwordHash = await bcrypt.hash(dto.password, 10);
+      user.password_hash = await bcrypt.hash(dto.password, 10);
     }
     if (dto.roleIds !== undefined) {
       user.roles = await this.resolveRoles(dto.roleIds);
     }
-
-    user.name =
-      dto.name?.trim() ||
-      [user.firstName, user.lastName].filter(Boolean).join(' ') ||
-      user.name;
 
     const saved = await this.repository.save(user);
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
@@ -134,7 +133,7 @@ export class UsersService {
       actorId: actorId ?? null,
       action: 'USER_UPDATED',
       entity: 'User',
-      entityId: saved.id,
+      entityId: String(saved.id ?? (saved as any).id_users),
       before,
       after: after as unknown as Record<string, unknown>,
     });
