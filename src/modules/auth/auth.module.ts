@@ -43,6 +43,6 @@ import { AuthUser } from './entities/auth-user.entity';
     JwtAuthGuard,
     RefreshTokenGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, PassportModule, JwtModule],
+  exports: [AuthService, AuthRepository, JwtAuthGuard, PassportModule, JwtModule],
 })
 export class AuthModule {}
