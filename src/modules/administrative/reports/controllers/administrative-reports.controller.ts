@@ -1,5 +1,8 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AcademicPeriodReportFilterDto } from '../dto/academic-period-report-filter.dto';
+import { AcademicStructureReportFilterDto } from '../dto/academic-structure-report-filter.dto';
+import { UserReportFilterDto } from '../dto/user-report-filter.dto';
 import {
   AcademicPeriodReportItem,
   AcademicStructureReportItem,
@@ -15,19 +18,25 @@ export class AdministrativeReportsController {
 
   @Get('users')
   @ApiOperation({ summary: 'Reporte de usuarios administrativos' })
-  getUsersReport(): Promise<UserReportItem[]> {
-    return this.service.getUsersReport();
+  getUsersReport(
+    @Query() filters: UserReportFilterDto,
+  ): Promise<UserReportItem[]> {
+    return this.service.getUsersReport(filters);
   }
 
   @Get('academic-structure')
   @ApiOperation({ summary: 'Reporte de estructura académica (grupos y secciones)' })
-  getAcademicStructureReport(): Promise<AcademicStructureReportItem[]> {
-    return this.service.getAcademicStructureReport();
+  getAcademicStructureReport(
+    @Query() filters: AcademicStructureReportFilterDto,
+  ): Promise<AcademicStructureReportItem[]> {
+    return this.service.getAcademicStructureReport(filters);
   }
 
   @Get('academic-periods')
   @ApiOperation({ summary: 'Reporte de períodos académicos' })
-  getAcademicPeriodsReport(): Promise<AcademicPeriodReportItem[]> {
-    return this.service.getAcademicPeriodsReport();
+  getAcademicPeriodsReport(
+    @Query() filters: AcademicPeriodReportFilterDto,
+  ): Promise<AcademicPeriodReportItem[]> {
+    return this.service.getAcademicPeriodsReport(filters);
   }
 }

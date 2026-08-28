@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { GroupEntity } from '../../sections/entities/group.entity';
 import { User } from '../../users/entities/user.entity';
+import { AcademicPeriodReportFilterDto } from '../dto/academic-period-report-filter.dto';
+import { AcademicStructureReportFilterDto } from '../dto/academic-structure-report-filter.dto';
+import { UserReportFilterDto } from '../dto/user-report-filter.dto';
 import {
   AcademicPeriodReportItem,
   AcademicStructureReportItem,
@@ -21,18 +24,22 @@ interface PersonNameFields {
 export class AdministrativeReportsService {
   constructor(private readonly repository: AdministrativeReportsRepository) {}
 
-  async getUsersReport(): Promise<UserReportItem[]> {
-    const users = await this.repository.findUsers();
+  async getUsersReport(filters: UserReportFilterDto): Promise<UserReportItem[]> {
+    const users = await this.repository.findUsers(filters);
     return users.map((user) => this.toUserReportItem(user));
   }
 
-  async getAcademicStructureReport(): Promise<AcademicStructureReportItem[]> {
-    const groups = await this.repository.findAcademicStructure();
+  async getAcademicStructureReport(
+    filters: AcademicStructureReportFilterDto,
+  ): Promise<AcademicStructureReportItem[]> {
+    const groups = await this.repository.findAcademicStructure(filters);
     return groups.map((group) => this.toAcademicStructureReportItem(group));
   }
 
-  async getAcademicPeriodsReport(): Promise<AcademicPeriodReportItem[]> {
-    const periods = await this.repository.findAcademicPeriods();
+  async getAcademicPeriodsReport(
+    filters: AcademicPeriodReportFilterDto,
+  ): Promise<AcademicPeriodReportItem[]> {
+    const periods = await this.repository.findAcademicPeriods(filters);
     return periods.map((period) => ({
       id: period.id,
       name: period.name,
