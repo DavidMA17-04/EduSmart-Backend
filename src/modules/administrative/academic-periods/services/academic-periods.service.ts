@@ -28,7 +28,7 @@ export class AcademicPeriodsService {
     });
   }
 
-  async update(id: string, dto: UpdateAcademicPeriodDto): Promise<AcademicPeriod> {
+  async update(id: number, dto: UpdateAcademicPeriodDto): Promise<AcademicPeriod> {
     const period = await this.repository.findById(id);
 
     if (!period) {
@@ -63,7 +63,7 @@ export class AcademicPeriodsService {
     return this.repository.save(period);
   }
 
-  async close(id: string): Promise<AcademicPeriod> {
+  async close(id: number): Promise<AcademicPeriod> {
     const period = await this.repository.findById(id);
 
     if (!period) {
@@ -75,7 +75,7 @@ export class AcademicPeriodsService {
     return this.repository.save(period);
   }
 
-  async activate(id: string): Promise<AcademicPeriod> {
+  async activate(id: number): Promise<AcademicPeriod> {
     const period = await this.repository.findById(id);
 
     if (!period) {
@@ -91,7 +91,7 @@ export class AcademicPeriodsService {
     return this.repository.save(period);
   }
 
-  async reopen(id: string): Promise<AcademicPeriod> {
+  async reopen(id: number): Promise<AcademicPeriod> {
     const period = await this.repository.findById(id);
 
     if (!period) {

@@ -9,23 +9,14 @@ import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum'
 
 @Entity({ name: 'specialties' })
 export class SpecialtyEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'id_specialties' })
+  id!: number;
 
-  @Column({ type: 'varchar', length: 20, unique: true })
-  code!: string;
-
-  @Column({ name: 'name', type: 'varchar', length: 150 })
+  @Column({ type: 'varchar', length: 150, unique: true })
   name!: string;
-
-  @Column({ type: 'varchar', length: 100 })
-  area!: string;
 
   @Column({ type: 'text', nullable: true })
   description?: string | null;
-
-  @Column({ type: 'int' })
-  duration!: number;
 
   @Column({
     type: 'enum',

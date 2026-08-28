@@ -14,7 +14,7 @@ export class AcademicPeriodsRepository {
     return this.repository.find();
   }
 
-  async findById(id: string): Promise<AcademicPeriod | null> {
+  async findById(id: number): Promise<AcademicPeriod | null> {
     return this.repository.findOne({ where: { id } });
   }
 

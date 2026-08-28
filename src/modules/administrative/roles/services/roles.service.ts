@@ -25,21 +25,27 @@ export class RolesService {
       ? await this.permissionsService.findByIdsOrFail(dto.permissionIds)
       : [];
 
-    const role = this.repository.create({
-      name: dto.name,
-      description: dto.description ?? null,
-      status: dto.status ?? RoleStatus.ACTIVE,
-      permissions,
-    });
+    const role = await this.repository.save(
+      this.repository.create({
+        name: dto.name,
+        description: dto.description ?? null,
+        isSystemRole: false,
+        status: dto.status ?? RoleStatus.ACTIVE,
+      }),
+    );
 
-    return this.repository.save(role);
+    if (permissions.length) {
+      return this.repository.setPermissions(role, permissions);
+    }
+
+    return (await this.repository.findById(role.id)) ?? role;
   }
 
   async findAll(): Promise<RoleEntity[]> {
     return this.repository.findAll();
   }
 
-  async findOne(id: string): Promise<RoleEntity> {
+  async findOne(id: number): Promise<RoleEntity> {
     const role = await this.repository.findById(id);
     if (!role) {
       throw new NotFoundException(`Role ${id} not found`);
@@ -47,7 +53,7 @@ export class RolesService {
     return role;
   }
 
-  async update(id: string, dto: UpdateRoleDto): Promise<RoleEntity> {
+  async update(id: number, dto: UpdateRoleDto): Promise<RoleEntity> {
     const role = await this.findOne(id);
 
     if (dto.name && dto.name !== role.name) {
@@ -63,22 +69,25 @@ export class RolesService {
       role.status = dto.status;
     }
 
+    await this.repository.save(role);
+
     if (dto.permissionIds !== undefined) {
-      role.permissions = await this.permissionsService.findByIdsOrFail(
+      const permissions = await this.permissionsService.findByIdsOrFail(
         dto.permissionIds,
       );
+      return this.repository.setPermissions(role, permissions);
     }
 
-    return this.repository.save(role);
+    return this.findOne(id);
   }
 
-  async remove(id: string): Promise<RoleEntity> {
+  async remove(id: number): Promise<RoleEntity> {
     const role = await this.findOne(id);
     return this.repository.deactivate(role);
   }
 
   async assignPermissions(
-    id: string,
+    id: number,
     dto: AssignPermissionsDto,
   ): Promise<RoleEntity> {
     const role = await this.findOne(id);
@@ -90,7 +99,7 @@ export class RolesService {
 
   private async ensureUniqueName(
     name: string,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findByName(name);
     if (existing && existing.id !== excludeId) {

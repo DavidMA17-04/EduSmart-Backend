@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
@@ -20,35 +20,35 @@ export class SectionsController {
   constructor(private readonly service: SectionsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Crear nivel o sección' })
+  @ApiOperation({ summary: 'Crear nivel' })
   create(@Body() dto: CreateSectionDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar niveles o secciones' })
+  @ApiOperation({ summary: 'Listar niveles' })
   findAll() {
     return this.service.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener nivel o sección por ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  @ApiOperation({ summary: 'Obtener nivel por ID' })
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Actualizar nivel o sección' })
+  @ApiOperation({ summary: 'Actualizar nivel' })
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateSectionDto,
   ) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Inactivar nivel o sección' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  @ApiOperation({ summary: 'Inactivar nivel' })
+  remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
   }
 }
