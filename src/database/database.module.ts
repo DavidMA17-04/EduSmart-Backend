@@ -26,6 +26,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
           charset: 'utf8mb4',
           timezone: 'Z',
           dateStrings: ['DATE'],
+          extra: {
+            charset: 'utf8mb4',
+          },
         };
       },
     }),

@@ -12,6 +12,7 @@ import { PermissionsRepository } from '../../permissions/repositories/permission
 import { RolesRepository } from '../../roles/repositories/roles.repository';
 import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
 import { UsersRepository } from '../repositories/users.repository';
+import { Utf8RepairService } from '../../../../database/services/utf8-repair.service';
 
 const DEFAULT_ADMIN_EMAIL = 'admin@ctphojancha.ed.cr';
 const DEFAULT_ADMIN_PASSWORD = 'Admin1234';
@@ -26,9 +27,11 @@ export class UsersBootstrapService implements OnModuleInit {
     private readonly permissionsRepository: PermissionsRepository,
     private readonly academicPeriodsRepository: AcademicPeriodsRepository,
     private readonly specialtiesRepository: SpecialtiesRepository,
+    private readonly utf8RepairService: Utf8RepairService,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.utf8RepairService.repairAll();
     const permissions = await this.ensurePermissions();
     const adminRole = await this.ensureAdminRole(permissions.map((item) => item.id));
     if (!adminRole) {

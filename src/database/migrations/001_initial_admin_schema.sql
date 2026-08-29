@@ -2,6 +2,9 @@
 -- MariaDB/MySQL. Apply on a clean database or after backing up existing data.
 -- PKs are INT AUTO_INCREMENT. sections.id_specialties is nullable (ON DELETE SET NULL).
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `import_records`;
