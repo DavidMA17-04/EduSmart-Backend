@@ -48,6 +48,11 @@ export class UsersService {
     return toUserPublicView(await this.getByIdOrFail(id));
   }
 
+  async findAuditLogs(id: number): Promise<ReturnType<AuditLogService['listForUser']>> {
+    await this.getByIdOrFail(id);
+    return this.auditLogService.listForUser(id);
+  }
+
   async create(dto: CreateUserDto): Promise<UserPublicView> {
     const rawNationalId = dto.nationalId ?? dto.national_id ?? '';
     const nationalId = rawNationalId.replace(/-/g, '').trim();
