@@ -15,6 +15,7 @@ import { UsersRepository } from '../repositories/users.repository';
 
 const DEFAULT_ADMIN_EMAIL = 'admin@ctphojancha.ed.cr';
 const DEFAULT_ADMIN_PASSWORD = 'Admin1234';
+const DEFAULT_ADMIN_NATIONAL_ID = '100000000';
 
 @Injectable()
 export class UsersBootstrapService implements OnModuleInit {
@@ -108,12 +109,12 @@ export class UsersBootstrapService implements OnModuleInit {
 
     const user = await this.usersRepository.save(
       this.usersRepository.create({
-        nationalId: '100000000',
+        national_id: DEFAULT_ADMIN_NATIONAL_ID,
         firstName: 'Administrador',
         lastName: 'CTP Hojancha',
         name: 'Administrador',
         email,
-        passwordHash: await bcrypt.hash(password, 10),
+        password_hash: await bcrypt.hash(password, 10),
         status: UserStatus.ACTIVE,
         mustChangePassword: false,
       }),
