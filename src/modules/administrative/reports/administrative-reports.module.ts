@@ -10,6 +10,7 @@ import { UserRoleEntity } from '../users/entities/user-role.entity';
 import { User } from '../users/entities/user.entity';
 import { AdministrativeReportsController } from './controllers/administrative-reports.controller';
 import { AdministrativeReportsRepository } from './repositories/administrative-reports.repository';
+import { AdministrativeReportsExcelService } from './services/administrative-reports-excel.service';
 import { AdministrativeReportsPdfService } from './services/administrative-reports-pdf.service';
 import { AdministrativeReportsService } from './services/administrative-reports.service';
 
@@ -30,6 +31,7 @@ import { AdministrativeReportsService } from './services/administrative-reports.
   providers: [
     AdministrativeReportsService,
     AdministrativeReportsPdfService,
+    AdministrativeReportsExcelService,
     AdministrativeReportsRepository,
   ],
   exports: [AdministrativeReportsService, AdministrativeReportsRepository],
