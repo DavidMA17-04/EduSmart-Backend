@@ -10,6 +10,7 @@ import { UserRoleEntity } from '../users/entities/user-role.entity';
 import { User } from '../users/entities/user.entity';
 import { AdministrativeReportsController } from './controllers/administrative-reports.controller';
 import { AdministrativeReportsRepository } from './repositories/administrative-reports.repository';
+import { AdministrativeReportsPdfService } from './services/administrative-reports-pdf.service';
 import { AdministrativeReportsService } from './services/administrative-reports.service';
 
 @Module({
@@ -26,7 +27,11 @@ import { AdministrativeReportsService } from './services/administrative-reports.
     ]),
   ],
   controllers: [AdministrativeReportsController],
-  providers: [AdministrativeReportsService, AdministrativeReportsRepository],
+  providers: [
+    AdministrativeReportsService,
+    AdministrativeReportsPdfService,
+    AdministrativeReportsRepository,
+  ],
   exports: [AdministrativeReportsService, AdministrativeReportsRepository],
 })
 export class AdministrativeReportsModule {}
