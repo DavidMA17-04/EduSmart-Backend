@@ -44,23 +44,24 @@ function resolveLastName(user: User): string | null {
 
 export function displayUserName(user: User): string {
   if (user.name && user.name.trim().length > 0) {
-    return user.name.trim();
+    const composed = [user.name, user.first_lastname, user.second_lastname]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    return composed || user.name.trim();
   }
-  const composed = [
-    user.firstName,
-    user.lastName || [user.first_lastname, user.second_lastname].filter(Boolean).join(' '),
-  ]
+  const fallback = [user.first_lastname, user.second_lastname]
     .filter(Boolean)
     .join(' ')
     .trim();
-  return composed || user.email || '';
+  return fallback || user.email || '';
 }
 
 export function toUserPublicView(user: User): UserPublicView {
   return {
     id: user.id,
     id_users: user.id,
-    name: displayUserName(user),
+    name: user.name ?? null,
     nationalId: user.nationalId ?? user.national_id ?? null,
     national_id: user.national_id ?? user.nationalId ?? null,
     firstName: resolveFirstName(user),

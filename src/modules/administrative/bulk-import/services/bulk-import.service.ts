@@ -30,6 +30,13 @@ import { ImportRecord } from '../entities/import-record.entity';
 import { ImportRecordStatus } from '../enums/import-record-status.enum';
 import { ImportResult } from '../interfaces/import-result.interface';
 import { ImportBatchesRepository } from '../repositories/import-batches.repository';
+import {
+  BULK_IMPORT_NATIONAL_ID_ERROR,
+  isValidBulkImportNationalId,
+  normalizeRole,
+  parseUserStatus,
+  pickFirstValue,
+} from '../utils/bulk-import-normalizers';
 
 @Injectable()
 export class BulkImportService {
@@ -137,18 +144,22 @@ export class BulkImportService {
         normalizedRow['first_name'] ||
         '';
 
-      const first_lastname =
-        normalizedRow['primer_apellido'] ||
-        normalizedRow['primerapellido'] ||
-        normalizedRow['apellidos'] ||
-        normalizedRow['first_lastname'] ||
-        '';
+      const first_lastname = pickFirstValue(normalizedRow, [
+        'apellido1',
+        'apellido_1',
+        'primer_apellido',
+        'primerapellido',
+        'apellidos',
+        'first_lastname',
+      ]);
 
-      const second_lastname =
-        normalizedRow['segundo_apellido'] ||
-        normalizedRow['segundoapellido'] ||
-        normalizedRow['second_lastname'] ||
-        '';
+      const second_lastname = pickFirstValue(normalizedRow, [
+        'apellido2',
+        'apellido_2',
+        'segundo_apellido',
+        'segundoapellido',
+        'second_lastname',
+      ]);
 
       const email =
         normalizedRow['correo'] ||
@@ -156,11 +167,15 @@ export class BulkImportService {
         normalizedRow['correo_institucional'] ||
         '';
 
-      const role = (
+      const rawRole =
         normalizedRow['rol'] ||
         normalizedRow['role'] ||
-        'ESTUDIANTE'
-      ).toUpperCase();
+        'ESTUDIANTE';
+
+      const rawUserStatus =
+        normalizedRow['estado'] ||
+        normalizedRow['status'] ||
+        '';
 
       const section =
         normalizedRow['seccion'] ||
@@ -200,9 +215,9 @@ export class BulkImportService {
           breakdown.duplicateNationalId++;
         }
 
-        if (national_id.length < 7 || national_id.length > 30) {
+        if (!isValidBulkImportNationalId(national_id)) {
           invalidFields.push('national_id');
-          errorMessages.push('La cédula debe contener entre 7 y 30 caracteres.');
+          errorMessages.push(BULK_IMPORT_NATIONAL_ID_ERROR);
         }
       }
 
@@ -248,16 +263,27 @@ export class BulkImportService {
       }
 
       // Validar Rol Institucional
-      const validRoles = Object.values(UserRoleEnum);
-      if (!validRoles.includes(role as UserRoleEnum)) {
+      const normalizedRole = normalizeRole(rawRole);
+      const role = normalizedRole ?? rawRole.trim().toUpperCase();
+      if (!normalizedRole) {
         invalidFields.push('role');
         errorMessages.push(
-          `Rol '${role}' no válido. Valores permitidos: ${validRoles.join(', ')}.`,
+          `Rol '${rawRole.trim()}' no válido. Valores permitidos: Estudiante, Docente, Administrativo, Directivo.`,
         );
       }
 
+      // Validar estado de cuenta del usuario
+      const userStatusResult = parseUserStatus(rawUserStatus);
+      let user_status: UserStatus = UserStatus.ACTIVE;
+      if (!userStatusResult.ok) {
+        invalidFields.push('user_status');
+        errorMessages.push(userStatusResult.error);
+      } else {
+        user_status = userStatusResult.value;
+      }
+
       // Advertencias (Sin bloqueo pero reportadas)
-      if (!section && role === UserRoleEnum.ESTUDIANTE) {
+      if (!section && normalizedRole === UserRoleEnum.ESTUDIANTE) {
         invalidFields.push('section');
         warningMessages.push('Estudiante sin sección académica asignada.');
         observations.push('Sin sección asignada');
@@ -285,16 +311,17 @@ export class BulkImportService {
 
       records.push({
         row,
-        tempId: `tmp-${row}-${Date.now()}`,
+        tempId: `tmp-${row}-${index}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         status,
         national_id,
         name,
         first_lastname,
         second_lastname: second_lastname || null,
         email,
-        role,
+        role: normalizedRole ?? role,
         section: section || null,
         phone: phone || null,
+        user_status,
         observations: observations.length > 0 ? observations : ['Registro conforme'],
         invalidFields: invalidFields.length > 0 ? invalidFields : undefined,
         errorMessages: errorMessages.length > 0 ? errorMessages : undefined,
@@ -369,7 +396,7 @@ export class BulkImportService {
           email: record.email.trim().toLowerCase(),
           phone: record.phone ? record.phone.trim() : null,
           password_hash: defaultPasswordHash,
-          status: UserStatus.ACTIVE,
+          status: record.user_status ?? UserStatus.ACTIVE,
           mustChangePassword: true,
           lastLoginAt: null,
         });

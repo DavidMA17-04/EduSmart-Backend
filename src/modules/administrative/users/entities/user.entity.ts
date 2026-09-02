@@ -34,37 +34,15 @@ export class User {
     this.national_id = value;
   }
 
-  /** Nombre de visualización o completo */
-  @Column({ type: 'varchar', length: 150, nullable: true })
-  name?: string;
-
-  /** Primer nombre / Nombres de pila */
-  @Column({ name: 'first_name', type: 'varchar', length: 100, nullable: true })
-  firstName?: string;
-
-  get first_name(): string | undefined {
-    return this.firstName;
-  }
-  set first_name(value: string | undefined) {
-    this.firstName = value;
-  }
-
-  /** Apellidos combinados */
-  @Column({ name: 'last_name', type: 'varchar', length: 100, nullable: true })
-  lastName?: string;
-
-  get last_name(): string | undefined {
-    return this.lastName;
-  }
-  set last_name(value: string | undefined) {
-    this.lastName = value;
-  }
+  /** Nombres de pila */
+  @Column({ name: 'name', type: 'varchar', length: 100, nullable: false })
+  name!: string;
 
   /** Primer Apellido */
-  @Column({ name: 'first_lastname', type: 'varchar', length: 100, nullable: true })
-  first_lastname?: string | null;
+  @Column({ name: 'first_lastname', type: 'varchar', length: 100, nullable: false })
+  first_lastname!: string;
 
-  /** Segundo Apellido */
+  /** Segundo Apellido (opcional) */
   @Column({ name: 'second_lastname', type: 'varchar', length: 100, nullable: true })
   second_lastname?: string | null;
 

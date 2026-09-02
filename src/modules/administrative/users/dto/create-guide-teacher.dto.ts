@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
@@ -18,17 +19,25 @@ export class CreateGuideTeacherDto {
   })
   nationalId!: string;
 
-  @ApiProperty({ example: 'María' })
+  @ApiProperty({ example: 'María', description: 'Nombres de pila' })
   @IsString()
+  @IsNotEmpty()
   @MinLength(2)
-  @MaxLength(80)
-  firstName!: string;
+  @MaxLength(100)
+  name!: string;
 
-  @ApiProperty({ example: 'Vargas Soto' })
+  @ApiProperty({ example: 'Vargas', description: 'Primer apellido' })
   @IsString()
+  @IsNotEmpty()
   @MinLength(2)
-  @MaxLength(120)
-  lastName!: string;
+  @MaxLength(100)
+  first_lastname!: string;
+
+  @ApiPropertyOptional({ example: 'Soto', description: 'Segundo apellido (opcional)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  second_lastname?: string;
 
   @ApiProperty({ example: 'maria.vargas@ctphojancha.ed.cr' })
   @IsEmail()

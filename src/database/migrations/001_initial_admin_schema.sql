@@ -24,11 +24,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE TABLE `users` (
   `id_users` INT NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(150) NULL,
+  `name` VARCHAR(100) NOT NULL,
   `national_id` VARCHAR(30) NOT NULL,
-  `first_name` VARCHAR(100) NOT NULL,
-  `last_name` VARCHAR(100) NOT NULL,
-  `first_lastname` VARCHAR(100) NULL,
+  `first_lastname` VARCHAR(100) NOT NULL,
   `second_lastname` VARCHAR(100) NULL,
   `email` VARCHAR(255) NOT NULL,
   `phone` VARCHAR(30) NULL,
@@ -272,13 +270,13 @@ INSERT INTO `role_permissions` (`id_roles`, `id_permissions`)
 SELECT 1, `id_permissions` FROM `permissions`;
 
 INSERT INTO `users` (
-  `name`, `national_id`, `first_name`, `last_name`, `email`, `password_hash`,
+  `name`, `national_id`, `first_lastname`, `second_lastname`, `email`, `password_hash`,
   `status`, `must_change_password`
 ) VALUES (
   'Administrador',
   '100000000',
-  'Administrador',
   'CTP Hojancha',
+  NULL,
   'admin@ctphojancha.ed.cr',
   '$2b$10$eiurVOYefhwrR0S10QHYC.vqhaKn0vPl2puY98C/s/R2BRIMpaWda',
   'ACTIVE',
