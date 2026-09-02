@@ -7,6 +7,8 @@ export interface UserPublicView {
   name: string | null;
   nationalId: string | null;
   national_id?: string | null;
+  firstName: string | null;
+  lastName: string | null;
   first_lastname: string | null;
   second_lastname: string | null;
   email: string | null;
@@ -15,6 +17,29 @@ export interface UserPublicView {
   roles: Array<{ id: number; name: string; status: RoleEntity['status'] }>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+function resolveFirstName(user: User): string | null {
+  if (user.firstName?.trim()) return user.firstName.trim();
+  if (user.name?.trim()) {
+    const parts = user.name.trim().split(/\s+/);
+    return parts[0] ?? null;
+  }
+  return null;
+}
+
+function resolveLastName(user: User): string | null {
+  if (user.lastName?.trim()) return user.lastName.trim();
+  const fromParts = [user.first_lastname, user.second_lastname]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  if (fromParts) return fromParts;
+  if (user.name?.trim()) {
+    const parts = user.name.trim().split(/\s+/);
+    if (parts.length > 1) return parts.slice(1).join(' ');
+  }
+  return null;
 }
 
 export function displayUserName(user: User): string {
@@ -39,6 +64,8 @@ export function toUserPublicView(user: User): UserPublicView {
     name: user.name ?? null,
     nationalId: user.nationalId ?? user.national_id ?? null,
     national_id: user.national_id ?? user.nationalId ?? null,
+    firstName: resolveFirstName(user),
+    lastName: resolveLastName(user),
     first_lastname: user.first_lastname ?? null,
     second_lastname: user.second_lastname ?? null,
     email: user.email ?? null,

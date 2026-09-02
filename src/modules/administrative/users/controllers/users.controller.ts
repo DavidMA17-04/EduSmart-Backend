@@ -66,6 +66,12 @@ export class UsersController {
     return this.service.findAll();
   }
 
+  @Get(':id/audit-logs')
+  @ApiOperation({ summary: 'Historial de auditoría del usuario (WF-18)' })
+  findAuditLogs(@Param('id', ParseIntPipe) id: number) {
+    return this.service.findAuditLogs(id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Consultar usuario (WF-18)' })
   findOne(@Param('id', ParseIntPipe) id: number) {

@@ -25,6 +25,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
           synchronize,
           charset: 'utf8mb4',
           timezone: 'Z',
+          dateStrings: ['DATE'],
         };
       },
     }),
