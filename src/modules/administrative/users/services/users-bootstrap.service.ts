@@ -109,9 +109,9 @@ export class UsersBootstrapService implements OnModuleInit {
     const user = await this.usersRepository.save(
       this.usersRepository.create({
         nationalId: '100000000',
-        firstName: 'Administrador',
-        lastName: 'CTP Hojancha',
         name: 'Administrador',
+        first_lastname: 'CTP Hojancha',
+        second_lastname: null,
         email,
         passwordHash: await bcrypt.hash(password, 10),
         status: UserStatus.ACTIVE,
