@@ -196,7 +196,8 @@ CREATE TABLE `audit_logs` (
 INSERT INTO `roles` (`name`, `description`, `is_system_role`, `status`)
 VALUES
   ('Administrador', 'Acceso completo al módulo administrativo', 1, 'ACTIVE'),
-  ('Docente', 'Personal docente. Puede asignarse como docente guía de una sección.', 1, 'ACTIVE');
+  ('Docente', 'Personal docente. Puede asignarse como docente guía de una sección.', 1, 'ACTIVE'),
+  ('Estudiante', 'Estudiante institucional. Destinatario de la importación masiva de usuarios.', 1, 'ACTIVE');
 
 INSERT INTO `permissions` (`code`, `module`, `action`, `description`) VALUES
 ('administrator.view', 'ADMINISTRATOR', 'VIEW', 'Ver módulo administrativo'),

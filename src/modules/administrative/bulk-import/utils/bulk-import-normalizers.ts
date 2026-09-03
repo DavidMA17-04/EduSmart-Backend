@@ -33,13 +33,44 @@ export function normalizeTextKey(value: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+export const BULK_IMPORT_ROLE_NOT_FOUND =
+  'El rol especificado no existe en el sistema';
+
+export const BULK_IMPORT_STUDENT_ONLY_ERROR =
+  'La importación masiva solo admite registros con rol ESTUDIANTE';
+
+export const BULK_IMPORT_STUDENT_ROLE_MISSING =
+  'El rol ESTUDIANTE/Estudiante no está configurado en el sistema.';
+
+/** True si el texto normalizado representa el rol estudiante. */
+export function isStudentRoleValue(raw: string): boolean {
+  const key = normalizeTextKey(raw);
+  if (!key) {
+    return true; // vacío = default estudiante
+  }
+  return key === 'estudiante' || key === 'student' || key === 'ESTUDIANTE'.toLowerCase();
+}
 export function normalizeRole(raw: string): UserRoleEnum | null {
   const key = normalizeTextKey(raw);
   if (!key) {
-    return UserRoleEnum.ESTUDIANTE;
+    return null;
   }
-  return ROLE_ALIASES[key] ?? null;
+  if (ROLE_ALIASES[key]) {
+    return ROLE_ALIASES[key];
+  }
+  const upper = key.toUpperCase();
+  return (Object.values(UserRoleEnum) as string[]).includes(upper)
+    ? (upper as UserRoleEnum)
+    : null;
 }
+
+/** Candidatos de nombre en BD para cada valor canónico del archivo. */
+export const ROLE_ENUM_DB_CANDIDATES: Record<UserRoleEnum, string[]> = {
+  [UserRoleEnum.ESTUDIANTE]: ['estudiante'],
+  [UserRoleEnum.DOCENTE]: ['docente'],
+  [UserRoleEnum.ADMINISTRATIVO]: ['administrativo', 'administrador'],
+  [UserRoleEnum.DIRECTIVO]: ['directivo', 'director'],
+};
 
 export type UserStatusParseResult =
   | { ok: true; value: UserStatus }
