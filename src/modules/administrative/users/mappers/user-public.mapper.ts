@@ -20,26 +20,15 @@ export interface UserPublicView {
 }
 
 function resolveFirstName(user: User): string | null {
-  if (user.firstName?.trim()) return user.firstName.trim();
-  if (user.name?.trim()) {
-    const parts = user.name.trim().split(/\s+/);
-    return parts[0] ?? null;
-  }
-  return null;
+  return user.name?.trim() || null;
 }
 
 function resolveLastName(user: User): string | null {
-  if (user.lastName?.trim()) return user.lastName.trim();
   const fromParts = [user.first_lastname, user.second_lastname]
     .filter(Boolean)
     .join(' ')
     .trim();
-  if (fromParts) return fromParts;
-  if (user.name?.trim()) {
-    const parts = user.name.trim().split(/\s+/);
-    if (parts.length > 1) return parts.slice(1).join(' ');
-  }
-  return null;
+  return fromParts || null;
 }
 
 export function displayUserName(user: User): string {
