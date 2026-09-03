@@ -43,8 +43,8 @@ export class UsersRepository {
       .where('role.name = :roleName', { roleName: INSTITUTIONAL_ROLE_TEACHER })
       .andWhere('role.status = :roleStatus', { roleStatus: RoleStatus.ACTIVE })
       .andWhere('user.status = :userStatus', { userStatus: UserStatus.ACTIVE })
-      .orderBy('user.lastName', 'ASC')
-      .addOrderBy('user.firstName', 'ASC')
+      .orderBy('user.first_lastname', 'ASC')
+      .addOrderBy('user.name', 'ASC')
       .getMany();
   }
 

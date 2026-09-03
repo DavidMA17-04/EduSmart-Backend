@@ -10,7 +10,10 @@ import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { RoleEntity } from '../../roles/entities/role.entity';
+import { RolesRepository } from '../../roles/repositories/roles.repository';
 import { User } from '../../users/entities/user.entity';
+import { UserRoleEntity } from '../../users/entities/user-role.entity';
 import { UsersRepository } from '../../users/repositories/users.repository';
 import {
   BulkImportBreakdownDto,
@@ -30,6 +33,26 @@ import { ImportRecord } from '../entities/import-record.entity';
 import { ImportRecordStatus } from '../enums/import-record-status.enum';
 import { ImportResult } from '../interfaces/import-result.interface';
 import { ImportBatchesRepository } from '../repositories/import-batches.repository';
+import {
+  BULK_IMPORT_NATIONAL_ID_ERROR,
+  BULK_IMPORT_STUDENT_ONLY_ERROR,
+  BULK_IMPORT_STUDENT_ROLE_MISSING,
+  isStudentRoleValue,
+  isValidBulkImportNationalId,
+  normalizeTextKey,
+  parseUserStatus,
+  pickFirstValue,
+} from '../utils/bulk-import-normalizers';
+
+const REQUIRED_HEADER_GROUPS: Array<{ label: string; aliases: string[] }> = [
+  { label: 'identificacion', aliases: ['identificacion', 'cedula', 'national_id'] },
+  { label: 'nombres', aliases: ['nombres', 'nombre', 'name'] },
+  {
+    label: 'primer_apellido',
+    aliases: ['primer_apellido', 'first_lastname', 'apellidos', 'apellido1', 'apellido_1'],
+  },
+  { label: 'correo', aliases: ['correo', 'email'] },
+];
 
 @Injectable()
 export class BulkImportService {
@@ -37,13 +60,11 @@ export class BulkImportService {
 
   constructor(
     private readonly usersRepository: UsersRepository,
+    private readonly rolesRepository: RolesRepository,
     private readonly dataSource: DataSource,
     private readonly importBatchesRepository: ImportBatchesRepository,
   ) {}
 
-  /**
-   * Normaliza una clave de cabecera eliminando tildes, caracteres especiales y espacios
-   */
   private normalizeKey(key: string): string {
     return key
       .toLowerCase()
@@ -53,9 +74,41 @@ export class BulkImportService {
       .replace(/^_+|_+$/g, '');
   }
 
-  /**
-   * Valida un buffer de archivo Excel/CSV y analiza inconsistencias en memoria O(1)
-   */
+  /** Resuelve el rol ESTUDIANTE/Estudiante desde MySQL o falla. */
+  private async requireStudentRole(): Promise<RoleEntity> {
+    const roles = await this.rolesRepository.findAll();
+    const student =
+      roles.find((role) => normalizeTextKey(role.name) === 'estudiante') ??
+      roles.find((role) => normalizeTextKey(role.name) === 'student') ??
+      null;
+
+    if (!student) {
+      throw new BadRequestException(BULK_IMPORT_STUDENT_ROLE_MISSING);
+    }
+    return student;
+  }
+
+  private assertRequiredHeaders(worksheet: XLSX.WorkSheet): void {
+    const matrix = XLSX.utils.sheet_to_json<Array<string | number | null>>(worksheet, {
+      header: 1,
+      defval: '',
+    });
+    const headerRow = (matrix[0] ?? []).map((cell) => String(cell ?? ''));
+    const normalizedHeaders = new Set(
+      headerRow.map((h) => this.normalizeKey(h)).filter((h) => Boolean(h)),
+    );
+
+    const missing = REQUIRED_HEADER_GROUPS.filter(
+      (group) => !group.aliases.some((alias) => normalizedHeaders.has(alias)),
+    ).map((group) => group.label);
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `El archivo no contiene la estructura requerida. Faltan las siguientes columnas: ${missing.join(', ')}`,
+      );
+    }
+  }
+
   async validateBulkFile(fileBuffer: Buffer): Promise<ValidateBulkImportResponseDto> {
     if (!fileBuffer || fileBuffer.length === 0) {
       throw new BadRequestException('Debe adjuntar un archivo válido (.xlsx, .xls o .csv).');
@@ -66,7 +119,9 @@ export class BulkImportService {
       workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     } catch (error) {
       this.logger.error('Error al leer el archivo Excel/CSV', error);
-      throw new BadRequestException('El archivo proporcionado está dañado o no tiene un formato Excel/CSV válido.');
+      throw new BadRequestException(
+        'El archivo proporcionado está dañado o no tiene un formato Excel/CSV válido.',
+      );
     }
 
     const firstSheetName = workbook.SheetNames[0];
@@ -75,6 +130,8 @@ export class BulkImportService {
     }
 
     const worksheet = workbook.Sheets[firstSheetName];
+    this.assertRequiredHeaders(worksheet);
+
     const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
       defval: '',
     });
@@ -83,7 +140,6 @@ export class BulkImportService {
       throw new BadRequestException('El archivo cargado se encuentra vacío.');
     }
 
-    // Pre-consulta a la BD MySQL para validación de duplicados O(1) con Sets
     const existingUsers = await this.usersRepository.findAll();
     const dbNationalIds = new Set<string>(
       existingUsers
@@ -96,6 +152,8 @@ export class BulkImportService {
         .filter((email): email is string => Boolean(email)),
     );
 
+    await this.requireStudentRole();
+
     const seenFileNationalIds = new Set<string>();
     const seenFileEmails = new Set<string>();
 
@@ -104,12 +162,12 @@ export class BulkImportService {
     let warningCount = 0;
     let errorCount = 0;
 
-    // Métricas de desglose de incidencias
     const breakdown: BulkImportBreakdownDto = {
       duplicateNationalId: 0,
       duplicateEmail: 0,
       requiredFieldsMissing: 0,
       invalidEmail: 0,
+      invalidRole: 0,
     };
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -122,7 +180,6 @@ export class BulkImportService {
         normalizedRow[this.normalizeKey(k)] = String(v).trim();
       });
 
-      // Mapeo polimórfico de cabeceras oficiales
       const national_id =
         normalizedRow['identificacion'] ||
         normalizedRow['cedula'] ||
@@ -137,18 +194,22 @@ export class BulkImportService {
         normalizedRow['first_name'] ||
         '';
 
-      const first_lastname =
-        normalizedRow['primer_apellido'] ||
-        normalizedRow['primerapellido'] ||
-        normalizedRow['apellidos'] ||
-        normalizedRow['first_lastname'] ||
-        '';
+      const first_lastname = pickFirstValue(normalizedRow, [
+        'apellido1',
+        'apellido_1',
+        'primer_apellido',
+        'primerapellido',
+        'apellidos',
+        'first_lastname',
+      ]);
 
-      const second_lastname =
-        normalizedRow['segundo_apellido'] ||
-        normalizedRow['segundoapellido'] ||
-        normalizedRow['second_lastname'] ||
-        '';
+      const second_lastname = pickFirstValue(normalizedRow, [
+        'apellido2',
+        'apellido_2',
+        'segundo_apellido',
+        'segundoapellido',
+        'second_lastname',
+      ]);
 
       const email =
         normalizedRow['correo'] ||
@@ -156,11 +217,12 @@ export class BulkImportService {
         normalizedRow['correo_institucional'] ||
         '';
 
-      const role = (
-        normalizedRow['rol'] ||
-        normalizedRow['role'] ||
-        'ESTUDIANTE'
-      ).toUpperCase();
+      const rawRole = normalizedRow['rol'] || normalizedRow['role'] || '';
+      const effectiveRole = isStudentRoleValue(rawRole)
+        ? UserRoleEnum.ESTUDIANTE
+        : rawRole.trim().toUpperCase();
+
+      const rawUserStatus = normalizedRow['estado'] || normalizedRow['status'] || '';
 
       const section =
         normalizedRow['seccion'] ||
@@ -179,7 +241,6 @@ export class BulkImportService {
       const warningMessages: string[] = [];
       const observations: string[] = [];
 
-      // Validar Identificación / Cédula
       if (!national_id) {
         invalidFields.push('national_id');
         errorMessages.push('La identificación (cédula) es obligatoria.');
@@ -200,13 +261,12 @@ export class BulkImportService {
           breakdown.duplicateNationalId++;
         }
 
-        if (national_id.length < 7 || national_id.length > 30) {
+        if (!isValidBulkImportNationalId(national_id)) {
           invalidFields.push('national_id');
-          errorMessages.push('La cédula debe contener entre 7 y 30 caracteres.');
+          errorMessages.push(BULK_IMPORT_NATIONAL_ID_ERROR);
         }
       }
 
-      // Validar Nombres y Primer Apellido
       if (!name) {
         invalidFields.push('name');
         errorMessages.push('El nombre es obligatorio.');
@@ -219,7 +279,6 @@ export class BulkImportService {
         breakdown.requiredFieldsMissing++;
       }
 
-      // Validar Correo Electrónico
       if (!email) {
         invalidFields.push('email');
         errorMessages.push('El correo electrónico es obligatorio.');
@@ -247,17 +306,22 @@ export class BulkImportService {
         }
       }
 
-      // Validar Rol Institucional
-      const validRoles = Object.values(UserRoleEnum);
-      if (!validRoles.includes(role as UserRoleEnum)) {
+      if (!isStudentRoleValue(rawRole)) {
         invalidFields.push('role');
-        errorMessages.push(
-          `Rol '${role}' no válido. Valores permitidos: ${validRoles.join(', ')}.`,
-        );
+        errorMessages.push(BULK_IMPORT_STUDENT_ONLY_ERROR);
+        breakdown.invalidRole++;
       }
 
-      // Advertencias (Sin bloqueo pero reportadas)
-      if (!section && role === UserRoleEnum.ESTUDIANTE) {
+      const userStatusResult = parseUserStatus(rawUserStatus);
+      let user_status: UserStatus = UserStatus.ACTIVE;
+      if (!userStatusResult.ok) {
+        invalidFields.push('user_status');
+        errorMessages.push(userStatusResult.error);
+      } else {
+        user_status = userStatusResult.value;
+      }
+
+      if (!section && effectiveRole === UserRoleEnum.ESTUDIANTE) {
         invalidFields.push('section');
         warningMessages.push('Estudiante sin sección académica asignada.');
         observations.push('Sin sección asignada');
@@ -269,7 +333,6 @@ export class BulkImportService {
         observations.push('Teléfono incompleto');
       }
 
-      // Clasificación de estado
       let status: RowValidationStatus = 'VALID';
       if (errorMessages.length > 0) {
         status = 'ERROR';
@@ -285,16 +348,17 @@ export class BulkImportService {
 
       records.push({
         row,
-        tempId: `tmp-${row}-${Date.now()}`,
+        tempId: `tmp-${row}-${index}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         status,
         national_id,
         name,
         first_lastname,
         second_lastname: second_lastname || null,
         email,
-        role,
+        role: effectiveRole,
         section: section || null,
         phone: phone || null,
+        user_status,
         observations: observations.length > 0 ? observations : ['Registro conforme'],
         invalidFields: invalidFields.length > 0 ? invalidFields : undefined,
         errorMessages: errorMessages.length > 0 ? errorMessages : undefined,
@@ -332,9 +396,6 @@ export class BulkImportService {
     };
   }
 
-  /**
-   * Wrapper para llamadas con Express.Multer.File
-   */
   async validateFile(file?: Express.Multer.File): Promise<ValidateBulkImportResponseDto> {
     if (!file || !file.buffer) {
       throw new BadRequestException('Debe adjuntar un archivo válido (.xlsx, .xls o .csv).');
@@ -342,15 +403,14 @@ export class BulkImportService {
     return this.validateBulkFile(file.buffer);
   }
 
-  /**
-   * Ejecuta la inserción transaccional atómica de registros válidos mediante QueryRunner
-   */
   async executeBulkImport(
     validRecords: ImportedUserRowDto[],
   ): Promise<ConfirmBulkImportResponseDto> {
     if (!validRecords || validRecords.length === 0) {
       throw new BadRequestException('No se recibieron usuarios para importar.');
     }
+
+    const studentRole = await this.requireStudentRole();
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -361,6 +421,10 @@ export class BulkImportService {
       let insertedCount = 0;
 
       for (const record of validRecords) {
+        if (!isStudentRoleValue(record.role || '')) {
+          throw new BadRequestException(BULK_IMPORT_STUDENT_ONLY_ERROR);
+        }
+
         const user = queryRunner.manager.create(User, {
           national_id: record.national_id.trim(),
           name: record.name.trim(),
@@ -369,17 +433,26 @@ export class BulkImportService {
           email: record.email.trim().toLowerCase(),
           phone: record.phone ? record.phone.trim() : null,
           password_hash: defaultPasswordHash,
-          status: UserStatus.ACTIVE,
+          status: record.user_status ?? UserStatus.ACTIVE,
           mustChangePassword: true,
           lastLoginAt: null,
         });
 
-        await queryRunner.manager.save(user);
+        const savedUser = await queryRunner.manager.save(user);
+
+        const userRole = queryRunner.manager.create(UserRoleEntity, {
+          userId: savedUser.id,
+          roleId: studentRole.id,
+        });
+        await queryRunner.manager.save(userRole);
+
         insertedCount++;
       }
 
       await queryRunner.commitTransaction();
-      this.logger.log(`Importación masiva completada: ${insertedCount} usuarios guardados en MySQL.`);
+      this.logger.log(
+        `Importación masiva completada: ${insertedCount} usuarios guardados en MySQL con user_roles.`,
+      );
 
       return {
         importedCount: insertedCount,
@@ -387,7 +460,13 @@ export class BulkImportService {
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      this.logger.error('Error durante la transacción de importación masiva. Se ejecutó Rollback.', error);
+      this.logger.error(
+        'Error durante la transacción de importación masiva. Se ejecutó Rollback.',
+        error,
+      );
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       throw new InternalServerErrorException(
         'Ocurrió un error al persistir el lote de usuarios en MySQL. La transacción fue revertida en su totalidad.',
       );
@@ -396,17 +475,11 @@ export class BulkImportService {
     }
   }
 
-  /**
-   * Wrapper para ConfirmBulkImportDto
-   */
   async confirmImport(dto: ConfirmBulkImportDto): Promise<ConfirmBulkImportResponseDto> {
     const list = dto.validRecords ?? dto.users ?? [];
     return this.executeBulkImport(list);
   }
 
-  /**
-   * Motor de carga (stub de compatibilidad)
-   */
   importData(_dto: BulkImportDto) {
     throw new NotImplementedException('Carga masiva pendiente de implementar');
   }
@@ -465,16 +538,18 @@ export class BulkImportService {
         .map((record) => (record.payload ?? { rowNumber: record.rowNumber }) as never),
       errorRecords: records
         .filter((record) => record.status === ImportRecordStatus.ERROR)
-        .map((record) =>
-          (record.payload ?? {
-            rowNumber: record.rowNumber,
-            message: record.errorMessage ?? 'Error de importación',
-          }) as never,
+        .map(
+          (record) =>
+            (record.payload ?? {
+              rowNumber: record.rowNumber,
+              message: record.errorMessage ?? 'Error de importación',
+            }) as never,
         ),
-      summary: (batch.summary ?? this.resolveSummary({
-        successfulRecords: [],
-        errorRecords: [],
-      })) as ImportSummaryDto,
+      summary: (batch.summary ??
+        this.resolveSummary({
+          successfulRecords: [],
+          errorRecords: [],
+        })) as ImportSummaryDto,
     };
   }
 }

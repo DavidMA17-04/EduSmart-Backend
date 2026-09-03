@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { AcademicPeriod } from '../../academic-periods/entities/academic-period.entity';
 import { GroupEntity } from '../../sections/entities/group.entity';
 import { User } from '../../users/entities/user.entity';
@@ -12,188 +12,172 @@ import { UserReportFilterDto } from '../dto/user-report-filter.dto';
 export class AdministrativeReportsRepository {
   constructor(
     @InjectRepository(User)
-    private readonly users: Repository<User>,
+    private readonly usersRepository: Repository<User>,
+
     @InjectRepository(GroupEntity)
-    private readonly groups: Repository<GroupEntity>,
+    private readonly groupsRepository: Repository<GroupEntity>,
+
     @InjectRepository(AcademicPeriod)
-    private readonly academicPeriods: Repository<AcademicPeriod>,
+    private readonly academicPeriodsRepository: Repository<AcademicPeriod>,
   ) {}
 
-  findUsers(filters: UserReportFilterDto): Promise<User[]> {
-    const qb = this.users
+  async findUsers(filters: UserReportFilterDto): Promise<User[]> {
+    const query = this.usersRepository
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.userRoles', 'userRoles')
-      .leftJoinAndSelect('userRoles.role', 'role')
+      .leftJoinAndSelect('user.userRoles', 'userRole')
+      .leftJoinAndSelect('userRole.role', 'role')
       .select([
         'user.id',
         'user.national_id',
         'user.name',
-        'user.firstName',
-        'user.lastName',
         'user.first_lastname',
         'user.second_lastname',
         'user.email',
         'user.phone',
         'user.status',
         'user.createdAt',
-        'userRoles.userId',
-        'userRoles.roleId',
+        'userRole.userId',
+        'userRole.roleId',
         'role.id',
         'role.name',
       ]);
 
-    this.applyUserFilters(qb, filters);
+    if (filters.search?.trim()) {
+      const search = `%${filters.search.trim()}%`;
 
-    return qb.orderBy('user.name', 'ASC').addOrderBy('user.id', 'ASC').getMany();
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where('user.national_id LIKE :search', { search })
+            .orWhere('user.name LIKE :search', { search })
+            .orWhere('user.first_lastname LIKE :search', { search })
+            .orWhere('user.second_lastname LIKE :search', { search })
+            .orWhere('user.email LIKE :search', { search })
+            .orWhere('user.phone LIKE :search', { search });
+        }),
+      );
+    }
+
+    if (filters.roleId) {
+      query.andWhere('role.id = :roleId', {
+        roleId: filters.roleId,
+      });
+    }
+
+    if (filters.status) {
+      query.andWhere('user.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    return query
+      .orderBy('user.name', 'ASC')
+      .addOrderBy('user.first_lastname', 'ASC')
+      .addOrderBy('user.second_lastname', 'ASC')
+      .getMany();
   }
 
-  findAcademicStructure(
+  async findAcademicStructure(
     filters: AcademicStructureReportFilterDto,
   ): Promise<GroupEntity[]> {
-    const qb = this.groups
-      .createQueryBuilder('academicGroup')
-      .leftJoinAndSelect('academicGroup.section', 'section')
+    const query = this.groupsRepository
+      .createQueryBuilder('group')
+      .leftJoinAndSelect('group.section', 'section')
       .leftJoinAndSelect('section.specialty', 'specialty')
-      .leftJoinAndSelect('academicGroup.academicPeriod', 'academicPeriod')
+      .leftJoinAndSelect('group.academicPeriod', 'academicPeriod')
       .leftJoinAndSelect(
-        'academicGroup.teachingAssignments',
-        'assignment',
-        'assignment.isGuideTeacher = :isGuideTeacher',
-        { isGuideTeacher: true },
+        'group.teachingAssignments',
+        'teachingAssignment',
       )
-      .leftJoinAndSelect('assignment.user', 'guideTeacher')
+      .leftJoinAndSelect(
+        'teachingAssignment.user',
+        'guideTeacher',
+      )
       .select([
-        'academicGroup.id',
-        'academicGroup.name',
-        'academicGroup.studentCount',
-        'academicGroup.sectionId',
-        'academicGroup.status',
+        'group.id',
+        'group.name',
+        'group.studentCount',
+        'group.status',
         'section.id',
         'section.name',
         'section.gradeLevel',
-        'specialty.id',
-        'specialty.name',
         'academicPeriod.id',
         'academicPeriod.name',
-        'assignment.id',
-        'assignment.isGuideTeacher',
+        'specialty.id',
+        'specialty.name',
+        'teachingAssignment.id',
+        'teachingAssignment.isGuideTeacher',
         'guideTeacher.id',
         'guideTeacher.name',
-        'guideTeacher.firstName',
-        'guideTeacher.lastName',
         'guideTeacher.first_lastname',
         'guideTeacher.second_lastname',
         'guideTeacher.email',
       ]);
 
-    this.applyAcademicStructureFilters(qb, filters);
-
-    return qb
-      .orderBy('section.gradeLevel', 'ASC')
-      .addOrderBy('section.name', 'ASC')
-      .addOrderBy('academicGroup.name', 'ASC')
-      .getMany();
-  }
-
-  findAcademicPeriods(
-    filters: AcademicPeriodReportFilterDto,
-  ): Promise<AcademicPeriod[]> {
-    const qb = this.academicPeriods
-      .createQueryBuilder('period')
-      .select([
-        'period.id',
-        'period.name',
-        'period.startDate',
-        'period.endDate',
-        'period.status',
-        'period.createdAt',
-      ]);
-
-    this.applyAcademicPeriodFilters(qb, filters);
-
-    return qb
-      .orderBy('period.startDate', 'ASC')
-      .addOrderBy('period.id', 'ASC')
-      .getMany();
-  }
-
-  private applyUserFilters(
-    qb: SelectQueryBuilder<User>,
-    filters: UserReportFilterDto,
-  ): void {
-    if (filters.search) {
-      const search = `%${filters.search}%`;
-      qb.andWhere(
-        new Brackets((where) => {
-          where
-            .where('user.national_id LIKE :search')
-            .orWhere('user.name LIKE :search')
-            .orWhere('user.firstName LIKE :search')
-            .orWhere('user.lastName LIKE :search')
-            .orWhere('user.first_lastname LIKE :search')
-            .orWhere('user.second_lastname LIKE :search')
-            .orWhere('user.email LIKE :search');
-        }),
-      ).setParameter('search', search);
-    }
-
-    if (filters.roleId !== undefined) {
-      qb.innerJoin(
-        'user.userRoles',
-        'filterUserRoles',
-        'filterUserRoles.roleId = :roleId',
-        { roleId: filters.roleId },
-      ).distinct(true);
-    }
-
-    if (filters.status !== undefined) {
-      qb.andWhere('user.status = :status', { status: filters.status });
-    }
-  }
-
-  private applyAcademicStructureFilters(
-    qb: SelectQueryBuilder<GroupEntity>,
-    filters: AcademicStructureReportFilterDto,
-  ): void {
-    if (filters.academicPeriodId !== undefined) {
-      qb.andWhere('academicGroup.academicPeriodId = :academicPeriodId', {
+    if (filters.academicPeriodId) {
+      query.andWhere('academicPeriod.id = :academicPeriodId', {
         academicPeriodId: filters.academicPeriodId,
       });
     }
 
-    if (filters.gradeLevel !== undefined) {
-      qb.andWhere('section.gradeLevel = :gradeLevel', {
+    if (filters.gradeLevel) {
+      query.andWhere('section.gradeLevel = :gradeLevel', {
         gradeLevel: filters.gradeLevel,
       });
     }
 
-    if (filters.specialtyId !== undefined) {
-      qb.andWhere('section.specialtyId = :specialtyId', {
+    if (filters.specialtyId) {
+      query.andWhere('specialty.id = :specialtyId', {
         specialtyId: filters.specialtyId,
       });
     }
 
-    if (filters.status !== undefined) {
-      qb.andWhere('academicGroup.status = :status', { status: filters.status });
+    if (filters.status) {
+      query.andWhere('group.status = :status', {
+        status: filters.status,
+      });
     }
+
+    return query
+      .orderBy('academicPeriod.name', 'DESC')
+      .addOrderBy('section.gradeLevel', 'ASC')
+      .addOrderBy('group.name', 'ASC')
+      .getMany();
   }
 
-  private applyAcademicPeriodFilters(
-    qb: SelectQueryBuilder<AcademicPeriod>,
+  async findAcademicPeriods(
     filters: AcademicPeriodReportFilterDto,
-  ): void {
-    if (filters.status !== undefined) {
-      qb.andWhere('period.status = :status', { status: filters.status });
+  ): Promise<AcademicPeriod[]> {
+    const query = this.academicPeriodsRepository
+      .createQueryBuilder('academicPeriod')
+      .select([
+        'academicPeriod.id',
+        'academicPeriod.name',
+        'academicPeriod.startDate',
+        'academicPeriod.endDate',
+        'academicPeriod.status',
+        'academicPeriod.createdAt',
+      ]);
+
+    if (filters.status) {
+      query.andWhere('academicPeriod.status = :status', {
+        status: filters.status,
+      });
     }
 
-    if (filters.startDate !== undefined) {
-      qb.andWhere('period.startDate >= :startDate', {
+    if (filters.startDate) {
+      query.andWhere('academicPeriod.startDate >= :startDate', {
         startDate: filters.startDate,
       });
     }
 
-    if (filters.endDate !== undefined) {
-      qb.andWhere('period.endDate <= :endDate', { endDate: filters.endDate });
+    if (filters.endDate) {
+      query.andWhere('academicPeriod.endDate <= :endDate', {
+        endDate: filters.endDate,
+      });
     }
+
+    return query
+      .orderBy('academicPeriod.startDate', 'DESC')
+      .getMany();
   }
 }

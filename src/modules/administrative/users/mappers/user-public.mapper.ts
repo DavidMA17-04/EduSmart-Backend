@@ -7,6 +7,8 @@ export interface UserPublicView {
   name: string | null;
   nationalId: string | null;
   national_id?: string | null;
+  firstName: string | null;
+  lastName: string | null;
   first_lastname: string | null;
   second_lastname: string | null;
   email: string | null;
@@ -17,27 +19,42 @@ export interface UserPublicView {
   updatedAt: Date;
 }
 
-export function displayUserName(user: User): string {
-  if (user.name && user.name.trim().length > 0) {
-    return user.name.trim();
-  }
-  const composed = [
-    user.firstName,
-    user.lastName || [user.first_lastname, user.second_lastname].filter(Boolean).join(' '),
-  ]
+function resolveFirstName(user: User): string | null {
+  return user.name?.trim() || null;
+}
+
+function resolveLastName(user: User): string | null {
+  const fromParts = [user.first_lastname, user.second_lastname]
     .filter(Boolean)
     .join(' ')
     .trim();
-  return composed || user.email || '';
+  return fromParts || null;
+}
+
+export function displayUserName(user: User): string {
+  if (user.name && user.name.trim().length > 0) {
+    const composed = [user.name, user.first_lastname, user.second_lastname]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    return composed || user.name.trim();
+  }
+  const fallback = [user.first_lastname, user.second_lastname]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return fallback || user.email || '';
 }
 
 export function toUserPublicView(user: User): UserPublicView {
   return {
     id: user.id,
     id_users: user.id,
-    name: displayUserName(user),
+    name: user.name ?? null,
     nationalId: user.nationalId ?? user.national_id ?? null,
     national_id: user.national_id ?? user.nationalId ?? null,
+    firstName: resolveFirstName(user),
+    lastName: resolveLastName(user),
     first_lastname: user.first_lastname ?? null,
     second_lastname: user.second_lastname ?? null,
     email: user.email ?? null,

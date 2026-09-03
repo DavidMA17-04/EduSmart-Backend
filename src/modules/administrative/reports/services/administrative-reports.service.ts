@@ -13,8 +13,6 @@ import { AdministrativeReportsRepository } from '../repositories/administrative-
 
 interface PersonNameFields {
   name?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
   first_lastname?: string | null;
   second_lastname?: string | null;
   email?: string | null;
@@ -26,6 +24,7 @@ export class AdministrativeReportsService {
 
   async getUsersReport(filters: UserReportFilterDto): Promise<UserReportItem[]> {
     const users = await this.repository.findUsers(filters);
+
     return users.map((user) => this.toUserReportItem(user));
   }
 
@@ -33,13 +32,17 @@ export class AdministrativeReportsService {
     filters: AcademicStructureReportFilterDto,
   ): Promise<AcademicStructureReportItem[]> {
     const groups = await this.repository.findAcademicStructure(filters);
-    return groups.map((group) => this.toAcademicStructureReportItem(group));
+
+    return groups.map((group) =>
+      this.toAcademicStructureReportItem(group),
+    );
   }
 
   async getAcademicPeriodsReport(
     filters: AcademicPeriodReportFilterDto,
   ): Promise<AcademicPeriodReportItem[]> {
     const periods = await this.repository.findAcademicPeriods(filters);
+
     return periods.map((period) => ({
       id: period.id,
       name: period.name,
@@ -77,7 +80,9 @@ export class AdministrativeReportsService {
       gradeLevel: group.section?.gradeLevel ?? 0,
       specialty: group.section?.specialty?.name ?? null,
       academicPeriod: group.academicPeriod?.name ?? '',
-      guideTeacher: guideTeacher ? this.buildGuideTeacherName(guideTeacher) : null,
+      guideTeacher: guideTeacher
+        ? this.buildGuideTeacherName(guideTeacher)
+        : null,
       status: group.status,
     };
   }
@@ -92,38 +97,32 @@ export class AdministrativeReportsService {
     const assignment = (group.teachingAssignments ?? []).find(
       (item) => item.isGuideTeacher && item.user,
     );
+
     return assignment?.user ?? null;
   }
 
   private buildGuideTeacherName(person: PersonNameFields): string {
-    const lastNames =
-      [person.first_lastname, person.second_lastname]
-        .filter(Boolean)
-        .join(' ')
-        .trim() ||
-      person.lastName?.trim() ||
-      '';
-    const composed = [person.firstName, lastNames]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-
-    return composed || person.name?.trim() || person.email || '';
+    return this.composePersonName(person);
   }
 
   private buildFullName(person: PersonNameFields): string {
-    const lastNames =
-      [person.first_lastname, person.second_lastname]
-        .filter(Boolean)
-        .join(' ')
-        .trim() ||
-      person.lastName?.trim() ||
-      '';
-    const composed = [person.firstName, lastNames]
-      .filter(Boolean)
+    return this.composePersonName(person);
+  }
+
+  private composePersonName(person: PersonNameFields): string {
+    const fullName = [
+      person.name,
+      person.first_lastname,
+      person.second_lastname,
+    ]
+      .filter(
+        (value): value is string =>
+          typeof value === 'string' && value.trim().length > 0,
+      )
+      .map((value) => value.trim())
       .join(' ')
       .trim();
 
-    return composed || person.name?.trim() || person.email || '';
+    return fullName || person.email?.trim() || '';
   }
 }

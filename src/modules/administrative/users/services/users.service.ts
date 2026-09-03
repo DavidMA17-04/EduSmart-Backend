@@ -48,6 +48,11 @@ export class UsersService {
     return toUserPublicView(await this.getByIdOrFail(id));
   }
 
+  async findAuditLogs(id: number): Promise<ReturnType<AuditLogService['listForUser']>> {
+    await this.getByIdOrFail(id);
+    return this.auditLogService.listForUser(id);
+  }
+
   async create(dto: CreateUserDto): Promise<UserPublicView> {
     const rawNationalId = dto.nationalId ?? dto.national_id ?? '';
     const nationalId = rawNationalId.replace(/-/g, '').trim();
@@ -57,12 +62,9 @@ export class UsersService {
     await this.ensureUniqueEmail(email);
 
     const roles = await this.resolveRoles(dto.roleIds);
-    const firstName = dto.name?.trim() || dto.firstName?.trim() || '';
-    const firstLastName = dto.first_lastname?.trim() || dto.lastName?.trim() || '';
+    const name = dto.name.trim();
+    const firstLastName = dto.first_lastname.trim();
     const secondLastName = dto.second_lastname?.trim() || null;
-    const computedName =
-      dto.name?.trim() ||
-      [firstName, firstLastName, secondLastName].filter(Boolean).join(' ').trim();
 
     const password = dto.password?.trim();
     const passwordHash = password
@@ -72,10 +74,7 @@ export class UsersService {
     const user = this.repository.create({
       national_id: nationalId,
       nationalId: nationalId,
-      name: computedName || firstName,
-      firstName: firstName || computedName,
-      lastName:
-        [firstLastName, secondLastName].filter(Boolean).join(' ').trim() || firstLastName,
+      name,
       first_lastname: firstLastName,
       second_lastname: secondLastName,
       email,
@@ -113,20 +112,14 @@ export class UsersService {
       user.email = email;
     }
 
-    if (dto.name !== undefined || dto.firstName !== undefined) {
-      const val = (dto.name || dto.firstName)?.trim();
-      user.name = val;
-      user.firstName = val;
+    if (dto.name !== undefined) {
+      user.name = dto.name.trim();
     }
-    if (dto.first_lastname !== undefined || dto.lastName !== undefined) {
-      const val = (dto.first_lastname || dto.lastName)?.trim();
-      user.first_lastname = val;
+    if (dto.first_lastname !== undefined) {
+      user.first_lastname = dto.first_lastname.trim();
     }
     if (dto.second_lastname !== undefined) {
       user.second_lastname = dto.second_lastname?.trim() || null;
-    }
-    if (user.first_lastname || user.second_lastname) {
-      user.lastName = [user.first_lastname, user.second_lastname].filter(Boolean).join(' ').trim();
     }
     if (dto.phone !== undefined) {
       user.phone = dto.phone?.trim() || null;
@@ -164,17 +157,14 @@ export class UsersService {
 
   async createGuideTeacher(dto: CreateGuideTeacherDto): Promise<UserPublicView> {
     const teacherRole = await this.getTeacherRole();
-    const parts = dto.lastName?.trim().split(/\s+/) || [];
-    const firstLast = parts[0] || '';
-    const secondLast = parts.slice(1).join(' ') || undefined;
 
     return this.create({
-      ...dto,
-      name: dto.firstName,
-      firstName: dto.firstName,
-      first_lastname: firstLast,
-      second_lastname: secondLast,
-      lastName: dto.lastName,
+      nationalId: dto.nationalId,
+      name: dto.name,
+      first_lastname: dto.first_lastname,
+      second_lastname: dto.second_lastname,
+      email: dto.email,
+      phone: dto.phone,
       roleIds: [teacherRole.id],
     });
   }
@@ -185,7 +175,18 @@ export class UsersService {
     actorId?: number,
   ): Promise<UserPublicView> {
     await this.getGuideTeacherOrFail(id);
-    return this.update(id, dto, actorId);
+    return this.update(
+      id,
+      {
+        nationalId: dto.nationalId,
+        name: dto.name,
+        first_lastname: dto.first_lastname,
+        second_lastname: dto.second_lastname,
+        email: dto.email,
+        phone: dto.phone,
+      },
+      actorId,
+    );
   }
 
   async removeGuideTeacher(id: number, actorId?: number): Promise<UserPublicView> {
