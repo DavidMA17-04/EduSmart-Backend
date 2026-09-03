@@ -12,8 +12,9 @@ async function bootstrap() {
 
   const configuredCorsOrigin =
     configService.get<string>('app.corsOrigin') ?? '*';
+  const isDev = (configService.get<string>('app.nodeEnv') ?? 'development') !== 'production';
   const corsOrigins =
-    configuredCorsOrigin === '*'
+    configuredCorsOrigin === '*' || isDev
       ? true
       : configuredCorsOrigin.split(',').map((origin) => origin.trim());
 
