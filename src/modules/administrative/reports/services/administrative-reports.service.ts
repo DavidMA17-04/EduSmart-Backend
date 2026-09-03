@@ -77,7 +77,7 @@ export class AdministrativeReportsService {
       gradeLevel: group.section?.gradeLevel ?? 0,
       specialty: group.section?.specialty?.name ?? null,
       academicPeriod: group.academicPeriod?.name ?? '',
-      guideTeacher: guideTeacher ? this.buildFullName(guideTeacher) : null,
+      guideTeacher: guideTeacher ? this.buildGuideTeacherName(guideTeacher) : null,
       status: group.status,
     };
   }
@@ -93,6 +93,22 @@ export class AdministrativeReportsService {
       (item) => item.isGuideTeacher && item.user,
     );
     return assignment?.user ?? null;
+  }
+
+  private buildGuideTeacherName(person: PersonNameFields): string {
+    const lastNames =
+      [person.first_lastname, person.second_lastname]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+      person.lastName?.trim() ||
+      '';
+    const composed = [person.firstName, lastNames]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    return composed || person.name?.trim() || person.email || '';
   }
 
   private buildFullName(person: PersonNameFields): string {
