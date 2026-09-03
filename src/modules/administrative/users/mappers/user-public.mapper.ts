@@ -20,8 +20,7 @@ export interface UserPublicView {
 }
 
 function resolveFirstName(user: User): string | null {
-  const name = user.name?.trim();
-  return name ? name : null;
+  return user.name?.trim() || null;
 }
 
 function resolveLastName(user: User): string | null {

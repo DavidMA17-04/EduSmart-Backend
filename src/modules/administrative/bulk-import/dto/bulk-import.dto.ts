@@ -126,6 +126,12 @@ export class BulkImportBreakdownDto {
 
   @ApiProperty({ example: 2 })
   invalidEmail!: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Roles no permitidos en importación masiva (distintos de ESTUDIANTE)',
+  })
+  invalidRole!: number;
 }
 
 export class KPISummaryDto {
