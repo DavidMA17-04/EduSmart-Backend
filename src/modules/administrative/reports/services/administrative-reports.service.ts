@@ -112,15 +112,18 @@ export class AdministrativeReportsService {
   }
 
   private buildFullName(person: PersonNameFields): string {
-    if (person.name && person.name.trim().length > 0) {
-      return person.name.trim();
-    }
+    const lastNames =
+      [person.first_lastname, person.second_lastname]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+      person.lastName?.trim() ||
+      '';
+    const composed = [person.firstName, lastNames]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
 
-    const lastName =
-      person.lastName ||
-      [person.first_lastname, person.second_lastname].filter(Boolean).join(' ');
-    const composed = [person.firstName, lastName].filter(Boolean).join(' ').trim();
-
-    return composed || person.email || '';
+    return composed || person.name?.trim() || person.email || '';
   }
 }

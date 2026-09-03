@@ -270,10 +270,11 @@ export class ReportPdfBuilder {
         .text(
           `Página ${i + 1} de ${range.count}`,
           MARGIN,
-          this.doc.page.height - 28,
+          this.doc.page.height - MARGIN - 12,
           {
             width: this.contentWidth,
             align: 'center',
+            lineBreak: false,
           },
         );
     }
