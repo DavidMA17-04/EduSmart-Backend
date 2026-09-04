@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 import { CreateSpecialtyDto } from '../dto/create-specialty.dto';
 import { UpdateSpecialtyDto } from '../dto/update-specialty.dto';
@@ -20,13 +21,14 @@ export class SpecialtiesService {
       name: dto.name.trim(),
       description: dto.description ?? null,
       status: dto.status ?? SpecialtyStatus.ACTIVE,
+      kind: dto.kind ?? SpecialtyKind.TECHNICAL_SPECIALTY,
     });
 
     return this.repository.save(specialty);
   }
 
-  async findAll(): Promise<SpecialtyEntity[]> {
-    return this.repository.findAll();
+  async findAll(kind?: SpecialtyKind): Promise<SpecialtyEntity[]> {
+    return this.repository.findAll(kind);
   }
 
   async findOne(id: number): Promise<SpecialtyEntity> {
@@ -56,12 +58,20 @@ export class SpecialtiesService {
       specialty.status = dto.status;
     }
 
+    if (dto.kind !== undefined) {
+      specialty.kind = dto.kind;
+    }
+
     return this.repository.save(specialty);
   }
 
   async remove(id: number): Promise<SpecialtyEntity> {
     const specialty = await this.findOne(id);
     return this.repository.deactivate(specialty);
+  }
+
+  async countByKind(kind: SpecialtyKind): Promise<number> {
+    return this.repository.countByKind(kind);
   }
 
   private async ensureUniqueName(

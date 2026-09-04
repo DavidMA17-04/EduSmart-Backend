@@ -7,6 +7,7 @@ import { AcademicPeriod } from '../administrative/academic-periods/entities/acad
 import { UserRoleEntity } from '../administrative/users/entities/user-role.entity';
 import { SectionEntity } from '../administrative/sections/entities/section.entity';
 import { SpecialtyEntity } from '../administrative/specialties/entities/specialty.entity';
+import { SpecialtyKind } from '../../common/enums/specialty-kind.enum';
 import { UserStatus } from '../../common/enums/user-status.enum';
 import { DashboardSummaryDto } from './dto/dashboard-summary.dto';
 
@@ -28,22 +29,35 @@ export class DashboardService {
   ) {}
 
   async getSummary(): Promise<DashboardSummaryDto> {
-    const [totalUsers, activeUsers, totalRoles, totalAcademicPeriods, totalSections, totalSpecialties, usersByRole] =
-      await Promise.all([
-        this.userRepo.count(),
-        this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
-        this.roleRepo.count(),
-        this.academicPeriodRepo.count(),
-        this.sectionRepo.count(),
-        this.specialtyRepo.count(),
-        this.userRoleRepo
-          .createQueryBuilder('ur')
-          .innerJoin('ur.role', 'role')
-          .select('role.name', 'role')
-          .addSelect('COUNT(*)', 'count')
-          .groupBy('role.name')
-          .getRawMany<{ role: string; count: string }>(),
-      ]);
+    const [
+      totalUsers,
+      activeUsers,
+      totalRoles,
+      totalAcademicPeriods,
+      totalSections,
+      totalExploratoryWorkshops,
+      totalSpecialties,
+      usersByRole,
+    ] = await Promise.all([
+      this.userRepo.count(),
+      this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
+      this.roleRepo.count(),
+      this.academicPeriodRepo.count(),
+      this.sectionRepo.count(),
+      this.specialtyRepo.count({
+        where: { kind: SpecialtyKind.EXPLORATORY_WORKSHOP },
+      }),
+      this.specialtyRepo.count({
+        where: { kind: SpecialtyKind.TECHNICAL_SPECIALTY },
+      }),
+      this.userRoleRepo
+        .createQueryBuilder('ur')
+        .innerJoin('ur.role', 'role')
+        .select('role.name', 'role')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('role.name')
+        .getRawMany<{ role: string; count: string }>(),
+    ]);
 
     return {
       totalUsers,
@@ -51,8 +65,12 @@ export class DashboardService {
       totalRoles,
       totalAcademicPeriods,
       totalSections,
+      totalExploratoryWorkshops,
       totalSpecialties,
-      usersByRole: usersByRole.map((r) => ({ role: r.role, count: Number(r.count) })),
+      usersByRole: usersByRole.map((r) => ({
+        role: r.role,
+        count: Number(r.count),
+      })),
     };
   }
 }

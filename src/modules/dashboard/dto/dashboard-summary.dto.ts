@@ -9,6 +9,7 @@ export class DashboardSummaryDto {
   totalRoles!: number;
   totalAcademicPeriods!: number;
   totalSections!: number;
+  totalExploratoryWorkshops!: number;
   totalSpecialties!: number;
   usersByRole!: UsersByRoleDto[];
 }

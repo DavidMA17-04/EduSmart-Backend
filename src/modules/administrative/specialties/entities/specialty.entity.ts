@@ -5,6 +5,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 
 @Entity({ name: 'specialties' })
@@ -24,6 +25,13 @@ export class SpecialtyEntity {
     default: SpecialtyStatus.ACTIVE,
   })
   status!: SpecialtyStatus;
+
+  @Column({
+    type: 'enum',
+    enum: SpecialtyKind,
+    default: SpecialtyKind.TECHNICAL_SPECIALTY,
+  })
+  kind!: SpecialtyKind;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date;

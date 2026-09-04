@@ -6,6 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 
 export class CreateSpecialtyDto {
@@ -30,4 +31,12 @@ export class CreateSpecialtyDto {
   @IsOptional()
   @IsEnum(SpecialtyStatus)
   status?: SpecialtyStatus;
+
+  @ApiPropertyOptional({
+    enum: SpecialtyKind,
+    default: SpecialtyKind.TECHNICAL_SPECIALTY,
+  })
+  @IsOptional()
+  @IsEnum(SpecialtyKind)
+  kind?: SpecialtyKind;
 }
