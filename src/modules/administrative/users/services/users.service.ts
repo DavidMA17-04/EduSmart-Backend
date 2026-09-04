@@ -39,6 +39,48 @@ export class UsersService {
     return users.map(toUserPublicView);
   }
 
+  async findPage(query: {
+    page?: number;
+    limit?: number;
+    status?: UserStatus;
+    roleId?: number;
+    search?: string;
+  }) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const [{ items, total }, statusRows, roleRows] = await Promise.all([
+      this.repository.findPage({
+        page,
+        limit,
+        status: query.status,
+        roleId: query.roleId,
+        search: query.search,
+      }),
+      this.repository.countByStatus(),
+      this.repository.countByRole(),
+    ]);
+
+    const totalCount = Object.values(statusRows).reduce((sum, n) => sum + n, 0);
+
+    const statusCounts = {
+      ALL: totalCount,
+      ACTIVE: statusRows[UserStatus.ACTIVE] ?? 0,
+      INACTIVE: statusRows[UserStatus.INACTIVE] ?? 0,
+      BLOCKED: statusRows[UserStatus.BLOCKED] ?? 0,
+      PENDING: statusRows[UserStatus.PENDING] ?? 0,
+    };
+
+    return {
+      items: items.map(toUserPublicView),
+      total,
+      page,
+      limit,
+      totalCount,
+      statusCounts,
+      roleCounts: roleRows,
+    };
+  }
+
   async findGuideTeachers(): Promise<UserPublicView[]> {
     const users = await this.repository.findGuideTeachers();
     return users.map(toUserPublicView);

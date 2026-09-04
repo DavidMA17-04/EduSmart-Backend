@@ -6,6 +6,7 @@ import { SpecialtiesModule } from './specialties/specialties.module';
 import { SectionsModule } from './sections/sections.module';
 import { AcademicPeriodsModule } from './academic-periods/academic-periods.module';
 import { BulkImportModule } from './bulk-import/bulk-import.module';
+import { AdministrativeReportsModule } from './reports/administrative-reports.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { BulkImportModule } from './bulk-import/bulk-import.module';
     SectionsModule,
     AcademicPeriodsModule,
     BulkImportModule,
+    AdministrativeReportsModule,
   ],
   exports: [
     UsersModule,
@@ -25,6 +27,8 @@ import { BulkImportModule } from './bulk-import/bulk-import.module';
     SectionsModule,
     AcademicPeriodsModule,
     BulkImportModule,
+    AdministrativeReportsModule,
   ],
 })
 export class AdministrativeModule {}
+

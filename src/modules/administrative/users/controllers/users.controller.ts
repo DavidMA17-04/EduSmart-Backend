@@ -7,12 +7,14 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../../auth/interfaces/authenticated-user.interface';
 import { CreateGuideTeacherDto } from '../dto/create-guide-teacher.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
+import { ListUsersQueryDto } from '../dto/list-users-query.dto';
 import { UpdateGuideTeacherDto } from '../dto/update-guide-teacher.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { UsersService } from '../services/users.service';
@@ -61,8 +63,22 @@ export class UsersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar usuarios' })
-  findAll() {
+  @ApiOperation({
+    summary: 'Listar usuarios',
+    description:
+      'Sin query params: lista completa (compat). Con page/limit/status/roleId/search: respuesta paginada.',
+  })
+  findAll(@Query() query: ListUsersQueryDto) {
+    const hasListParams =
+      query.page !== undefined ||
+      query.limit !== undefined ||
+      query.status !== undefined ||
+      query.roleId !== undefined ||
+      query.search !== undefined;
+
+    if (hasListParams) {
+      return this.service.findPage(query);
+    }
     return this.service.findAll();
   }
 

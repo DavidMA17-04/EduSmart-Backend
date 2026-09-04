@@ -12,6 +12,8 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { DisciplinaryModule } from './modules/disciplinary/disciplinary.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { AppealsModule } from './modules/appeals/appeals.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { PublicModule } from './modules/public/public.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -35,6 +37,8 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     DisciplinaryModule,
     CommunicationsModule,
     AppealsModule,
+    DashboardModule,
+    PublicModule,
   ],
   providers: [
     {
