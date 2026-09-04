@@ -35,6 +35,94 @@ export class UsersRepository {
     });
   }
 
+  async countByStatus(): Promise<Record<string, number>> {
+    const rows = await this.repository
+      .createQueryBuilder('user')
+      .select('user.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('user.status')
+      .getRawMany<{ status: string; count: string }>();
+
+    const counts: Record<string, number> = {};
+    for (const row of rows) {
+      counts[row.status] = Number(row.count);
+    }
+    return counts;
+  }
+
+  async countByRole(): Promise<Record<number, number>> {
+    const rows = await this.userRoles
+      .createQueryBuilder('ur')
+      .select('ur.roleId', 'roleId')
+      .addSelect('COUNT(DISTINCT ur.userId)', 'count')
+      .groupBy('ur.roleId')
+      .getRawMany<{ roleId: string; count: string }>();
+
+    const counts: Record<number, number> = {};
+    for (const row of rows) {
+      counts[Number(row.roleId)] = Number(row.count);
+    }
+    return counts;
+  }
+
+  async findPage(options: {
+    page: number;
+    limit: number;
+    status?: UserStatus;
+    roleId?: number;
+    search?: string;
+  }): Promise<{ items: User[]; total: number }> {
+    const applyFilters = (qb: ReturnType<Repository<User>['createQueryBuilder']>) => {
+      if (options.status) {
+        qb.andWhere('user.status = :status', { status: options.status });
+      }
+
+      if (options.roleId) {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM user_roles ur_filter
+            WHERE ur_filter.id_users = user.id_users
+              AND ur_filter.id_roles = :roleId
+          )`,
+          { roleId: options.roleId },
+        );
+      }
+
+      if (options.search) {
+        const term = `%${options.search.toLowerCase()}%`;
+        qb.andWhere(
+          `(
+            LOWER(user.national_id) LIKE :term
+            OR LOWER(user.name) LIKE :term
+            OR LOWER(user.first_lastname) LIKE :term
+            OR LOWER(COALESCE(user.second_lastname, '')) LIKE :term
+            OR LOWER(user.email) LIKE :term
+          )`,
+          { term },
+        );
+      }
+      return qb;
+    };
+
+    const countQb = applyFilters(this.repository.createQueryBuilder('user'));
+    const total = await countQb.getCount();
+
+    const itemsQb = applyFilters(
+      this.repository
+        .createQueryBuilder('user')
+        .leftJoinAndSelect('user.userRoles', 'userRoles')
+        .leftJoinAndSelect('userRoles.role', 'role')
+        .orderBy('user.name', 'ASC'),
+    );
+
+    const items = await itemsQb
+      .skip((options.page - 1) * options.limit)
+      .take(options.limit)
+      .getMany();
+
+    return { items, total };
+  }
+
   async findGuideTeachers(): Promise<User[]> {
     return this.repository
       .createQueryBuilder('user')
