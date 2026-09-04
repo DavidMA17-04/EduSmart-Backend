@@ -7,6 +7,7 @@ import {
   ParseFilePipeBuilder,
   ParseIntPipe,
   Post,
+  UnprocessableEntityException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -64,13 +65,25 @@ export class BulkImportController {
   async validateFile(
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 }) // Máximo 10 MB
+        .addMaxSizeValidator({ maxSize: 10 * 1024 * 1024 }) // Máximo 10 MB (solo validate/multipart)
+        .addFileTypeValidator({
+          fileType:
+            /(text\/csv|text\/plain|application\/csv|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet|application\/octet-stream)/i,
+          fallbackToMimetype: true,
+          skipMagicNumbersValidation: true,
+        })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
         }),
     )
     file: Express.Multer.File,
   ): Promise<ValidateBulkImportResponseDto> {
+    const originalName = (file.originalname || '').toLowerCase();
+    if (!/\.(xlsx|xls|csv)$/.test(originalName)) {
+      throw new UnprocessableEntityException(
+        'Solo se permiten archivos con extensión .xlsx, .xls o .csv.',
+      );
+    }
     return this.service.validateBulkFile(file.buffer);
   }
 

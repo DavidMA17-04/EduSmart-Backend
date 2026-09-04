@@ -10,6 +10,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { UserStatus } from '../../../../common/enums/user-status.enum';
 
 export class BulkImportDto {
   @ApiPropertyOptional({ description: 'Identificador del tipo de carga masiva' })
@@ -83,6 +84,11 @@ export class ImportedUserRowDto {
   @IsString()
   phone?: string | null;
 
+  @ApiPropertyOptional({ enum: UserStatus, example: UserStatus.ACTIVE })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  user_status?: UserStatus;
+
   @ApiPropertyOptional({ type: [String], example: ['Sin observaciones'] })
   @IsOptional()
   @IsArray()
@@ -120,6 +126,12 @@ export class BulkImportBreakdownDto {
 
   @ApiProperty({ example: 2 })
   invalidEmail!: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Roles no permitidos en importación masiva (distintos de ESTUDIANTE)',
+  })
+  invalidRole!: number;
 }
 
 export class KPISummaryDto {

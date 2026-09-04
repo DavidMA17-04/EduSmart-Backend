@@ -76,7 +76,11 @@ export class GroupEntity {
         ? {
             id: this.guideTeacher.id,
             name:
-              [this.guideTeacher.firstName, this.guideTeacher.lastName]
+              [
+                this.guideTeacher.name,
+                this.guideTeacher.first_lastname,
+                this.guideTeacher.second_lastname,
+              ]
                 .filter(Boolean)
                 .join(' ')
                 .trim() || this.guideTeacher.name,

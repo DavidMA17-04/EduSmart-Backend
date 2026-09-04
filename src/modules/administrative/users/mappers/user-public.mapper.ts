@@ -20,47 +20,37 @@ export interface UserPublicView {
 }
 
 function resolveFirstName(user: User): string | null {
-  if (user.firstName?.trim()) return user.firstName.trim();
-  if (user.name?.trim()) {
-    const parts = user.name.trim().split(/\s+/);
-    return parts[0] ?? null;
-  }
-  return null;
+  return user.name?.trim() || null;
 }
 
 function resolveLastName(user: User): string | null {
-  if (user.lastName?.trim()) return user.lastName.trim();
   const fromParts = [user.first_lastname, user.second_lastname]
     .filter(Boolean)
     .join(' ')
     .trim();
-  if (fromParts) return fromParts;
-  if (user.name?.trim()) {
-    const parts = user.name.trim().split(/\s+/);
-    if (parts.length > 1) return parts.slice(1).join(' ');
-  }
-  return null;
+  return fromParts || null;
 }
 
 export function displayUserName(user: User): string {
   if (user.name && user.name.trim().length > 0) {
-    return user.name.trim();
+    const composed = [user.name, user.first_lastname, user.second_lastname]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    return composed || user.name.trim();
   }
-  const composed = [
-    user.firstName,
-    user.lastName || [user.first_lastname, user.second_lastname].filter(Boolean).join(' '),
-  ]
+  const fallback = [user.first_lastname, user.second_lastname]
     .filter(Boolean)
     .join(' ')
     .trim();
-  return composed || user.email || '';
+  return fallback || user.email || '';
 }
 
 export function toUserPublicView(user: User): UserPublicView {
   return {
     id: user.id,
     id_users: user.id,
-    name: displayUserName(user),
+    name: user.name ?? null,
     nationalId: user.nationalId ?? user.national_id ?? null,
     national_id: user.national_id ?? user.nationalId ?? null,
     firstName: resolveFirstName(user),

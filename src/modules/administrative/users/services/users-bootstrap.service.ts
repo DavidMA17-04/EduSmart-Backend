@@ -3,7 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { PermissionAction } from '../../../../common/enums/permission-action.enum';
 import { PermissionModule } from '../../../../common/enums/permission-module.enum';
 import { RoleStatus } from '../../../../common/enums/role-status.enum';
-import { INSTITUTIONAL_ROLE_ADMIN, INSTITUTIONAL_ROLE_TEACHER } from '../../../../common/constants/institutional-roles.constant';
+import { INSTITUTIONAL_ROLE_ADMIN, INSTITUTIONAL_ROLE_STUDENT, INSTITUTIONAL_ROLE_TEACHER } from '../../../../common/constants/institutional-roles.constant';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
 import { AcademicPeriodStatus } from '../../academic-periods/enums/academic-period-status.enum';
@@ -38,6 +38,7 @@ export class UsersBootstrapService implements OnModuleInit {
       throw new Error('No se pudo sembrar el rol Administrador');
     }
     await this.ensureTeacherRole();
+    await this.ensureStudentRole();
     await this.ensureAdminUser(adminRole.id);
     await this.ensureAcademicPeriod();
     await this.ensureSpecialty();
@@ -103,6 +104,23 @@ export class UsersBootstrapService implements OnModuleInit {
     );
   }
 
+  private async ensureStudentRole() {
+    const byTitle = await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_STUDENT);
+    if (byTitle) return byTitle;
+
+    const byCode = await this.rolesRepository.findByName('ESTUDIANTE');
+    if (byCode) return byCode;
+
+    return this.rolesRepository.save(
+      this.rolesRepository.create({
+        name: INSTITUTIONAL_ROLE_STUDENT,
+        description: 'Estudiante institucional. Destinatario de la importación masiva de usuarios.',
+        isSystemRole: true,
+        status: RoleStatus.ACTIVE,
+      }),
+    );
+  }
+
   private async ensureAdminUser(roleId: number) {
     const email = (process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL).trim().toLowerCase();
     const password = process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD;
@@ -112,9 +130,9 @@ export class UsersBootstrapService implements OnModuleInit {
     const user = await this.usersRepository.save(
       this.usersRepository.create({
         nationalId: '100000000',
-        firstName: 'Administrador',
-        lastName: 'CTP Hojancha',
         name: 'Administrador',
+        first_lastname: 'CTP Hojancha',
+        second_lastname: null,
         email,
         passwordHash: await bcrypt.hash(password, 10),
         status: UserStatus.ACTIVE,

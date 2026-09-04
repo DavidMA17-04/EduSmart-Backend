@@ -6,6 +6,7 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
@@ -30,31 +31,19 @@ export class CreateUserDto {
   @IsString()
   national_id?: string;
 
-  @ApiPropertyOptional({ example: 'María' })
-  @IsOptional()
+  @ApiProperty({ example: 'María', description: 'Nombres de pila' })
   @IsString()
-  @MaxLength(150)
-  name?: string;
-
-  @ApiPropertyOptional({ example: 'María' })
-  @IsOptional()
-  @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
-  firstName?: string;
+  name!: string;
 
-  @ApiPropertyOptional({ example: 'Vargas' })
-  @IsOptional()
+  @ApiProperty({ example: 'Vargas', description: 'Primer apellido' })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
-  first_lastname?: string;
+  first_lastname!: string;
 
-  @ApiPropertyOptional({ example: 'Vargas Soto' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  lastName?: string;
-
-  @ApiPropertyOptional({ example: 'Soto' })
+  @ApiPropertyOptional({ example: 'Soto', description: 'Segundo apellido (opcional)' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
