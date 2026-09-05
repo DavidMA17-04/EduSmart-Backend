@@ -2,6 +2,7 @@
 /dist
 /coverage
 /build
+/uploads
 
 # Environment
 .env

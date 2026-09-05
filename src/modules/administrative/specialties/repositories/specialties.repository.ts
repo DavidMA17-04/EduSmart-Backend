@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 import { SpecialtyEntity } from '../entities/specialty.entity';
 
@@ -19,8 +20,9 @@ export class SpecialtiesRepository {
     return this.repository.save(entity);
   }
 
-  async findAll(): Promise<SpecialtyEntity[]> {
+  async findAll(kind?: SpecialtyKind): Promise<SpecialtyEntity[]> {
     return this.repository.find({
+      where: kind ? { kind } : undefined,
       order: { name: 'ASC' },
     });
   }
@@ -31,6 +33,10 @@ export class SpecialtiesRepository {
 
   async findByName(name: string): Promise<SpecialtyEntity | null> {
     return this.repository.findOne({ where: { name } });
+  }
+
+  async countByKind(kind: SpecialtyKind): Promise<number> {
+    return this.repository.count({ where: { kind } });
   }
 
   async deactivate(entity: SpecialtyEntity): Promise<SpecialtyEntity> {
