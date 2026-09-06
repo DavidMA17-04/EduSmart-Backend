@@ -140,6 +140,7 @@ CREATE TABLE `groups` (
   `name` VARCHAR(50) NOT NULL,
   `student_count` INT NOT NULL DEFAULT 0,
   `id_sections` INT NOT NULL,
+  `id_specialties` INT NULL,
   `id_academic_periods` INT NOT NULL,
   `status` ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -147,6 +148,7 @@ CREATE TABLE `groups` (
   PRIMARY KEY (`id_groups`),
   UNIQUE KEY `UQ_groups_section_name` (`id_sections`, `name`),
   CONSTRAINT `FK_groups_sections` FOREIGN KEY (`id_sections`) REFERENCES `sections` (`id_sections`) ON DELETE RESTRICT,
+  CONSTRAINT `FK_groups_specialties` FOREIGN KEY (`id_specialties`) REFERENCES `specialties` (`id_specialties`) ON DELETE SET NULL,
   CONSTRAINT `FK_groups_academic_periods` FOREIGN KEY (`id_academic_periods`) REFERENCES `academic_periods` (`id_academic_periods`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
