@@ -27,8 +27,11 @@ export class UsersController {
 
   @Post('guide-teachers')
   @ApiOperation({ summary: 'Crear docente guía' })
-  createGuideTeacher(@Body() dto: CreateGuideTeacherDto) {
-    return this.service.createGuideTeacher(dto);
+  createGuideTeacher(
+    @Body() dto: CreateGuideTeacherDto,
+    @CurrentUser() actor?: AuthenticatedUser,
+  ) {
+    return this.service.createGuideTeacher(dto, actor?.id);
   }
 
   @Get('guide-teachers')
@@ -58,8 +61,11 @@ export class UsersController {
 
   @Post()
   @ApiOperation({ summary: 'Registro manual de usuario (WF-17)' })
-  create(@Body() dto: CreateUserDto) {
-    return this.service.create(dto);
+  create(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() actor?: AuthenticatedUser,
+  ) {
+    return this.service.create(dto, actor?.id);
   }
 
   @Get()

@@ -24,6 +24,58 @@ import { toUserPublicView, UserPublicView } from '../mappers/user-public.mapper'
 import { UsersRepository } from '../repositories/users.repository';
 import { AuditLogService } from './audit-log.service';
 
+const USER_AUDIT_ENTITY = 'User';
+const USER_AUDIT_CREATED = 'USER_CREATED';
+const USER_AUDIT_UPDATED = 'USER_UPDATED';
+const USER_AUDIT_STATUS_CHANGED = 'USER_STATUS_CHANGED';
+
+function normalizeAuditText(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
+function canonicalizeAuditRoles(roles: unknown): string {
+  if (!Array.isArray(roles)) {
+    return '[]';
+  }
+
+  const normalized = roles
+    .map((role) => {
+      if (!role || typeof role !== 'object') {
+        return { id: 0, name: '', status: '' };
+      }
+      const item = role as { id?: number; name?: string; status?: string };
+      return {
+        id: item.id ?? 0,
+        name: item.name ?? '',
+        status: String(item.status ?? ''),
+      };
+    })
+    .sort((left, right) => left.id - right.id || left.name.localeCompare(right.name));
+
+  return JSON.stringify(normalized);
+}
+
+function userFunctionalAuditSnapshot(view: Record<string, unknown>) {
+  const nationalId = normalizeAuditText(view.nationalId ?? view.national_id)?.replace(
+    /-/g,
+    '',
+  );
+
+  return {
+    nationalId: nationalId || null,
+    name: normalizeAuditText(view.name),
+    first_lastname: normalizeAuditText(view.first_lastname),
+    second_lastname: normalizeAuditText(view.second_lastname),
+    email: normalizeAuditText(view.email)?.toLowerCase() ?? null,
+    phone: normalizeAuditText(view.phone),
+    roles: canonicalizeAuditRoles(view.roles),
+  };
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -95,7 +147,7 @@ export class UsersService {
     return this.auditLogService.listForUser(id);
   }
 
-  async create(dto: CreateUserDto): Promise<UserPublicView> {
+  async create(dto: CreateUserDto, actorId?: number): Promise<UserPublicView> {
     const rawNationalId = dto.nationalId ?? dto.national_id ?? '';
     const nationalId = rawNationalId.replace(/-/g, '').trim();
     const email = dto.email.trim().toLowerCase();
@@ -130,7 +182,17 @@ export class UsersService {
     await this.repository.replaceRoles(saved.id, roles);
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
-    return toUserPublicView(persisted);
+    const after = toUserPublicView(persisted);
+
+    await this.recordUserAudit({
+      actorId,
+      action: USER_AUDIT_CREATED,
+      entityId: saved.id,
+      before: null,
+      after,
+    });
+
+    return after;
   }
 
   async update(
@@ -140,6 +202,7 @@ export class UsersService {
   ): Promise<UserPublicView> {
     const user = await this.getByIdOrFail(id);
     const before = toUserPublicView(user) as unknown as Record<string, unknown>;
+    const previousPasswordHash = user.password_hash;
 
     if (dto.nationalId || dto.national_id) {
       const nationalId = (dto.nationalId || dto.national_id)!.replace(/-/g, '').trim();
@@ -184,31 +247,37 @@ export class UsersService {
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
     const after = toUserPublicView(persisted);
+    const passwordChanged = persisted.password_hash !== previousPasswordHash;
 
-    await this.auditLogService.record({
-      actorId: actorId ?? null,
-      action: 'USER_UPDATED',
-      entity: 'User',
-      entityId: String(saved.id),
+    await this.recordUserAudit({
+      actorId,
+      action: this.resolveUserUpdateAuditAction(before, after, passwordChanged),
+      entityId: saved.id,
       before,
-      after: after as unknown as Record<string, unknown>,
+      after,
     });
 
     return after;
   }
 
-  async createGuideTeacher(dto: CreateGuideTeacherDto): Promise<UserPublicView> {
+  async createGuideTeacher(
+    dto: CreateGuideTeacherDto,
+    actorId?: number,
+  ): Promise<UserPublicView> {
     const teacherRole = await this.getTeacherRole();
 
-    return this.create({
-      nationalId: dto.nationalId,
-      name: dto.name,
-      first_lastname: dto.first_lastname,
-      second_lastname: dto.second_lastname,
-      email: dto.email,
-      phone: dto.phone,
-      roleIds: [teacherRole.id],
-    });
+    return this.create(
+      {
+        nationalId: dto.nationalId,
+        name: dto.name,
+        first_lastname: dto.first_lastname,
+        second_lastname: dto.second_lastname,
+        email: dto.email,
+        phone: dto.phone,
+        roleIds: [teacherRole.id],
+      },
+      actorId,
+    );
   }
 
   async updateGuideTeacher(
@@ -249,6 +318,42 @@ export class UsersService {
       { status: UserStatus.INACTIVE },
       actorId,
     );
+  }
+
+  private resolveUserUpdateAuditAction(
+    before: Record<string, unknown>,
+    after: UserPublicView,
+    passwordChanged: boolean,
+  ): typeof USER_AUDIT_STATUS_CHANGED | typeof USER_AUDIT_UPDATED {
+    const afterView = after as unknown as Record<string, unknown>;
+    const statusChanged = before.status !== after.status;
+    const otherFunctionalChanged =
+      passwordChanged ||
+      JSON.stringify(userFunctionalAuditSnapshot(before)) !==
+        JSON.stringify(userFunctionalAuditSnapshot(afterView));
+
+    if (statusChanged && !otherFunctionalChanged) {
+      return USER_AUDIT_STATUS_CHANGED;
+    }
+
+    return USER_AUDIT_UPDATED;
+  }
+
+  private recordUserAudit(entry: {
+    actorId?: number | null;
+    action: string;
+    entityId: number;
+    before: UserPublicView | Record<string, unknown> | null;
+    after: UserPublicView;
+  }) {
+    return this.auditLogService.record({
+      actorId: entry.actorId ?? null,
+      action: entry.action,
+      entity: USER_AUDIT_ENTITY,
+      entityId: String(entry.entityId),
+      before: (entry.before ?? null) as Record<string, unknown> | null,
+      after: entry.after as unknown as Record<string, unknown>,
+    });
   }
 
   private async getTeacherRole() {
