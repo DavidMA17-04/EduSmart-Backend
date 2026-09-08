@@ -15,7 +15,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "db:repair-encoding": "node scripts/repair-utf8-data.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.1",
@@ -29,6 +30,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "exceljs": "^4.4.0",
     "mysql2": "^3.23.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

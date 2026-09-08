@@ -10,6 +10,7 @@ import { User } from './entities/user.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
 import { UsersService } from './services/users.service';
 import { UsersBootstrapService } from './services/users-bootstrap.service';
+import { Utf8RepairService } from '../../../database/services/utf8-repair.service';
 import { AuditLogService } from './services/audit-log.service';
 import { UsersRepository } from './repositories/users.repository';
 import { AuditLogRepository } from './repositories/audit-log.repository';
@@ -27,6 +28,7 @@ import { UsersController } from './controllers/users.controller';
   providers: [
     UsersService,
     UsersBootstrapService,
+    Utf8RepairService,
     UsersRepository,
     AuditLogService,
     AuditLogRepository,

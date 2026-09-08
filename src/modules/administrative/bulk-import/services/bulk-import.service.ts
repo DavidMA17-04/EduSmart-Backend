@@ -116,7 +116,7 @@ export class BulkImportService {
 
     let workbook: XLSX.WorkBook;
     try {
-      workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+      workbook = XLSX.read(fileBuffer, { type: 'buffer', codepage: 65001 });
     } catch (error) {
       this.logger.error('Error al leer el archivo Excel/CSV', error);
       throw new BadRequestException(

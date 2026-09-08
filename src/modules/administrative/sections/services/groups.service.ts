@@ -12,6 +12,7 @@ import { AssignGuideTeacherDto } from '../dto/assign-guide-teacher.dto';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { GroupEntity } from '../entities/group.entity';
+import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
 import { GroupsRepository } from '../repositories/groups.repository';
 import { SectionsService } from './sections.service';
 
@@ -20,11 +21,13 @@ export class GroupsService {
   constructor(
     private readonly repository: GroupsRepository,
     private readonly sectionsService: SectionsService,
+    private readonly specialtiesRepository: SpecialtiesRepository,
   ) {}
 
   async create(dto: CreateGroupDto): Promise<GroupEntity> {
     const section = await this.sectionsService.findOne(dto.sectionId);
     await this.ensureUniqueName(dto.sectionId, dto.name);
+    await this.ensureSpecialty(dto.specialtyId);
     if (dto.guideTeacherId) await this.ensureGuideTeacher(dto.guideTeacherId);
 
     const group = await this.repository.save(
@@ -32,6 +35,7 @@ export class GroupsService {
         name: dto.name,
         studentCount: dto.studentCount ?? 0,
         sectionId: dto.sectionId,
+        specialtyId: dto.specialtyId ?? null,
         academicPeriodId: dto.academicPeriodId ?? section.academicPeriodId,
         status: dto.status ?? GroupStatus.ACTIVE,
       }),
@@ -69,6 +73,10 @@ export class GroupsService {
     if (dto.sectionId !== undefined) group.sectionId = dto.sectionId;
     if (dto.name !== undefined) group.name = dto.name;
     if (dto.studentCount !== undefined) group.studentCount = dto.studentCount;
+    if (dto.specialtyId !== undefined) {
+      await this.ensureSpecialty(dto.specialtyId);
+      group.specialtyId = dto.specialtyId ?? null;
+    }
     if (dto.status !== undefined) group.status = dto.status;
     if (dto.academicPeriodId !== undefined) {
       group.academicPeriodId = dto.academicPeriodId;
@@ -113,6 +121,14 @@ export class GroupsService {
       throw new ConflictException(
         `Group name "${name}" already exists in this section`,
       );
+    }
+  }
+
+  private async ensureSpecialty(id?: number | null): Promise<void> {
+    if (id == null) return;
+    const specialty = await this.specialtiesRepository.findById(id);
+    if (!specialty) {
+      throw new NotFoundException(`Specialty ${id} not found`);
     }
   }
 

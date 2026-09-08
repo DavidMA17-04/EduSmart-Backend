@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { GroupStatus } from '../../../../common/enums/group-status.enum';
 
@@ -31,6 +32,18 @@ export class CreateGroupDto {
   @Type(() => Number)
   @IsInt()
   sectionId!: number;
+
+  @ApiPropertyOptional({
+    example: null,
+    nullable: true,
+    description: 'Especialidad opcional de la sección. Null si el nivel no aplica especialidad.',
+  })
+  @Transform(({ value }) => (value === '' ? null : value))
+  @ValidateIf((_, value) => value !== null)
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  specialtyId?: number | null;
 
   @ApiPropertyOptional({
     description: 'ID del período académico. Si se omite se usa el del nivel.',

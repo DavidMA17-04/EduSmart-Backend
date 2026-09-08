@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { GroupStatus } from '../../../../common/enums/group-status.enum';
 import { AcademicPeriod } from '../../academic-periods/entities/academic-period.entity';
+import { SpecialtyEntity } from '../../specialties/entities/specialty.entity';
 import { TeachingAssignment } from '../../teaching-assignments/entities/teaching-assignment.entity';
 import { User } from '../../users/entities/user.entity';
 import { SectionEntity } from './section.entity';
@@ -36,6 +37,13 @@ export class GroupEntity {
   })
   @JoinColumn({ name: 'id_sections' })
   section!: SectionEntity;
+
+  @Column({ name: 'id_specialties', type: 'int', nullable: true })
+  specialtyId!: number | null;
+
+  @ManyToOne(() => SpecialtyEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'id_specialties' })
+  specialty?: SpecialtyEntity | null;
 
   @Column({ name: 'id_academic_periods', type: 'int' })
   academicPeriodId!: number;
@@ -69,6 +77,10 @@ export class GroupEntity {
       name: this.name,
       studentCount: this.studentCount,
       sectionId: this.sectionId,
+      specialtyId: this.specialtyId ?? this.specialty?.id ?? null,
+      specialty: this.specialty
+        ? { id: this.specialty.id, name: this.specialty.name }
+        : null,
       academicPeriodId: this.academicPeriodId,
       status: this.status,
       guideTeacherId: this.guideTeacherId ?? this.guideTeacher?.id ?? null,

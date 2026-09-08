@@ -26,7 +26,7 @@ export class GroupsRepository {
 
   async findAll(): Promise<GroupEntity[]> {
     const groups = await this.repository.find({
-      relations: { section: true, academicPeriod: true },
+      relations: { section: true, academicPeriod: true, specialty: true },
       order: { name: 'ASC' },
     });
     return this.attachGuideTeachers(groups);
@@ -35,7 +35,7 @@ export class GroupsRepository {
   async findById(id: number): Promise<GroupEntity | null> {
     const group = await this.repository.findOne({
       where: { id },
-      relations: { section: true, academicPeriod: true },
+      relations: { section: true, academicPeriod: true, specialty: true },
     });
     if (!group) return null;
     const [withGuide] = await this.attachGuideTeachers([group]);

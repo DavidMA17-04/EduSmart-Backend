@@ -4,16 +4,22 @@ import { AcademicStructureReportFilterDto } from '../dto/academic-structure-repo
 import { UserReportFilterDto } from '../dto/user-report-filter.dto';
 import {
   ExcelColumn,
+  ExcelReportSpec,
   buildExcelBuffer,
 } from '../helpers/report-excel.builder';
+import {
+  displayValue,
+  formatDateOnly,
+  formatDateTimeCostaRica,
+  formatStatus,
+  joinFilterLabels,
+} from '../helpers/report-pdf.presentation';
 import {
   AcademicPeriodReportItem,
   AcademicStructureReportItem,
   UserReportItem,
 } from '../interfaces/administrative-report.interface';
 import { AdministrativeReportsService } from './administrative-reports.service';
-
-const EMPTY_VALUE = '—';
 
 @Injectable()
 export class AdministrativeReportsExcelService {
@@ -22,16 +28,18 @@ export class AdministrativeReportsExcelService {
   async exportUsers(filters: UserReportFilterDto): Promise<Buffer> {
     const records = await this.reportsService.getUsersReport(filters);
     return this.buildWorkbook({
-      title: 'Usuarios',
+      title: 'Reporte de Usuarios',
       sheetName: 'Usuarios',
+      recordCount: records.length,
+      appliedFilters: this.formatUserFilters(filters),
       columns: [
-        { header: 'Identificación', width: 16 },
-        { header: 'Nombre completo', width: 28 },
-        { header: 'Correo electrónico', width: 32 },
+        { header: 'Identificación', width: 15 },
+        { header: 'Nombre completo', width: 28, wrapText: true },
+        { header: 'Correo electrónico', width: 34, wrapText: true },
         { header: 'Teléfono', width: 16 },
-        { header: 'Roles', width: 28 },
-        { header: 'Estado', width: 14 },
-        { header: 'Fecha de registro', width: 20 },
+        { header: 'Roles', width: 22, wrapText: true },
+        { header: 'Estado', width: 14, align: 'center' },
+        { header: 'Fecha de registro', width: 22, align: 'center' },
       ],
       rows: records.map((item) => this.toUserRow(item)),
     });
@@ -43,17 +51,19 @@ export class AdministrativeReportsExcelService {
     const records =
       await this.reportsService.getAcademicStructureReport(filters);
     return this.buildWorkbook({
-      title: 'Estructura Académica',
-      sheetName: 'Estructura Académica',
+      title: 'Reporte de Estructura Académica',
+      sheetName: 'Estructura académica',
+      recordCount: records.length,
+      appliedFilters: this.formatAcademicStructureFilters(filters, records),
       columns: [
-        { header: 'Grupo', width: 14 },
-        { header: 'Sección', width: 22 },
-        { header: 'Nivel', width: 10 },
-        { header: 'Especialidad', width: 22 },
-        { header: 'Cantidad de estudiantes', width: 24 },
-        { header: 'Período académico', width: 22 },
-        { header: 'Docente guía', width: 28 },
-        { header: 'Estado', width: 14 },
+        { header: 'Grupo', width: 12, align: 'center' },
+        { header: 'Sección', width: 18, wrapText: true },
+        { header: 'Nivel', width: 10, align: 'center' },
+        { header: 'Especialidad', width: 36, wrapText: true },
+        { header: 'Cantidad de estudiantes', width: 22, align: 'center' },
+        { header: 'Período académico', width: 20 },
+        { header: 'Docente guía', width: 28, wrapText: true },
+        { header: 'Estado', width: 14, align: 'center' },
       ],
       rows: records.map((item) => this.toAcademicStructureRow(item)),
     });
@@ -64,30 +74,28 @@ export class AdministrativeReportsExcelService {
   ): Promise<Buffer> {
     const records = await this.reportsService.getAcademicPeriodsReport(filters);
     return this.buildWorkbook({
-      title: 'Períodos Académicos',
-      sheetName: 'Períodos Académicos',
+      title: 'Reporte de Períodos Académicos',
+      sheetName: 'Períodos académicos',
+      recordCount: records.length,
+      appliedFilters: this.formatAcademicPeriodFilters(filters),
       columns: [
-        { header: 'Nombre', width: 28 },
-        { header: 'Fecha de inicio', width: 18 },
-        { header: 'Fecha de finalización', width: 22 },
-        { header: 'Estado', width: 14 },
-        { header: 'Fecha de creación', width: 20 },
+        { header: 'Nombre', width: 18, wrapText: true },
+        { header: 'Fecha de inicio', width: 20, align: 'center' },
+        { header: 'Fecha de finalización', width: 22, align: 'center' },
+        { header: 'Estado', width: 14, align: 'center' },
+        { header: 'Fecha de creación', width: 24, align: 'center' },
       ],
       rows: records.map((item) => this.toAcademicPeriodRow(item)),
     });
   }
 
-  private buildWorkbook(options: {
-    title: string;
-    sheetName: string;
-    columns: ExcelColumn[];
-    rows: Array<Record<string, string | number>>;
-  }): Buffer {
+  private async buildWorkbook(
+    options: Omit<ExcelReportSpec, 'generatedAt'> & { generatedAt?: string },
+  ): Promise<Buffer> {
     try {
-      return buildExcelBuffer({
-        sheetName: options.sheetName,
-        columns: options.columns,
-        rows: options.rows,
+      return await buildExcelBuffer({
+        ...options,
+        generatedAt: formatDateTimeCostaRica(new Date()),
       });
     } catch (error) {
       const message =
@@ -98,54 +106,115 @@ export class AdministrativeReportsExcelService {
     }
   }
 
-  private toUserRow(item: UserReportItem): Record<string, string | number> {
-    return {
-      Identificación: item.nationalId,
-      'Nombre completo': item.fullName,
-      'Correo electrónico': item.email,
-      Teléfono: this.display(item.phone),
-      Roles: item.roles.length > 0 ? item.roles.join(', ') : EMPTY_VALUE,
-      Estado: item.status,
-      'Fecha de registro': this.formatDateTime(item.createdAt),
-    };
+  private toUserRow(item: UserReportItem): Array<string | number> {
+    return [
+      displayValue(item.nationalId),
+      displayValue(item.fullName),
+      displayValue(item.email),
+      displayValue(item.phone),
+      item.roles.length > 0 ? item.roles.join(', ') : displayValue(null),
+      formatStatus(item.status),
+      formatDateTimeCostaRica(item.createdAt),
+    ];
   }
 
   private toAcademicStructureRow(
     item: AcademicStructureReportItem,
-  ): Record<string, string | number> {
-    return {
-      Grupo: item.groupName,
-      Sección: item.sectionName,
-      Nivel: item.gradeLevel,
-      Especialidad: this.display(item.specialty),
-      'Cantidad de estudiantes': item.studentCount,
-      'Período académico': item.academicPeriod,
-      'Docente guía': this.display(item.guideTeacher),
-      Estado: item.status,
-    };
+  ): Array<string | number> {
+    return [
+      displayValue(item.groupName),
+      displayValue(item.sectionName),
+      item.gradeLevel,
+      displayValue(item.specialty),
+      item.studentCount,
+      displayValue(item.academicPeriod),
+      displayValue(item.guideTeacher),
+      formatStatus(item.status),
+    ];
   }
 
   private toAcademicPeriodRow(
     item: AcademicPeriodReportItem,
-  ): Record<string, string | number> {
-    return {
-      Nombre: item.name,
-      'Fecha de inicio': item.startDate,
-      'Fecha de finalización': item.endDate,
-      Estado: item.status,
-      'Fecha de creación': this.formatDateTime(item.createdAt),
-    };
+  ): Array<string | number> {
+    return [
+      displayValue(item.name),
+      formatDateOnly(item.startDate),
+      formatDateOnly(item.endDate),
+      formatStatus(item.status),
+      formatDateTimeCostaRica(item.createdAt),
+    ];
   }
 
-  private display(value: string | null): string {
-    if (value === null || value.trim() === '') {
-      return EMPTY_VALUE;
+  private formatUserFilters(filters: UserReportFilterDto): string {
+    const labels: string[] = [];
+
+    if (filters.search !== undefined) {
+      labels.push(`Búsqueda: ${filters.search}`);
     }
-    return value;
+
+    if (filters.roleId !== undefined) {
+      labels.push(`ID de rol: ${filters.roleId}`);
+    }
+
+    if (filters.status !== undefined) {
+      labels.push(`Estado: ${formatStatus(filters.status)}`);
+    }
+
+    return joinFilterLabels(labels);
   }
 
-  private formatDateTime(value: Date): string {
-    const iso = value.toISOString();
-    return `${iso.slice(0, 10)} ${iso.slice(11, 16)}`;
+  private formatAcademicStructureFilters(
+    filters: AcademicStructureReportFilterDto,
+    records: AcademicStructureReportItem[],
+  ): string {
+    const labels: string[] = [];
+
+    if (filters.academicPeriodId !== undefined) {
+      const periodName = records[0]?.academicPeriod?.trim();
+      labels.push(
+        periodName
+          ? `Período académico: ${periodName}`
+          : `ID de período: ${filters.academicPeriodId}`,
+      );
+    }
+
+    if (filters.gradeLevel !== undefined) {
+      labels.push(`Nivel: ${filters.gradeLevel}`);
+    }
+
+    if (filters.specialtyId !== undefined) {
+      const specialtyName = records[0]?.specialty?.trim();
+      labels.push(
+        specialtyName
+          ? `Especialidad: ${specialtyName}`
+          : `ID de especialidad: ${filters.specialtyId}`,
+      );
+    }
+
+    if (filters.status !== undefined) {
+      labels.push(`Estado: ${formatStatus(filters.status)}`);
+    }
+
+    return joinFilterLabels(labels);
+  }
+
+  private formatAcademicPeriodFilters(
+    filters: AcademicPeriodReportFilterDto,
+  ): string {
+    const labels: string[] = [];
+
+    if (filters.status !== undefined) {
+      labels.push(`Estado: ${formatStatus(filters.status)}`);
+    }
+
+    if (filters.startDate !== undefined) {
+      labels.push(`Fecha de inicio: ${formatDateOnly(filters.startDate)}`);
+    }
+
+    if (filters.endDate !== undefined) {
+      labels.push(`Fecha de fin: ${formatDateOnly(filters.endDate)}`);
+    }
+
+    return joinFilterLabels(labels);
   }
 }

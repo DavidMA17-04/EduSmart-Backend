@@ -43,4 +43,8 @@ export class SpecialtiesRepository {
     entity.status = SpecialtyStatus.INACTIVE;
     return this.repository.save(entity);
   }
+
+  async remove(entity: SpecialtyEntity): Promise<void> {
+    await this.repository.remove(entity);
+  }
 }

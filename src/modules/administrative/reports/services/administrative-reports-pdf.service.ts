@@ -8,13 +8,18 @@ import {
   ReportPdfBuilder,
 } from '../helpers/report-pdf.builder';
 import {
+  displayValue,
+  formatDateOnly,
+  formatDateTimeCostaRica,
+  formatStatus,
+  joinFilterLabels,
+} from '../helpers/report-pdf.presentation';
+import {
   AcademicPeriodReportItem,
   AcademicStructureReportItem,
   UserReportItem,
 } from '../interfaces/administrative-report.interface';
 import { AdministrativeReportsService } from './administrative-reports.service';
-
-const EMPTY_VALUE = '—';
 
 @Injectable()
 export class AdministrativeReportsPdfService {
@@ -26,6 +31,7 @@ export class AdministrativeReportsPdfService {
       title: 'Reporte de Usuarios',
       layout: 'landscape',
       recordCount: records.length,
+      appliedFilters: this.formatUserFilters(filters),
       columns: [
         { header: 'Identificación', widthRatio: 0.12 },
         { header: 'Nombre completo', widthRatio: 0.18 },
@@ -48,6 +54,7 @@ export class AdministrativeReportsPdfService {
       title: 'Reporte de Estructura Académica',
       layout: 'landscape',
       recordCount: records.length,
+      appliedFilters: this.formatAcademicStructureFilters(filters, records),
       columns: [
         { header: 'Grupo', widthRatio: 0.1 },
         { header: 'Sección', widthRatio: 0.14 },
@@ -70,6 +77,7 @@ export class AdministrativeReportsPdfService {
       title: 'Reporte de Períodos Académicos',
       layout: 'portrait',
       recordCount: records.length,
+      appliedFilters: this.formatAcademicPeriodFilters(filters),
       columns: [
         { header: 'Nombre', widthRatio: 0.28 },
         { header: 'Fecha de inicio', widthRatio: 0.18 },
@@ -85,15 +93,17 @@ export class AdministrativeReportsPdfService {
     title: string;
     layout: PdfLayout;
     recordCount: number;
+    appliedFilters: string;
     columns: PdfTableColumn[];
     rows: string[][];
   }): Promise<Buffer> {
     const builder = new ReportPdfBuilder(options.layout, options.title);
-    builder.drawHeader(
-      options.title,
-      options.recordCount,
-      this.formatGeneratedAt(new Date()),
-    );
+    builder.drawHeader({
+      title: options.title,
+      generatedAt: formatDateTimeCostaRica(new Date()),
+      recordCount: options.recordCount,
+      appliedFilters: options.appliedFilters,
+    });
 
     if (options.rows.length === 0) {
       builder.drawEmptyState();
@@ -114,52 +124,109 @@ export class AdministrativeReportsPdfService {
 
   private toUserRow(item: UserReportItem): string[] {
     return [
-      item.nationalId,
-      item.fullName,
-      item.email,
-      this.display(item.phone),
-      item.roles.length > 0 ? item.roles.join(', ') : EMPTY_VALUE,
-      item.status,
-      this.formatDateTime(item.createdAt),
+      displayValue(item.nationalId),
+      displayValue(item.fullName),
+      displayValue(item.email),
+      displayValue(item.phone),
+      item.roles.length > 0 ? item.roles.join(', ') : displayValue(null),
+      formatStatus(item.status),
+      formatDateTimeCostaRica(item.createdAt),
     ];
   }
 
   private toAcademicStructureRow(item: AcademicStructureReportItem): string[] {
     return [
-      item.groupName,
-      item.sectionName,
+      displayValue(item.groupName),
+      displayValue(item.sectionName),
       String(item.gradeLevel),
-      this.display(item.specialty),
+      displayValue(item.specialty),
       String(item.studentCount),
-      item.academicPeriod,
-      this.display(item.guideTeacher),
-      item.status,
+      displayValue(item.academicPeriod),
+      displayValue(item.guideTeacher),
+      formatStatus(item.status),
     ];
   }
 
   private toAcademicPeriodRow(item: AcademicPeriodReportItem): string[] {
     return [
-      item.name,
-      item.startDate,
-      item.endDate,
-      item.status,
-      this.formatDateTime(item.createdAt),
+      displayValue(item.name),
+      formatDateOnly(item.startDate),
+      formatDateOnly(item.endDate),
+      formatStatus(item.status),
+      formatDateTimeCostaRica(item.createdAt),
     ];
   }
 
-  private display(value: string | null): string {
-    if (value === null || value.trim() === '') {
-      return EMPTY_VALUE;
+  private formatUserFilters(filters: UserReportFilterDto): string {
+    const labels: string[] = [];
+
+    if (filters.search !== undefined) {
+      labels.push(`Búsqueda: ${filters.search}`);
     }
-    return value;
+
+    if (filters.roleId !== undefined) {
+      labels.push(`ID de rol: ${filters.roleId}`);
+    }
+
+    if (filters.status !== undefined) {
+      labels.push(`Estado: ${formatStatus(filters.status)}`);
+    }
+
+    return joinFilterLabels(labels);
   }
 
-  private formatDateTime(value: Date): string {
-    const iso = value.toISOString();
-    return `${iso.slice(0, 10)} ${iso.slice(11, 16)}`;
+  private formatAcademicStructureFilters(
+    filters: AcademicStructureReportFilterDto,
+    records: AcademicStructureReportItem[],
+  ): string {
+    const labels: string[] = [];
+
+    if (filters.academicPeriodId !== undefined) {
+      const periodName = records[0]?.academicPeriod?.trim();
+      labels.push(
+        periodName
+          ? `Período académico: ${periodName}`
+          : `ID de período: ${filters.academicPeriodId}`,
+      );
+    }
+
+    if (filters.gradeLevel !== undefined) {
+      labels.push(`Nivel: ${filters.gradeLevel}`);
+    }
+
+    if (filters.specialtyId !== undefined) {
+      const specialtyName = records[0]?.specialty?.trim();
+      labels.push(
+        specialtyName
+          ? `Especialidad: ${specialtyName}`
+          : `ID de especialidad: ${filters.specialtyId}`,
+      );
+    }
+
+    if (filters.status !== undefined) {
+      labels.push(`Estado: ${formatStatus(filters.status)}`);
+    }
+
+    return joinFilterLabels(labels);
   }
 
-  private formatGeneratedAt(value: Date): string {
-    return `${this.formatDateTime(value)} UTC`;
+  private formatAcademicPeriodFilters(
+    filters: AcademicPeriodReportFilterDto,
+  ): string {
+    const labels: string[] = [];
+
+    if (filters.status !== undefined) {
+      labels.push(`Estado: ${formatStatus(filters.status)}`);
+    }
+
+    if (filters.startDate !== undefined) {
+      labels.push(`Fecha de inicio: ${formatDateOnly(filters.startDate)}`);
+    }
+
+    if (filters.endDate !== undefined) {
+      labels.push(`Fecha de fin: ${formatDateOnly(filters.endDate)}`);
+    }
+
+    return joinFilterLabels(labels);
   }
 }
