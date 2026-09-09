@@ -12,12 +12,18 @@ export class TokenService {
     private readonly configService: ConfigService,
   ) {}
 
-  async signAccessToken(payload: JwtPayload): Promise<string> {
+  async signAccessToken(
+    payload: JwtPayload,
+    expiresInOverride?: string,
+  ): Promise<string> {
+    const expiresIn = (expiresInOverride ??
+      this.configService.getOrThrow<string>('jwt.expiresIn')) as ExpiresIn;
+
     return this.jwtService.signAsync(
       { ...payload },
       {
         secret: this.configService.getOrThrow<string>('jwt.secret'),
-        expiresIn: this.configService.getOrThrow<string>('jwt.expiresIn') as ExpiresIn,
+        expiresIn,
       },
     );
   }

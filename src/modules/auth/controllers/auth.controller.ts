@@ -1,5 +1,13 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiBadRequestResponse,
+} from '@nestjs/swagger';
 import { Public } from '../../../common/decorators/public.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthService } from '../services/auth.service';
@@ -21,9 +29,26 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  @ApiOperation({ summary: 'Iniciar sesión' })
+  @ApiOperation({
+    summary: 'Iniciar sesión',
+    description:
+      'Autentica por correo o cédula. Emite JWT; rememberMe prolonga el TTL del access token.',
+  })
+  @ApiBadRequestResponse({ description: 'Datos de entrada inválidos' })
+  @ApiUnauthorizedResponse({ description: 'Credenciales inválidas' })
+  @ApiForbiddenResponse({ description: 'Cuenta inactiva o bloqueada' })
+  @ApiResponse({ status: 200, description: 'Login exitoso con tokens y perfil' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Perfil del usuario autenticado' })
+  @ApiUnauthorizedResponse({ description: 'Token ausente, inválido o usuario no activo' })
+  @ApiResponse({ status: 200, description: 'Perfil sin hash de contraseña' })
+  me(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getMe(user);
   }
 
   @ApiBearerAuth()
