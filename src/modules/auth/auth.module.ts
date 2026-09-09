@@ -2,22 +2,24 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { AuthController } from './controllers/auth.controller';
-import { AuthService } from './services/auth.service';
-import { AuthBootstrapService } from './services/auth-bootstrap.service';
-import { TokenService } from './services/token.service';
-import { PasswordRecoveryService } from './services/password-recovery.service';
-import { AuthRepository } from './repositories/auth.repository';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../administrative/users/entities/user.entity';
+import { UsersModule } from '../administrative/users/users.module';
+import { AuthController } from './controllers/auth.controller';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { AuthRepository } from './repositories/auth.repository';
+import { AuthBootstrapService } from './services/auth-bootstrap.service';
+import { AuthService } from './services/auth.service';
+import { PasswordRecoveryService } from './services/password-recovery.service';
+import { TokenService } from './services/token.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
+    UsersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -26,7 +28,8 @@ import { User } from '../administrative/users/entities/user.entity';
         secret: configService.getOrThrow<string>('jwt.secret'),
         signOptions: {
           expiresIn: configService.getOrThrow<string>('jwt.expiresIn') as
-            number | `${number}${'s' | 'm' | 'h' | 'd'}`,
+            | number
+            | `${number}${'s' | 'm' | 'h' | 'd'}`,
         },
       }),
     }),

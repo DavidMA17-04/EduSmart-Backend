@@ -23,6 +23,7 @@ import { User } from '../entities/user.entity';
 import { toUserPublicView, UserPublicView } from '../mappers/user-public.mapper';
 import { UsersRepository } from '../repositories/users.repository';
 import { AuditLogService } from './audit-log.service';
+import { AccountVerificationService } from './account-verification.service';
 
 @Injectable()
 export class UsersService {
@@ -30,6 +31,7 @@ export class UsersService {
     private readonly repository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
     private readonly auditLogService: AuditLogService,
+    private readonly accountVerificationService: AccountVerificationService,
     @InjectRepository(TeachingAssignment)
     private readonly teachingAssignments: Repository<TeachingAssignment>,
   ) {}
@@ -130,6 +132,11 @@ export class UsersService {
     await this.repository.replaceRoles(saved.id, roles);
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
+
+    if (persisted.status === UserStatus.PENDING) {
+      await this.accountVerificationService.issueAndSend(persisted.id);
+    }
+
     return toUserPublicView(persisted);
   }
 

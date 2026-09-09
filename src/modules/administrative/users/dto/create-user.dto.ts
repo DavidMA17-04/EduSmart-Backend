@@ -62,7 +62,9 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({
     minLength: 8,
-    description: 'Contraseña inicial. Si se omite, la cuenta queda sin hash de acceso.',
+    maxLength: 72,
+    description:
+      'Contraseña inicial. Si se omite, el servicio genera un hash aleatorio (la cuenta no queda usable con una contraseña conocida). En el registro manual del admin se envía siempre una contraseña temporal.',
   })
   @IsOptional()
   @IsString()

@@ -1,15 +1,18 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Public } from '../../../common/decorators/public.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { Public } from '../../../common/decorators/public.decorator';
+import { AccountVerificationService } from '../../administrative/users/services/account-verification.service';
+import { ChangePasswordDto } from '../dto/change-password.dto';
+import { ForgotPasswordDto } from '../dto/forgot-password.dto';
+import { LoginDto } from '../dto/login.dto';
+import { ResendVerificationDto } from '../dto/resend-verification.dto';
+import { ResetPasswordDto } from '../dto/reset-password.dto';
+import { VerifyAccountDto } from '../dto/verify-account.dto';
+import { RefreshTokenGuard } from '../guards/refresh-token.guard';
+import { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
 import { AuthService } from '../services/auth.service';
 import { PasswordRecoveryService } from '../services/password-recovery.service';
-import { LoginDto } from '../dto/login.dto';
-import { ForgotPasswordDto } from '../dto/forgot-password.dto';
-import { ResetPasswordDto } from '../dto/reset-password.dto';
-import { ChangePasswordDto } from '../dto/change-password.dto';
-import { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
-import { RefreshTokenGuard } from '../guards/refresh-token.guard';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -17,6 +20,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly passwordRecoveryService: PasswordRecoveryService,
+    private readonly accountVerificationService: AccountVerificationService,
   ) {}
 
   @Public()
@@ -52,6 +56,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Cambiar contraseña' })
   changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(user, dto);
+  }
+
+  @Public()
+  @Post('verify-account')
+  @ApiOperation({ summary: 'Verificar cuenta con código enviado por correo (PBI-16)' })
+  verifyAccount(@Body() dto: VerifyAccountDto) {
+    return this.accountVerificationService.verifyAccount(dto.email, dto.code);
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @ApiOperation({ summary: 'Reenviar código de verificación (PBI-16)' })
+  resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.accountVerificationService.resendVerification(dto.email);
   }
 
   @Public()
