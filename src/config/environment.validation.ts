@@ -72,6 +72,9 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   MAIL_FROM_NAME?: string;
+
+  @IsOptional()
+  MAIL_SECURE?: string | boolean;
 }
 
 export function validateEnvironment(config: Record<string, unknown>) {

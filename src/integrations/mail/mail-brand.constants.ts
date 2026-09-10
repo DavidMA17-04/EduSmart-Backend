@@ -1,0 +1,20 @@
+/** Brand tokens for transactional HTML email (inline styles only). */
+export const MAIL_BRAND = {
+  productName: 'EduSmart',
+  institutionShort: 'CTP Hojancha',
+  institutionName: 'Colegio Técnico Profesional de Hojancha',
+  ministry: 'Ministerio de Educación Pública',
+  navy: '#021a53',
+  primary: '#002e7a',
+  gold: '#cfac65',
+  goldLight: '#f8f1e3',
+  background: '#f5f6f8',
+  surface: '#ffffff',
+  border: '#c1c5c8',
+  muted: '#6b7280',
+  text: '#1e293b',
+  fontSerif: "Georgia, 'Times New Roman', Times, serif",
+  fontSans: "'Segoe UI', Arial, Helvetica, sans-serif",
+  logoCid: 'edusmart-ctp-logo',
+  logoFilename: 'ctp-hojancha-logo.png',
+} as const;

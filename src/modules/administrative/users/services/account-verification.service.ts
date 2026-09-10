@@ -9,6 +9,8 @@ import {
 } from '../../../../common/constants/account-verification.constant';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
 import { MailService } from '../../../../integrations/mail/mail.service';
+import { tryLoadInstitutionLogoAttachment } from '../../../../integrations/mail/optional-logo.attachment';
+import { buildAccountVerificationMail } from '../../../../integrations/mail/templates/account-verification.mail';
 import { AccountVerificationsRepository } from '../repositories/account-verifications.repository';
 import { UsersRepository } from '../repositories/users.repository';
 import { AuditLogService } from './audit-log.service';
@@ -54,22 +56,35 @@ export class AccountVerificationService {
     await this.verifications.save(row);
 
     try {
+      const logo = tryLoadInstitutionLogoAttachment();
+      const mail = buildAccountVerificationMail({
+        code: plainCode,
+        email: user.email,
+        verifyUrl: `${this.buildPublicVerifyUrl()}/verify-account`,
+        validMinutes: Math.round(ACCOUNT_VERIFICATION.TTL_MS / 60_000),
+        includeLogo: Boolean(logo),
+      });
       await this.mailService.sendMail({
         to: user.email,
-        subject: 'Verificación de cuenta — EduSmart CTP Hojancha',
-        text: this.buildPlainText(plainCode),
-        html: this.buildHtml(plainCode),
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+        ...(logo ? { attachments: [logo] } : {}),
       });
       await this.auditLogService.record({
         actorId: actorId ?? null,
         action: auditAction,
         entity: 'User',
         entityId: String(userId),
-        after: { status: UserStatus.PENDING },
+        after: { status: UserStatus.PENDING, mail: 'SENT' },
       });
     } catch (error) {
+      const reason =
+        error && typeof error === 'object' && 'code' in error && error.code === 'SMTP_NOT_CONFIGURED'
+          ? 'SMTP_NOT_CONFIGURED'
+          : 'SMTP_SEND_FAILED';
       this.logger.warn(
-        `Verification mail failed for userId=${userId}: ${
+        `Verification mail failed for userId=${userId} reason=${reason}: ${
           error instanceof Error ? error.message : 'unknown'
         }`,
       );
@@ -78,7 +93,7 @@ export class AccountVerificationService {
         action: 'USER_VERIFICATION_SEND_FAILED',
         entity: 'User',
         entityId: String(userId),
-        after: { status: UserStatus.PENDING },
+        after: { status: UserStatus.PENDING, mail: reason },
       });
     }
   }
@@ -168,7 +183,11 @@ export class AccountVerificationService {
         return { message: VERIFICATION_GENERIC_RESEND };
       }
 
-      await this.issueAndSend(user.id, null, 'USER_VERIFICATION_RESENT');
+      const priorCodes = await this.verifications.countCreatedSince(user.id, new Date(0));
+      const auditAction =
+        priorCodes === 0 ? 'USER_VERIFICATION_SENT' : 'USER_VERIFICATION_RESENT';
+
+      await this.issueAndSend(user.id, null, auditAction);
     }
 
     return { message: VERIFICATION_GENERIC_RESEND };
@@ -210,31 +229,5 @@ export class AccountVerificationService {
       this.configService.get<string>('APP_PUBLIC_URL')?.replace(/\/$/, '') ||
       'http://localhost:5173'
     );
-  }
-
-  private buildPlainText(code: string): string {
-    const url = `${this.buildPublicVerifyUrl()}/verify-account`;
-    return [
-      'Verificación de cuenta EduSmart',
-      '',
-      `Su código de verificación es: ${code}`,
-      'Válido por 15 minutos. Es de un solo uso.',
-      '',
-      `Ingrese el código en: ${url}`,
-      '',
-      'Si usted no solicitó esta cuenta, ignore este mensaje.',
-    ].join('\n');
-  }
-
-  private buildHtml(code: string): string {
-    const url = `${this.buildPublicVerifyUrl()}/verify-account`;
-    return `
-      <p>Verificación de cuenta <strong>EduSmart</strong></p>
-      <p>Su código de verificación es:</p>
-      <p style="font-size:24px;letter-spacing:4px;font-weight:700">${code}</p>
-      <p>Válido por 15 minutos. Es de un solo uso.</p>
-      <p><a href="${url}">Abrir pantalla de verificación</a></p>
-      <p>Si usted no solicitó esta cuenta, ignore este mensaje.</p>
-    `;
   }
 }

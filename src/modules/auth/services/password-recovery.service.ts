@@ -4,6 +4,8 @@ import * as bcrypt from 'bcrypt';
 import { PASSWORD_RESET } from '../../../common/constants/auth-security.constant';
 import { UserStatus } from '../../../common/enums/user-status.enum';
 import { MailService } from '../../../integrations/mail/mail.service';
+import { tryLoadInstitutionLogoAttachment } from '../../../integrations/mail/optional-logo.attachment';
+import { buildPasswordResetMail } from '../../../integrations/mail/templates/password-reset.mail';
 import { AuditLogService } from '../../administrative/users/services/audit-log.service';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
@@ -43,19 +45,19 @@ export class PasswordRecoveryService {
 
       const url = `${this.publicAppUrl()}/reset-password?token=${encodeURIComponent(rawToken)}`;
       try {
+        const logo = tryLoadInstitutionLogoAttachment();
+        const mail = buildPasswordResetMail({
+          email: user.email,
+          resetUrl: url,
+          validMinutes: Math.round(PASSWORD_RESET.TTL_MS / 60_000),
+          includeLogo: Boolean(logo),
+        });
         await this.mailService.sendMail({
           to: user.email,
-          subject: 'Restablecer contraseña — EduSmart',
-          text: [
-            'Recibimos una solicitud para restablecer su contraseña de EduSmart.',
-            '',
-            `Abra este enlace (válido por 60 minutos): ${url}`,
-            '',
-            'Si no solicitó este cambio, ignore este mensaje.',
-          ].join('\n'),
-          html: `<p>Recibimos una solicitud para restablecer su contraseña de EduSmart.</p>
-<p><a href="${url}">Restablecer contraseña</a></p>
-<p>El enlace vence en 60 minutos. Si no solicitó este cambio, ignore este mensaje.</p>`,
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html,
+          ...(logo ? { attachments: [logo] } : {}),
         });
       } catch (error) {
         this.logger.warn(`No se pudo enviar el correo de recuperación a ${user.email}`);
