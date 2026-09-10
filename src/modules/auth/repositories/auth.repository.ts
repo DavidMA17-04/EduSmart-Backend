@@ -41,4 +41,8 @@ export class AuthRepository {
   async touchLastLogin(id: number): Promise<void> {
     await this.users.update({ id }, { lastLoginAt: new Date() });
   }
+
+  save(user: User): Promise<User> {
+    return this.users.save(user);
+  }
 }

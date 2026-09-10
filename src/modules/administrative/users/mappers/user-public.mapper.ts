@@ -14,6 +14,7 @@ export interface UserPublicView {
   email: string | null;
   phone: string | null;
   status: User['status'];
+  mustChangePassword: boolean;
   roles: Array<{ id: number; name: string; status: RoleEntity['status'] }>;
   createdAt: Date;
   updatedAt: Date;
@@ -60,6 +61,7 @@ export function toUserPublicView(user: User): UserPublicView {
     email: user.email ?? null,
     phone: user.phone ?? null,
     status: user.status,
+    mustChangePassword: user.mustChangePassword,
     roles: (user.roles ?? []).map((role) => ({
       id: role.id,
       name: role.name,

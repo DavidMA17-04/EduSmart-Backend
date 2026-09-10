@@ -18,6 +18,7 @@ import { TeachingAssignment } from '../../teaching-assignments/entities/teaching
 import { CreateGuideTeacherDto } from '../dto/create-guide-teacher.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateGuideTeacherDto } from '../dto/update-guide-teacher.dto';
+import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { User } from '../entities/user.entity';
 import { toUserPublicView, UserPublicView } from '../mappers/user-public.mapper';
@@ -92,12 +93,25 @@ export class UsersService {
     return toUserPublicView(await this.getByIdOrFail(id));
   }
 
+  async updateProfile(userId: number, dto: UpdateProfileDto): Promise<UserPublicView> {
+    return this.update(
+      userId,
+      {
+        name: dto.name,
+        first_lastname: dto.first_lastname,
+        second_lastname: dto.second_lastname,
+        phone: dto.phone,
+      },
+      userId,
+    );
+  }
+
   async findAuditLogs(id: number): Promise<ReturnType<AuditLogService['listForUser']>> {
     await this.getByIdOrFail(id);
     return this.auditLogService.listForUser(id);
   }
 
-  async create(dto: CreateUserDto): Promise<UserPublicView> {
+  async create(dto: CreateUserDto, actorId?: number): Promise<UserPublicView> {
     const rawNationalId = dto.nationalId ?? dto.national_id ?? '';
     const nationalId = rawNationalId.replace(/-/g, '').trim();
     const email = dto.email.trim().toLowerCase();
@@ -137,7 +151,16 @@ export class UsersService {
       await this.accountVerificationService.issueAndSend(persisted.id);
     }
 
-    return toUserPublicView(persisted);
+    const view = toUserPublicView(persisted);
+    await this.auditLogService.record({
+      actorId: actorId ?? null,
+      action: 'USER_CREATED',
+      entity: 'User',
+      entityId: String(persisted.id),
+      after: view as unknown as Record<string, unknown>,
+    });
+
+    return view;
   }
 
   async update(

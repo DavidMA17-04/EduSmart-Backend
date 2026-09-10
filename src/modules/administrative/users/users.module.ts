@@ -46,6 +46,6 @@ import { UsersService } from './services/users.service';
     AccountVerificationService,
     AccountVerificationsRepository,
   ],
-  exports: [UsersService, UsersRepository, AccountVerificationService],
+  exports: [UsersService, UsersRepository, AccountVerificationService, AuditLogService],
 })
 export class UsersModule {}

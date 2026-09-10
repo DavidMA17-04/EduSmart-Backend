@@ -6,4 +6,5 @@ export default registerAs('mail', () => ({
   user: process.env.MAIL_USER ?? '',
   password: process.env.MAIL_PASSWORD ?? '',
   from: process.env.MAIL_FROM ?? 'no-reply@edusmart.local',
+  fromName: process.env.MAIL_FROM_NAME ?? 'EduSmart CTP Hojancha',
 }));
