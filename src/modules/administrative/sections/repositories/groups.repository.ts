@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { TeachingAssignment } from '../../teaching-assignments/entities/teaching-assignment.entity';
 import { User } from '../../users/entities/user.entity';
 import { GroupEntity } from '../entities/group.entity';
@@ -67,8 +67,13 @@ export class GroupsRepository {
 
     if (!teacherId) return;
 
+    // Prefer a guide-only slot (no academic offering). Offering rows stay separate.
     const existing = await this.teachingAssignments.findOne({
-      where: { groupId: group.id, userId: teacherId },
+      where: {
+        groupId: group.id,
+        userId: teacherId,
+        offeringKind: IsNull(),
+      },
     });
 
     if (existing) {
@@ -84,6 +89,9 @@ export class GroupsRepository {
         userId: teacherId,
         academicPeriodId: group.academicPeriodId,
         isGuideTeacher: true,
+        offeringKind: null,
+        subjectId: null,
+        specialtyId: null,
       }),
     );
   }

@@ -24,3 +24,6 @@ Thumbs.db
 # TypeScript / build caches
 *.tsbuildinfo
 .eslintcache
+
+# Local DB dumps (never commit)
+src/database/backups/

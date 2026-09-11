@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AdministrativeModule } from './modules/administrative/administrative.module';
 import { StudentsModule } from './modules/students/students.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ScheduleModule } from './modules/schedule/schedule.module';
 import { DisciplinaryModule } from './modules/disciplinary/disciplinary.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { AppealsModule } from './modules/appeals/appeals.module';
@@ -34,6 +35,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     AdministrativeModule,
     StudentsModule,
     AttendanceModule,
+    ScheduleModule,
     DisciplinaryModule,
     CommunicationsModule,
     AppealsModule,

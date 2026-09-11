@@ -82,6 +82,7 @@ describe('AuthService', () => {
     ).rejects.toMatchObject({
       response: expect.objectContaining({
         message: expect.stringMatching(/pendiente de verificación/i),
+        reason: 'ACCOUNT_PENDING',
       }),
     });
     expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();

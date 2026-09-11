@@ -12,7 +12,8 @@ export class PublicController {
   @Get('campus-snapshot')
   @ApiOperation({
     summary: 'Snapshot agregado del campus (sin autenticación)',
-    description: 'Solo conteos. Sin datos personales.',
+    description:
+      'Solo conteos institucionales (usuarios, especialidades, talleres, secciones). Sin datos personales.',
   })
   getCampusSnapshot() {
     return this.publicService.getCampusSnapshot();

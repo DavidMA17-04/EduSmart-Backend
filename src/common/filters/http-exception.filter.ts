@@ -21,6 +21,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const payload = exceptionResponse as {
         message?: string | string[];
         error?: string;
+        reason?: string;
       };
       if (Array.isArray(payload.message)) {
         message = payload.message.join(', ');
@@ -29,6 +30,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = payload.message;
       } else if (payload.error) {
         message = payload.error;
+      }
+
+      if (typeof payload.reason === 'string' && payload.reason.trim() && details === undefined) {
+        details = { reason: payload.reason.trim() };
       }
     } else if (exception instanceof Error) {
       message = exception.message;

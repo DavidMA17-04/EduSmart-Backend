@@ -1,26 +1,38 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Attendance } from './entities/attendance.entity';
-import { Absence } from './entities/absence.entity';
-import { AbsenceJustification } from './entities/absence-justification.entity';
+import { AcademicOfferingsModule } from '../administrative/academic-offerings/academic-offerings.module';
+import { GroupEnrollment } from '../administrative/group-enrollments/entities/group-enrollment.entity';
+import { TeachingAssignment } from '../administrative/teaching-assignments/entities/teaching-assignment.entity';
+import { AuditLog } from '../administrative/users/entities/audit-log.entity';
+import { UsersModule } from '../administrative/users/users.module';
+import { ScheduleEntry } from '../schedule/entities/schedule-entry.entity';
 import { AttendanceController } from './controllers/attendance.controller';
 import { JustificationsController } from './controllers/justifications.controller';
-import { AttendanceService } from './services/attendance.service';
-import { AbsencesService } from './services/absences.service';
+import { Attendance } from './entities/attendance.entity';
+import { AttendanceSession } from './entities/attendance-session.entity';
+import { AttendanceRecordsService } from './services/attendance-records.service';
+import { AttendanceSessionsService } from './services/attendance-sessions.service';
 import { JustificationsService } from './services/justifications.service';
-import { AttendanceRepository } from './repositories/attendance.repository';
-import { JustificationsRepository } from './repositories/justifications.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Attendance, Absence, AbsenceJustification])],
+  imports: [
+    TypeOrmModule.forFeature([
+      AttendanceSession,
+      Attendance,
+      TeachingAssignment,
+      GroupEnrollment,
+      AuditLog,
+      ScheduleEntry,
+    ]),
+    AcademicOfferingsModule,
+    UsersModule,
+  ],
   controllers: [AttendanceController, JustificationsController],
   providers: [
-    AttendanceService,
-    AbsencesService,
+    AttendanceSessionsService,
+    AttendanceRecordsService,
     JustificationsService,
-    AttendanceRepository,
-    JustificationsRepository,
   ],
-  exports: [AttendanceService, AbsencesService, JustificationsService],
+  exports: [AttendanceSessionsService, AttendanceRecordsService],
 })
 export class AttendanceModule {}

@@ -67,6 +67,11 @@ export class UsersBootstrapService implements OnModuleInit {
 
     for (const module of Object.values(PermissionModule)) {
       for (const action of Object.values(PermissionAction)) {
+        // Scoped actions (e.g. VIEW_OWN) are migration-managed, not invented here.
+        if (action === PermissionAction.VIEW_OWN) {
+          continue;
+        }
+
         const key = `${module}.${action}`;
 
         if (existingKeys.has(key)) {

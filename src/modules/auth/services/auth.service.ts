@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { Permission } from '../../../common/constants/permissions.constant';
+import {
+  ACCOUNT_PENDING_LOGIN_MESSAGE,
+  AUTH_ERROR_REASON,
+} from '../../../common/constants/auth-error-reason.constant';
 import { Role } from '../../../common/enums/role.enum';
 import { UserStatus } from '../../../common/enums/user-status.enum';
 import { AuditLogService } from '../../administrative/users/services/audit-log.service';
@@ -17,7 +22,6 @@ import { SessionsService } from './sessions.service';
 import { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { User } from '../../administrative/users/entities/user.entity';
-import { Permission } from '../../../common/constants/permissions.constant';
 
 const INVALID_CREDENTIALS = 'Credenciales inválidas';
 const ACCOUNT_UNAVAILABLE = 'Cuenta inactiva o bloqueada';
@@ -76,9 +80,10 @@ export class AuthService {
     }
 
     if (user.status === UserStatus.PENDING) {
-      throw new UnauthorizedException(
-        'La cuenta está pendiente de verificación. Revise su correo o solicite un código nuevo.',
-      );
+      throw new UnauthorizedException({
+        message: ACCOUNT_PENDING_LOGIN_MESSAGE,
+        reason: AUTH_ERROR_REASON.ACCOUNT_PENDING,
+      });
     }
 
     if (user.status !== UserStatus.ACTIVE) {

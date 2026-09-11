@@ -5,4 +5,5 @@ export enum PermissionAction {
   DELETE = 'DELETE',
   EXPORT = 'EXPORT',
   CONFIGURE = 'CONFIGURE',
+  VIEW_OWN = 'VIEW_OWN',
 }
