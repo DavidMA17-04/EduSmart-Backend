@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Min } from 'class-validator';
@@ -77,28 +68,19 @@ export class AttendanceController {
 
   @Post('sessions')
   @Permissions(PERMISSIONS.ATTENDANCE_REGISTER)
-  createSession(
-    @Body() dto: CreateAttendanceSessionDto,
-    @CurrentUser() actor: AuthenticatedUser,
-  ) {
+  createSession(@Body() dto: CreateAttendanceSessionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.sessions.createSession(dto, actor);
   }
 
   @Get('sessions/:id')
   @Permissions(PERMISSIONS.ATTENDANCE_READ)
-  getSessionDetail(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() actor: AuthenticatedUser,
-  ) {
+  getSessionDetail(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.sessions.getSessionDetail(id, actor);
   }
 
   @Post('sessions/:id/close')
   @Permissions(PERMISSIONS.ATTENDANCE_EDIT)
-  closeSession(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() actor: AuthenticatedUser,
-  ) {
+  closeSession(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.sessions.closeSession(id, actor);
   }
 

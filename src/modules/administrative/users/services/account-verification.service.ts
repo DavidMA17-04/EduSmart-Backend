@@ -80,7 +80,10 @@ export class AccountVerificationService {
       });
     } catch (error) {
       const reason =
-        error && typeof error === 'object' && 'code' in error && error.code === 'SMTP_NOT_CONFIGURED'
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'SMTP_NOT_CONFIGURED'
           ? 'SMTP_NOT_CONFIGURED'
           : 'SMTP_SEND_FAILED';
       this.logger.warn(
@@ -184,8 +187,7 @@ export class AccountVerificationService {
       }
 
       const priorCodes = await this.verifications.countCreatedSince(user.id, new Date(0));
-      const auditAction =
-        priorCodes === 0 ? 'USER_VERIFICATION_SENT' : 'USER_VERIFICATION_RESENT';
+      const auditAction = priorCodes === 0 ? 'USER_VERIFICATION_SENT' : 'USER_VERIFICATION_RESENT';
 
       await this.issueAndSend(user.id, null, auditAction);
     }

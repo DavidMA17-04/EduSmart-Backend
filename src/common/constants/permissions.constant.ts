@@ -27,6 +27,8 @@ export const PERMISSIONS = {
   ATTENDANCE_REGISTER: 'attendance.create',
   ATTENDANCE_READ: 'attendance.view',
   ATTENDANCE_EDIT: 'attendance.edit',
+  ATTENDANCE_JUSTIFY: 'attendance.justify',
+  ATTENDANCE_REVIEW: 'attendance.review',
   SCHEDULES_VIEW: 'schedules.view',
   SCHEDULES_VIEW_OWN: 'schedules.view_own',
   SCHEDULES_EDIT: 'schedules.edit',

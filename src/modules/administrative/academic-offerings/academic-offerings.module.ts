@@ -6,9 +6,7 @@ import { SubjectEntity } from '../subjects/entities/subject.entity';
 import { AcademicOfferingEligibilityService } from './services/academic-offering-eligibility.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([GroupEntity, SubjectEntity, SpecialtyEntity]),
-  ],
+  imports: [TypeOrmModule.forFeature([GroupEntity, SubjectEntity, SpecialtyEntity])],
   providers: [AcademicOfferingEligibilityService],
   exports: [AcademicOfferingEligibilityService],
 })

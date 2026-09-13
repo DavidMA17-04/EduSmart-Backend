@@ -17,10 +17,7 @@ import { CreateScheduleEntryDto } from '../dto/create-schedule-entry.dto';
 import { UpdateScheduleEntryDto } from '../dto/update-schedule-entry.dto';
 import { ScheduleEntriesService } from '../services/schedule-entries.service';
 
-function optionalPositiveInt(
-  raw: string | undefined,
-  field: string,
-): number | undefined {
+function optionalPositiveInt(raw: string | undefined, field: string): number | undefined {
   if (raw == null || raw === '') return undefined;
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
@@ -47,8 +44,7 @@ export class ScheduleEntriesController {
   @Get()
   @Permissions(PERMISSIONS.SCHEDULES_VIEW)
   @ApiOperation({
-    summary:
-      'Listar entradas de horario (filtros: teacherId, groupId, periodId, dayOfWeek)',
+    summary: 'Listar entradas de horario (filtros: teacherId, groupId, periodId, dayOfWeek)',
   })
   list(
     @Query('teacherId') teacherId?: string,
@@ -81,10 +77,7 @@ export class ScheduleEntriesController {
   @Put(':id')
   @Permissions(PERMISSIONS.SCHEDULES_EDIT)
   @ApiOperation({ summary: 'Actualizar entrada de horario' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateScheduleEntryDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateScheduleEntryDto) {
     return this.service.update(id, dto);
   }
 

@@ -33,10 +33,6 @@ export class GroupEnrollmentsController {
   @Permissions(PERMISSIONS.STUDENTS_READ)
   @ApiOperation({ summary: 'Grupo del estudiante en una fecha (as-of)' })
   findAsOf(@Query() query: GroupEnrollmentAsOfQueryDto) {
-    return this.service.findGroupAsOf(
-      query.userId,
-      query.date,
-      query.academicPeriodId,
-    );
+    return this.service.findGroupAsOf(query.userId, query.date, query.academicPeriodId);
   }
 }

@@ -41,7 +41,9 @@ export class ImportSuccessRecordDto {
   @IsString()
   role?: string;
 
-  @ApiPropertyOptional({ description: 'ID del usuario creado, cuando el motor de importación lo persista' })
+  @ApiPropertyOptional({
+    description: 'ID del usuario creado, cuando el motor de importación lo persista',
+  })
   @IsOptional()
   @IsString()
   userId?: string;

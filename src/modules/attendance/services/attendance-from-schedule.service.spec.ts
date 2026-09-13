@@ -86,12 +86,7 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
     group: { id: 20, name: '7-1', section: { gradeLevel: 7 } },
   };
 
-  function classEntry(
-    id: number,
-    start: string,
-    end: string,
-    displayOrder = id,
-  ) {
+  function classEntry(id: number, start: string, end: string, displayOrder = id) {
     return {
       id,
       teachingAssignmentId: 100,
@@ -156,16 +151,14 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
 
   it('1. own single block → create', async () => {
     stubOwnedRun();
-    sessions.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 50,
-        status: AttendanceSessionStatus.OPEN,
-        teachingAssignment: ta,
-        teachingAssignmentId: 100,
-        scheduleEntryId: 1,
-        sessionDate: '2026-09-14',
-      });
+    sessions.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 50,
+      status: AttendanceSessionStatus.OPEN,
+      teachingAssignment: ta,
+      teachingAssignmentId: 100,
+      scheduleEntryId: 1,
+      sessionDate: '2026-09-14',
+    });
 
     const created = await service.createSessionFromSchedule(
       { scheduleEntryId: 1 },
@@ -194,22 +187,16 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
     ];
     stubOwnedRun(entries);
     sessions.findOne.mockResolvedValue(null);
-    sessions.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 50,
-        status: AttendanceSessionStatus.OPEN,
-        teachingAssignment: ta,
-        teachingAssignmentId: 100,
-        scheduleEntryId: 1,
-        sessionDate: '2026-09-14',
-      });
+    sessions.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 50,
+      status: AttendanceSessionStatus.OPEN,
+      teachingAssignment: ta,
+      teachingAssignmentId: 100,
+      scheduleEntryId: 1,
+      sessionDate: '2026-09-14',
+    });
 
-    await service.createSessionFromSchedule(
-      { scheduleEntryId: 2 },
-      teacher,
-      mondayDuring,
-    );
+    await service.createSessionFromSchedule({ scheduleEntryId: 2 }, teacher, mondayDuring);
     expect(sessionRepoTx.create).toHaveBeenCalledWith(
       expect.objectContaining({ scheduleEntryId: 1 }),
     );
@@ -218,22 +205,14 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
   it('5. other teacher → 403', async () => {
     stubOwnedRun();
     await expect(
-      service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        otherTeacher,
-        mondayDuring,
-      ),
+      service.createSessionFromSchedule({ scheduleEntryId: 1 }, otherTeacher, mondayDuring),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('6. wrong weekday → ATTENDANCE_SCHEDULE_WRONG_DAY', async () => {
     stubOwnedRun();
     try {
-      await service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        tuesday,
-      );
+      await service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, tuesday);
       throw new Error('expected reject');
     } catch (e) {
       expect(e).toBeInstanceOf(BadRequestException);
@@ -244,41 +223,25 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
   });
 
   it('7. 10 min before → allowed', async () => {
-    stubOwnedRun([
-      classEntry(1, '07:00:00', '07:40:00'),
-      classEntry(2, '07:40:00', '08:20:00'),
-    ]);
-    sessions.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 50,
-        status: AttendanceSessionStatus.OPEN,
-        teachingAssignment: ta,
-        teachingAssignmentId: 100,
-        scheduleEntryId: 1,
-        sessionDate: '2026-09-14',
-      });
+    stubOwnedRun([classEntry(1, '07:00:00', '07:40:00'), classEntry(2, '07:40:00', '08:20:00')]);
+    sessions.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 50,
+      status: AttendanceSessionStatus.OPEN,
+      teachingAssignment: ta,
+      teachingAssignmentId: 100,
+      scheduleEntryId: 1,
+      sessionDate: '2026-09-14',
+    });
     await expect(
-      service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        mondayWindowOpen,
-      ),
+      service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, mondayWindowOpen),
     ).resolves.toMatchObject({ id: 50 });
   });
 
   it('8. before -10 → ATTENDANCE_OUTSIDE_SCHEDULE_WINDOW', async () => {
-    stubOwnedRun([
-      classEntry(1, '07:00:00', '07:40:00'),
-      classEntry(2, '07:40:00', '08:20:00'),
-    ]);
+    stubOwnedRun([classEntry(1, '07:00:00', '07:40:00'), classEntry(2, '07:40:00', '08:20:00')]);
     sessions.findOne.mockResolvedValue(null);
     try {
-      await service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        mondayEarly,
-      );
+      await service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, mondayEarly);
       throw new Error('expected reject');
     } catch (e) {
       expect((e as BadRequestException).getResponse()).toMatchObject({
@@ -288,35 +251,22 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
   });
 
   it('9–10. during allowed; after end without session rejected', async () => {
-    stubOwnedRun([
-      classEntry(1, '07:00:00', '07:40:00'),
-      classEntry(2, '07:40:00', '08:20:00'),
-    ]);
-    sessions.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 50,
-        status: AttendanceSessionStatus.OPEN,
-        teachingAssignment: ta,
-        teachingAssignmentId: 100,
-        scheduleEntryId: 1,
-        sessionDate: '2026-09-14',
-      });
+    stubOwnedRun([classEntry(1, '07:00:00', '07:40:00'), classEntry(2, '07:40:00', '08:20:00')]);
+    sessions.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 50,
+      status: AttendanceSessionStatus.OPEN,
+      teachingAssignment: ta,
+      teachingAssignmentId: 100,
+      scheduleEntryId: 1,
+      sessionDate: '2026-09-14',
+    });
     await expect(
-      service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        mondayAtEnd,
-      ),
+      service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, mondayAtEnd),
     ).resolves.toBeTruthy();
 
     sessions.findOne.mockResolvedValue(null);
     try {
-      await service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        mondayAfter,
-      );
+      await service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, mondayAfter);
       throw new Error('expected reject');
     } catch (e) {
       expect((e as BadRequestException).getResponse()).toMatchObject({
@@ -337,21 +287,13 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
     };
     sessions.findOne.mockResolvedValue(open);
     await expect(
-      service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        mondayAfter,
-      ),
+      service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, mondayAfter),
     ).resolves.toMatchObject({ id: 77, status: AttendanceSessionStatus.OPEN });
 
     const closed = { ...open, id: 88, status: AttendanceSessionStatus.CLOSED };
     sessions.findOne.mockResolvedValue(closed);
     await expect(
-      service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        mondayAfter,
-      ),
+      service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, mondayAfter),
     ).resolves.toMatchObject({
       id: 88,
       status: AttendanceSessionStatus.CLOSED,
@@ -361,16 +303,14 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
 
   it('14. concurrent duplicate key → returns existing (no 500)', async () => {
     stubOwnedRun();
-    sessions.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 60,
-        status: AttendanceSessionStatus.OPEN,
-        teachingAssignment: ta,
-        teachingAssignmentId: 100,
-        scheduleEntryId: 1,
-        sessionDate: '2026-09-14',
-      });
+    sessions.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 60,
+      status: AttendanceSessionStatus.OPEN,
+      teachingAssignment: ta,
+      teachingAssignmentId: 100,
+      scheduleEntryId: 1,
+      sessionDate: '2026-09-14',
+    });
     dataSource.transaction.mockRejectedValueOnce(
       Object.assign(new Error('dup'), {
         code: 'ER_DUP_ENTRY',
@@ -379,11 +319,7 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
     );
 
     await expect(
-      service.createSessionFromSchedule(
-        { scheduleEntryId: 1 },
-        teacher,
-        mondayDuring,
-      ),
+      service.createSessionFromSchedule({ scheduleEntryId: 1 }, teacher, mondayDuring),
     ).resolves.toMatchObject({ id: 60 });
   });
 
@@ -392,10 +328,12 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
       innerJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
-        classEntry(1, '07:00:00', '07:40:00', 1),
-        classEntry(2, '07:40:00', '08:20:00', 2),
-      ]),
+      getMany: jest
+        .fn()
+        .mockResolvedValue([
+          classEntry(1, '07:00:00', '07:40:00', 1),
+          classEntry(2, '07:40:00', '08:20:00', 2),
+        ]),
     };
     scheduleEntries.createQueryBuilder.mockReturnValue(qb);
     sessions.find.mockResolvedValue([
@@ -422,24 +360,16 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
   it('missing schedule entry → 404', async () => {
     scheduleEntries.findOne.mockResolvedValue(null);
     await expect(
-      service.createSessionFromSchedule(
-        { scheduleEntryId: 999 },
-        teacher,
-        mondayDuring,
-      ),
+      service.createSessionFromSchedule({ scheduleEntryId: 999 }, teacher, mondayDuring),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 
 describe('Schedule occurrence historical protection helpers (F)', () => {
   it('25–28. used run members marked; adjacent join would touch used', async () => {
-    const {
-      groupScheduleOccurrences,
-      usedEntryIdsFromRuns,
-    } = await import('../../schedule/utils/schedule-occurrence-protection.util');
-    const { ScheduleSlotType: ST } = await import(
-      '../../../common/enums/schedule-slot-type.enum'
-    );
+    const { groupScheduleOccurrences, usedEntryIdsFromRuns } =
+      await import('../../schedule/utils/schedule-occurrence-protection.util');
+    const { ScheduleSlotType: ST } = await import('../../../common/enums/schedule-slot-type.enum');
 
     const inputs = [
       {
@@ -482,8 +412,6 @@ describe('Schedule occurrence historical protection helpers (F)', () => {
       r.entryIds.includes(-1),
     );
     expect(joined?.entryIds).toEqual([1, -1, 2]);
-    expect(
-      joined!.entryIds.some((id: number) => id !== -1 && used.has(id)),
-    ).toBe(true);
+    expect(joined!.entryIds.some((id: number) => id !== -1 && used.has(id))).toBe(true);
   });
 });

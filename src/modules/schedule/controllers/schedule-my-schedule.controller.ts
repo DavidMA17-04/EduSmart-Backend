@@ -16,13 +16,9 @@ export class ScheduleMyScheduleController {
   @Get('my-schedule')
   @Permissions(PERMISSIONS.SCHEDULES_VIEW_OWN)
   @ApiOperation({
-    summary:
-      'Horario propio del actor (Docente por TA; Estudiante por GroupEnrollment)',
+    summary: 'Horario propio del actor (Docente por TA; Estudiante por GroupEnrollment)',
   })
-  getMySchedule(
-    @CurrentUser() actor: AuthenticatedUser,
-    @Query() query: MyScheduleQueryDto,
-  ) {
+  getMySchedule(@CurrentUser() actor: AuthenticatedUser, @Query() query: MyScheduleQueryDto) {
     return this.entries.getMySchedule(
       { id: actor.id, roles: actor.roles ?? [] },
       {

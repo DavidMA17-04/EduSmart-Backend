@@ -29,20 +29,10 @@ describe('localClockInTimeZone / window helpers (F)', () => {
 
   it('subtractMinutesFromTime and inclusive window', () => {
     expect(subtractMinutesFromTime('07:00:00', 10)).toBe('06:50:00');
-    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '06:50:00')).toBe(
-      true,
-    );
-    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '06:49:59')).toBe(
-      false,
-    );
-    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '07:30:00')).toBe(
-      true,
-    );
-    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '08:20:00')).toBe(
-      true,
-    );
-    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '08:20:01')).toBe(
-      false,
-    );
+    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '06:50:00')).toBe(true);
+    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '06:49:59')).toBe(false);
+    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '07:30:00')).toBe(true);
+    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '08:20:00')).toBe(true);
+    expect(isWithinScheduleStartWindow('07:00:00', '08:20:00', '08:20:01')).toBe(false);
   });
 });

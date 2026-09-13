@@ -2,11 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { AcademicPeriodReportFilterDto } from '../dto/academic-period-report-filter.dto';
 import { AcademicStructureReportFilterDto } from '../dto/academic-structure-report-filter.dto';
 import { UserReportFilterDto } from '../dto/user-report-filter.dto';
-import {
-  ExcelColumn,
-  ExcelReportSpec,
-  buildExcelBuffer,
-} from '../helpers/report-excel.builder';
+import { ExcelColumn, ExcelReportSpec, buildExcelBuffer } from '../helpers/report-excel.builder';
 import {
   displayValue,
   formatDateOnly,
@@ -45,11 +41,8 @@ export class AdministrativeReportsExcelService {
     });
   }
 
-  async exportAcademicStructure(
-    filters: AcademicStructureReportFilterDto,
-  ): Promise<Buffer> {
-    const records =
-      await this.reportsService.getAcademicStructureReport(filters);
+  async exportAcademicStructure(filters: AcademicStructureReportFilterDto): Promise<Buffer> {
+    const records = await this.reportsService.getAcademicStructureReport(filters);
     return this.buildWorkbook({
       title: 'Reporte de Estructura Académica',
       sheetName: 'Estructura académica',
@@ -69,9 +62,7 @@ export class AdministrativeReportsExcelService {
     });
   }
 
-  async exportAcademicPeriods(
-    filters: AcademicPeriodReportFilterDto,
-  ): Promise<Buffer> {
+  async exportAcademicPeriods(filters: AcademicPeriodReportFilterDto): Promise<Buffer> {
     const records = await this.reportsService.getAcademicPeriodsReport(filters);
     return this.buildWorkbook({
       title: 'Reporte de Períodos Académicos',
@@ -98,8 +89,7 @@ export class AdministrativeReportsExcelService {
         generatedAt: formatDateTimeCostaRica(new Date()),
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Error desconocido';
+      const message = error instanceof Error ? error.message : 'Error desconocido';
       throw new InternalServerErrorException(
         `No se pudo generar el Excel de ${options.title}: ${message}`,
       );
@@ -118,9 +108,7 @@ export class AdministrativeReportsExcelService {
     ];
   }
 
-  private toAcademicStructureRow(
-    item: AcademicStructureReportItem,
-  ): Array<string | number> {
+  private toAcademicStructureRow(item: AcademicStructureReportItem): Array<string | number> {
     return [
       displayValue(item.groupName),
       displayValue(item.sectionName),
@@ -133,9 +121,7 @@ export class AdministrativeReportsExcelService {
     ];
   }
 
-  private toAcademicPeriodRow(
-    item: AcademicPeriodReportItem,
-  ): Array<string | number> {
+  private toAcademicPeriodRow(item: AcademicPeriodReportItem): Array<string | number> {
     return [
       displayValue(item.name),
       formatDateOnly(item.startDate),
@@ -198,9 +184,7 @@ export class AdministrativeReportsExcelService {
     return joinFilterLabels(labels);
   }
 
-  private formatAcademicPeriodFilters(
-    filters: AcademicPeriodReportFilterDto,
-  ): string {
+  private formatAcademicPeriodFilters(filters: AcademicPeriodReportFilterDto): string {
     const labels: string[] = [];
 
     if (filters.status !== undefined) {

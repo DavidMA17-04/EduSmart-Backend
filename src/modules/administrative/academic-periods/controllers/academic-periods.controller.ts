@@ -24,10 +24,7 @@ export class AcademicPeriodsController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Editar período académico' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateAcademicPeriodDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAcademicPeriodDto) {
     return this.service.update(id, dto);
   }
 

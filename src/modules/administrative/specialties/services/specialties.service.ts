@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 import { CreateSpecialtyDto } from '../dto/create-specialty.dto';
@@ -39,10 +35,7 @@ export class SpecialtiesService {
     return specialty;
   }
 
-  async update(
-    id: number,
-    dto: UpdateSpecialtyDto,
-  ): Promise<SpecialtyEntity> {
+  async update(id: number, dto: UpdateSpecialtyDto): Promise<SpecialtyEntity> {
     const specialty = await this.findOne(id);
 
     if (dto.name && dto.name !== specialty.name) {
@@ -74,10 +67,7 @@ export class SpecialtiesService {
     return this.repository.countByKind(kind);
   }
 
-  private async ensureUniqueName(
-    name: string,
-    excludeId?: number,
-  ): Promise<void> {
+  private async ensureUniqueName(name: string, excludeId?: number): Promise<void> {
     const existing = await this.repository.findByName(name.trim());
     if (existing && existing.id !== excludeId) {
       throw new ConflictException(`Specialty name "${name}" already exists`);

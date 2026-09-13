@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateSectionDto } from '../dto/create-section.dto';
 import { UpdateSectionDto } from '../dto/update-section.dto';
@@ -39,10 +30,7 @@ export class SectionsController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Actualizar nivel' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateSectionDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSectionDto) {
     return this.service.update(id, dto);
   }
 

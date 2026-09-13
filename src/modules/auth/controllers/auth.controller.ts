@@ -123,9 +123,7 @@ export class AuthController {
   @ApiBearerAuth()
   @Post('refresh')
   @ApiOperation({ summary: 'Renovar access token' })
-  refresh(
-    @CurrentUser() user: AuthenticatedUser & { refreshToken?: string },
-  ) {
+  refresh(@CurrentUser() user: AuthenticatedUser & { refreshToken?: string }) {
     return this.authService.refresh(user, user.refreshToken ?? '');
   }
 
@@ -139,10 +137,7 @@ export class AuthController {
   @ApiBearerAuth()
   @Delete('sessions/:id')
   @ApiOperation({ summary: 'Cerrar una sesión remota' })
-  revokeSession(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  revokeSession(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseIntPipe) id: number) {
     return this.sessionsService.revokeForUser(user.id, id);
   }
 }

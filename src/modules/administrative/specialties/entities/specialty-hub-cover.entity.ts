@@ -1,9 +1,4 @@
-import {
-  Column,
-  Entity,
-  PrimaryColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 
 @Entity({ name: 'specialty_hub_covers' })

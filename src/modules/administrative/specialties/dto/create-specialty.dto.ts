@@ -1,11 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 

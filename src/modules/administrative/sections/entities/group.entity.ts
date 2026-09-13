@@ -78,9 +78,7 @@ export class GroupEntity {
       studentCount: this.studentCount,
       sectionId: this.sectionId,
       specialtyId: this.specialtyId ?? this.specialty?.id ?? null,
-      specialty: this.specialty
-        ? { id: this.specialty.id, name: this.specialty.name }
-        : null,
+      specialty: this.specialty ? { id: this.specialty.id, name: this.specialty.name } : null,
       academicPeriodId: this.academicPeriodId,
       status: this.status,
       guideTeacherId: this.guideTeacherId ?? this.guideTeacher?.id ?? null,

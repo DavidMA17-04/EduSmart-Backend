@@ -157,11 +157,7 @@ export class UsersService {
     return view;
   }
 
-  async update(
-    id: number,
-    dto: UpdateUserDto,
-    actorId?: number,
-  ): Promise<UserPublicView> {
+  async update(id: number, dto: UpdateUserDto, actorId?: number): Promise<UserPublicView> {
     const user = await this.getByIdOrFail(id);
     const before = toUserPublicView(user) as unknown as Record<string, unknown>;
 
@@ -258,9 +254,7 @@ export class UsersService {
   async removeGuideTeacher(id: number, actorId?: number): Promise<UserPublicView> {
     const user = await this.getGuideTeacherOrFail(id);
     if (user.roles.some((role) => role.name === INSTITUTIONAL_ROLE_ADMIN)) {
-      throw new BadRequestException(
-        'No se puede eliminar un administrador desde docentes guía.',
-      );
+      throw new BadRequestException('No se puede eliminar un administrador desde docentes guía.');
     }
 
     await this.teachingAssignments.update(
@@ -268,11 +262,7 @@ export class UsersService {
       { isGuideTeacher: false },
     );
 
-    return this.update(
-      id,
-      { status: UserStatus.INACTIVE },
-      actorId,
-    );
+    return this.update(id, { status: UserStatus.INACTIVE }, actorId);
   }
 
   private async getTeacherRole() {
@@ -285,9 +275,7 @@ export class UsersService {
 
   private async getGuideTeacherOrFail(id: number): Promise<User> {
     const user = await this.getByIdOrFail(id);
-    const isTeacher = user.roles.some(
-      (role) => role.name === INSTITUTIONAL_ROLE_TEACHER,
-    );
+    const isTeacher = user.roles.some((role) => role.name === INSTITUTIONAL_ROLE_TEACHER);
     if (!isTeacher) {
       throw new NotFoundException(`Guide teacher ${id} not found`);
     }
@@ -302,22 +290,14 @@ export class UsersService {
     return user;
   }
 
-  private async ensureUniqueNationalId(
-    nationalId: string,
-    excludeId?: number,
-  ): Promise<void> {
+  private async ensureUniqueNationalId(nationalId: string, excludeId?: number): Promise<void> {
     const existing = await this.repository.findByNationalId(nationalId, excludeId);
     if (existing) {
-      throw new ConflictException(
-        `Ya existe un usuario con la cédula ${nationalId}`,
-      );
+      throw new ConflictException(`Ya existe un usuario con la cédula ${nationalId}`);
     }
   }
 
-  private async ensureUniqueEmail(
-    email: string,
-    excludeId?: number,
-  ): Promise<void> {
+  private async ensureUniqueEmail(email: string, excludeId?: number): Promise<void> {
     const existing = await this.repository.findByEmail(email, excludeId);
     if (existing) {
       throw new ConflictException(`Ya existe un usuario con el correo ${email}`);
@@ -329,9 +309,7 @@ export class UsersService {
       throw new BadRequestException('Debe asignar al menos un rol');
     }
 
-    const roles = await Promise.all(
-      roleIds.map((roleId) => this.rolesRepository.findById(roleId)),
-    );
+    const roles = await Promise.all(roleIds.map((roleId) => this.rolesRepository.findById(roleId)));
 
     const missing = roleIds.filter((roleId, index) => !roles[index]);
     if (missing.length) {

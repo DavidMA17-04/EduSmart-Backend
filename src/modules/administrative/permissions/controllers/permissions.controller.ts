@@ -10,11 +10,7 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../../../common/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
 import { CreatePermissionDto } from '../dto/create-permission.dto';
@@ -51,10 +47,7 @@ export class PermissionsController {
   @Put(':id')
   @Permissions(PERMISSIONS.ROLES_PERMISSIONS_EDIT)
   @ApiOperation({ summary: 'Actualizar permiso' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdatePermissionDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePermissionDto) {
     return this.service.update(id, dto);
   }
 

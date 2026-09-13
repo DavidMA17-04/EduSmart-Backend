@@ -1,18 +1,5 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-} from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../../../common/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
 import { AssignPermissionsDto } from '../dto/assign-permissions.dto';
@@ -50,10 +37,7 @@ export class RolesController {
   @Put(':id')
   @Permissions(PERMISSIONS.ROLES_PERMISSIONS_EDIT)
   @ApiOperation({ summary: 'Actualizar rol' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateRoleDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRoleDto) {
     return this.service.update(id, dto);
   }
 
@@ -67,10 +51,7 @@ export class RolesController {
   @Put(':id/permissions')
   @Permissions(PERMISSIONS.ROLES_PERMISSIONS_EDIT)
   @ApiOperation({ summary: 'Asignar permisos a un rol (reemplaza el set)' })
-  assignPermissions(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AssignPermissionsDto,
-  ) {
+  assignPermissions(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignPermissionsDto) {
     return this.service.assignPermissions(id, dto);
   }
 }

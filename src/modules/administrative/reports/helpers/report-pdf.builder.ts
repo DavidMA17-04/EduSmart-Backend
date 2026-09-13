@@ -92,9 +92,7 @@ export class ReportPdfBuilder {
     const logoDrawn = this.tryDrawLogo(logoPath, startY);
 
     const textX = logoDrawn ? MARGIN + LOGO_SIZE + LOGO_GAP : MARGIN;
-    const textWidth = logoDrawn
-      ? this.contentWidth - LOGO_SIZE - LOGO_GAP
-      : this.contentWidth;
+    const textWidth = logoDrawn ? this.contentWidth - LOGO_SIZE - LOGO_GAP : this.contentWidth;
 
     this.doc.font('Helvetica-Bold').fontSize(12).fillColor(TITLE_COLOR);
     this.doc.text(INSTITUTION.name, textX, startY, {
@@ -112,9 +110,7 @@ export class ReportPdfBuilder {
       width: textWidth,
     });
 
-    const identityBottom = logoDrawn
-      ? Math.max(this.doc.y, startY + LOGO_SIZE)
-      : this.doc.y;
+    const identityBottom = logoDrawn ? Math.max(this.doc.y, startY + LOGO_SIZE) : this.doc.y;
 
     this.doc.y = identityBottom + 12;
     this.doc.x = MARGIN;
@@ -195,8 +191,7 @@ export class ReportPdfBuilder {
         this.drawFooters();
         this.doc.end();
       } catch (error) {
-        const normalized =
-          error instanceof Error ? error : new Error(String(error));
+        const normalized = error instanceof Error ? error : new Error(String(error));
         this.doc.end();
         fail(normalized);
       }
@@ -222,15 +217,7 @@ export class ReportPdfBuilder {
   private resolveLogoPath(): string | null {
     const candidates = [
       join(__dirname, '..', 'assets', LOGO_FILENAME),
-      join(
-        process.cwd(),
-        'src',
-        'modules',
-        'administrative',
-        'reports',
-        'assets',
-        LOGO_FILENAME,
-      ),
+      join(process.cwd(), 'src', 'modules', 'administrative', 'reports', 'assets', LOGO_FILENAME),
     ];
 
     for (const candidate of candidates) {
@@ -262,9 +249,7 @@ export class ReportPdfBuilder {
   }
 
   private drawAccentBar(): void {
-    this.doc
-      .rect(0, 0, this.doc.page.width, ACCENT_BAR_HEIGHT)
-      .fill(TITLE_COLOR);
+    this.doc.rect(0, 0, this.doc.page.width, ACCENT_BAR_HEIGHT).fill(TITLE_COLOR);
   }
 
   private drawHeaderSeparator(): void {
@@ -288,14 +273,9 @@ export class ReportPdfBuilder {
   private drawContinuedHeader(): void {
     this.drawAccentBar();
     this.doc.font('Helvetica-Bold').fontSize(9).fillColor(TITLE_COLOR);
-    this.doc.text(
-      `${INSTITUTION.name}  ·  ${this.reportTitle}`,
-      MARGIN,
-      MARGIN,
-      {
-        width: this.contentWidth,
-      },
-    );
+    this.doc.text(`${INSTITUTION.name}  ·  ${this.reportTitle}`, MARGIN, MARGIN, {
+      width: this.contentWidth,
+    });
 
     const lineY = this.doc.y + 4;
     this.doc
@@ -354,9 +334,7 @@ export class ReportPdfBuilder {
     const startY = this.doc.y;
     let x = MARGIN;
 
-    this.doc
-      .rect(MARGIN, startY, this.contentWidth, rowHeight)
-      .fill(style.background);
+    this.doc.rect(MARGIN, startY, this.contentWidth, rowHeight).fill(style.background);
 
     this.doc
       .rect(MARGIN, startY, this.contentWidth, rowHeight)
@@ -385,11 +363,7 @@ export class ReportPdfBuilder {
     this.doc.x = MARGIN;
   }
 
-  private measureRowHeight(
-    values: string[],
-    fontSize: number,
-    bold: boolean,
-  ): number {
+  private measureRowHeight(values: string[], fontSize: number, bold: boolean): number {
     this.doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(fontSize);
     let height = 18;
 

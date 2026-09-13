@@ -46,7 +46,10 @@ export class SessionsService {
       session.userId !== userId ||
       session.revokedAt ||
       session.expiresAt.getTime() <= Date.now() ||
-      !this.tokenService.hashesMatch(session.refreshTokenHash, this.tokenService.hashToken(refreshToken))
+      !this.tokenService.hashesMatch(
+        session.refreshTokenHash,
+        this.tokenService.hashToken(refreshToken),
+      )
     ) {
       throw new UnauthorizedException('La sesión ya no es válida. Inicie sesión de nuevo.');
     }

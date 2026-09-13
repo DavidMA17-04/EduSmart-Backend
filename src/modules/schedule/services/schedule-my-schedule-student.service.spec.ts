@@ -1,8 +1,7 @@
 import { ScheduleEntriesService } from './schedule-entries.service';
 
 describe('ScheduleEntriesService — student my-schedule (E1)', () => {
-  const andWhereCalls: Array<{ sql: string; params?: Record<string, unknown> }> =
-    [];
+  const andWhereCalls: Array<{ sql: string; params?: Record<string, unknown> }> = [];
 
   type Qb = {
     leftJoinAndSelect: jest.Mock;
@@ -53,14 +52,10 @@ describe('ScheduleEntriesService — student my-schedule (E1)', () => {
   it('1. estudiante con matrícula → solo entries de su group', async () => {
     groupEnrollments.findGroupAsOf.mockResolvedValue({ groupId: 3 });
     await service.listOwnForStudent(521);
-    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(
+    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(true);
+    expect(andWhereCalls.some((c) => String(c.sql).includes('ta.groupId = :studentGroupId'))).toBe(
       true,
     );
-    expect(
-      andWhereCalls.some((c) =>
-        String(c.sql).includes('ta.groupId = :studentGroupId'),
-      ),
-    ).toBe(true);
   });
 
   it('2/15. entry de otro group no entra (scope SQL group fijo)', async () => {
@@ -100,9 +95,7 @@ describe('ScheduleEntriesService — student my-schedule (E1)', () => {
     await service.listOwnForStudent(521, { periodId: 1 });
     expect(groupEnrollments.findLatestForPeriod).toHaveBeenCalledWith(521, 1);
     expect(groupEnrollments.findGroupAsOf).not.toHaveBeenCalled();
-    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(
-      true,
-    );
+    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(true);
     expect(andWhereCalls.some((c) => c.params?.periodId === 1)).toBe(true);
   });
 
@@ -112,33 +105,25 @@ describe('ScheduleEntriesService — student my-schedule (E1)', () => {
       status: 'ENDED',
     });
     await service.listOwnForStudent(521, { periodId: 1 });
-    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(
-      true,
-    );
+    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(true);
   });
 
   it('8. múltiples enrollments → latest group from findLatestForPeriod', async () => {
     groupEnrollments.findLatestForPeriod.mockResolvedValue({ groupId: 9 });
     await service.listOwnForStudent(521, { periodId: 1 });
-    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 9)).toBe(
-      true,
-    );
+    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 9)).toBe(true);
   });
 
   it('9. periodId sin enrollment → []', async () => {
     groupEnrollments.findLatestForPeriod.mockResolvedValue(null);
-    await expect(
-      service.listOwnForStudent(521, { periodId: 99 }),
-    ).resolves.toEqual([]);
+    await expect(service.listOwnForStudent(521, { periodId: 99 })).resolves.toEqual([]);
     expect(entryRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
 
   it('10–11. dayOfWeek / period+day AND con group scope', async () => {
     groupEnrollments.findLatestForPeriod.mockResolvedValue({ groupId: 3 });
     await service.listOwnForStudent(521, { periodId: 1, dayOfWeek: 2 });
-    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(
-      true,
-    );
+    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(true);
     expect(andWhereCalls.some((c) => c.params?.periodId === 1)).toBe(true);
     expect(andWhereCalls.some((c) => c.params?.dayOfWeek === 2)).toBe(true);
   });
@@ -152,10 +137,7 @@ describe('ScheduleEntriesService — student my-schedule (E1)', () => {
 
   it('getMySchedule Estudiante usa listOwnForStudent', async () => {
     const spy = jest.spyOn(service, 'listOwnForStudent').mockResolvedValue([]);
-    await service.getMySchedule(
-      { id: 521, roles: ['Estudiante'] },
-      { periodId: 1 },
-    );
+    await service.getMySchedule({ id: 521, roles: ['Estudiante'] }, { periodId: 1 });
     expect(spy).toHaveBeenCalledWith(521, { periodId: 1 });
   });
 

@@ -7,9 +7,7 @@ import {
   type ScheduleOccurrenceRun,
 } from './schedule-occurrence.util';
 
-export function scheduleEntryToOccurrenceInput(
-  entry: ScheduleEntry,
-): ScheduleOccurrenceEntryInput {
+export function scheduleEntryToOccurrenceInput(entry: ScheduleEntry): ScheduleOccurrenceEntryInput {
   if (!entry.timeSlot) {
     throw new Error(`ScheduleEntry ${entry.id} missing timeSlot relation`);
   }

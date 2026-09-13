@@ -124,9 +124,7 @@ describe('AccountVerificationService', () => {
 
     const result = await service.verifyAccount(user.email!, code);
     expect(result.message).toMatch(/verificada/i);
-    expect(users.save).toHaveBeenCalledWith(
-      expect.objectContaining({ status: UserStatus.ACTIVE }),
-    );
+    expect(users.save).toHaveBeenCalledWith(expect.objectContaining({ status: UserStatus.ACTIVE }));
     expect(auditLogService.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'USER_VERIFIED' }),
     );

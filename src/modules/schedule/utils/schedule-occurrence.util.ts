@@ -114,14 +114,11 @@ export function groupScheduleOccurrences(
         continue;
       }
       const prev = current[current.length - 1];
-      const contiguous =
-        normalizeTime(prev.endTime) === normalizeTime(entry.startTime);
+      const contiguous = normalizeTime(prev.endTime) === normalizeTime(entry.startTime);
       if (contiguous) {
         current.push(entry);
       } else {
-        runs.push(
-          toRun(prev.teachingAssignmentId, prev.dayOfWeek, current),
-        );
+        runs.push(toRun(prev.teachingAssignmentId, prev.dayOfWeek, current));
         current = [entry];
       }
     }

@@ -24,13 +24,9 @@ describe('PublicService.getCampusSnapshot', () => {
   });
 
   it('returns aggregate counts only (no sensitive fields)', async () => {
-    userRepo.count
-      .mockResolvedValueOnce(120)
-      .mockResolvedValueOnce(95);
+    userRepo.count.mockResolvedValueOnce(120).mockResolvedValueOnce(95);
     sectionRepo.count.mockResolvedValue(8);
-    specialtyRepo.count
-      .mockResolvedValueOnce(12)
-      .mockResolvedValueOnce(7);
+    specialtyRepo.count.mockResolvedValueOnce(12).mockResolvedValueOnce(7);
 
     const result = await service.getCampusSnapshot();
 

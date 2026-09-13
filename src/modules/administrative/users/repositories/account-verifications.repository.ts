@@ -26,10 +26,7 @@ export class AccountVerificationsRepository {
   }
 
   async invalidateActiveForUser(userId: number): Promise<void> {
-    await this.repository.update(
-      { userId, consumedAt: IsNull() },
-      { consumedAt: new Date() },
-    );
+    await this.repository.update({ userId, consumedAt: IsNull() }, { consumedAt: new Date() });
   }
 
   countCreatedSince(userId: number, since: Date): Promise<number> {

@@ -1,12 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { PermissionAction } from '../../../../common/enums/permission-action.enum';
 import { PermissionModule } from '../../../../common/enums/permission-module.enum';
 
@@ -22,8 +15,7 @@ export class CreatePermissionDto {
   @MinLength(3)
   @MaxLength(120)
   @Matches(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/, {
-    message:
-      'code must be lowercase alphanumeric segments separated by ., _ or -',
+    message: 'code must be lowercase alphanumeric segments separated by ., _ or -',
   })
   code?: string;
 

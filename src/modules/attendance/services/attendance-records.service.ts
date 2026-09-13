@@ -46,15 +46,9 @@ export class AttendanceRecordsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async getRoster(
-    sessionId: number,
-    actor: AuthenticatedUser,
-  ): Promise<RosterStudentView[]> {
+  async getRoster(sessionId: number, actor: AuthenticatedUser): Promise<RosterStudentView[]> {
     const session = await this.sessionsService.findOne(sessionId);
-    this.sessionsService.assertCanManageTeachingAssignment(
-      session.teachingAssignment,
-      actor,
-    );
+    this.sessionsService.assertCanManageTeachingAssignment(session.teachingAssignment, actor);
 
     const students = await this.loadRosterUsers(
       session.teachingAssignment.groupId,
@@ -113,10 +107,7 @@ export class AttendanceRecordsService {
         throw new NotFoundException(`AttendanceSession ${sessionId} not found`);
       }
 
-      this.sessionsService.assertCanManageTeachingAssignment(
-        session.teachingAssignment,
-        actor,
-      );
+      this.sessionsService.assertCanManageTeachingAssignment(session.teachingAssignment, actor);
 
       if (session.status !== AttendanceSessionStatus.OPEN) {
         throw new BadRequestException({
@@ -157,9 +148,7 @@ export class AttendanceRecordsService {
           studentUserId: In(studentIds),
         },
       });
-      const existingByStudent = new Map(
-        existingRows.map((row) => [row.studentUserId, row]),
-      );
+      const existingByStudent = new Map(existingRows.map((row) => [row.studentUserId, row]));
 
       const now = new Date();
       const results: Attendance[] = [];
@@ -264,8 +253,7 @@ export class AttendanceRecordsService {
       .filter((user) =>
         (user.userRoles ?? []).some(
           (row) =>
-            row.role?.status === RoleStatus.ACTIVE &&
-            row.role.name === INSTITUTIONAL_ROLE_STUDENT,
+            row.role?.status === RoleStatus.ACTIVE && row.role.name === INSTITUTIONAL_ROLE_STUDENT,
         ),
       );
 
@@ -281,8 +269,7 @@ export class AttendanceRecordsService {
     if (err?.code === 'ER_DUP_ENTRY' || err?.errno === 1062) {
       throw new ConflictException({
         code: 'ATTENDANCE_DUPLICATE',
-        message:
-          'An attendance record already exists for this student in the session',
+        message: 'An attendance record already exists for this student in the session',
       });
     }
   }

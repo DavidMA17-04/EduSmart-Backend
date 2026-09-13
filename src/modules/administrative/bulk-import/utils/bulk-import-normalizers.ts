@@ -33,8 +33,7 @@ export function normalizeTextKey(value: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-export const BULK_IMPORT_ROLE_NOT_FOUND =
-  'El rol especificado no existe en el sistema';
+export const BULK_IMPORT_ROLE_NOT_FOUND = 'El rol especificado no existe en el sistema';
 
 export const BULK_IMPORT_STUDENT_ONLY_ERROR =
   'La importación masiva solo admite registros con rol ESTUDIANTE';
@@ -59,9 +58,7 @@ export function normalizeRole(raw: string): UserRoleEnum | null {
     return ROLE_ALIASES[key];
   }
   const upper = key.toUpperCase();
-  return (Object.values(UserRoleEnum) as string[]).includes(upper)
-    ? (upper as UserRoleEnum)
-    : null;
+  return (Object.values(UserRoleEnum) as string[]).includes(upper) ? (upper as UserRoleEnum) : null;
 }
 
 /** Candidatos de nombre en BD para cada valor canónico del archivo. */
@@ -72,9 +69,7 @@ export const ROLE_ENUM_DB_CANDIDATES: Record<UserRoleEnum, string[]> = {
   [UserRoleEnum.DIRECTIVO]: ['directivo', 'director'],
 };
 
-export type UserStatusParseResult =
-  | { ok: true; value: UserStatus }
-  | { ok: false; error: string };
+export type UserStatusParseResult = { ok: true; value: UserStatus } | { ok: false; error: string };
 
 export function parseUserStatus(raw: string): UserStatusParseResult {
   const key = normalizeTextKey(raw);
@@ -93,10 +88,7 @@ export function parseUserStatus(raw: string): UserStatusParseResult {
   return { ok: true, value: status };
 }
 
-export function pickFirstValue(
-  row: Record<string, string>,
-  keys: string[],
-): string {
+export function pickFirstValue(row: Record<string, string>, keys: string[]): string {
   for (const key of keys) {
     const value = row[key];
     if (value) {
@@ -108,8 +100,7 @@ export function pickFirstValue(
 
 const BULK_IMPORT_NATIONAL_ID_PATTERN = /^[0-9]{9,30}$/;
 
-export const BULK_IMPORT_NATIONAL_ID_ERROR =
-  'La cédula debe contener entre 9 y 30 dígitos.';
+export const BULK_IMPORT_NATIONAL_ID_ERROR = 'La cédula debe contener entre 9 y 30 dígitos.';
 
 export function digitsOnlyNationalId(value: string): string {
   return value.replace(/-/g, '').trim();

@@ -2,8 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ScheduleEntriesService } from './schedule-entries.service';
 
 describe('ScheduleEntriesService — listOwn / getMySchedule (D1)', () => {
-  const andWhereCalls: Array<{ sql: string; params?: Record<string, unknown> }> =
-    [];
+  const andWhereCalls: Array<{ sql: string; params?: Record<string, unknown> }> = [];
 
   type Qb = {
     leftJoinAndSelect: jest.Mock;
@@ -83,11 +82,9 @@ describe('ScheduleEntriesService — listOwn / getMySchedule (D1)', () => {
     await service.listOwn(522);
     expect(entryRepo.createQueryBuilder).toHaveBeenCalledWith('entry');
     expect(andWhereCalls.some((c) => c.params?.actorUserId === 522)).toBe(true);
-    expect(
-      andWhereCalls.some((c) =>
-        String(c.sql).includes('ta.userId = :actorUserId'),
-      ),
-    ).toBe(true);
+    expect(andWhereCalls.some((c) => String(c.sql).includes('ta.userId = :actorUserId'))).toBe(
+      true,
+    );
   });
 
   it('2. actor 522 → filtro actorUserId=522', async () => {
@@ -129,10 +126,7 @@ describe('ScheduleEntriesService — listOwn / getMySchedule (D1)', () => {
   it('16. getMySchedule usa listOwn (actor) + timeSlots.list, no list() admin', async () => {
     const listSpy = jest.spyOn(service, 'list');
     const ownSpy = jest.spyOn(service, 'listOwn').mockResolvedValue([]);
-    await service.getMySchedule(
-      { id: 522, roles: ['Docente'] },
-      { periodId: 1 },
-    );
+    await service.getMySchedule({ id: 522, roles: ['Docente'] }, { periodId: 1 });
     expect(ownSpy).toHaveBeenCalledWith(522, { periodId: 1 });
     expect(listSpy).not.toHaveBeenCalled();
     expect(timeSlots.list).toHaveBeenCalled();
@@ -146,9 +140,7 @@ describe('ScheduleEntriesService — listOwn / getMySchedule (D1)', () => {
 
   it('22. Docente + Estudiante → teacher scope', async () => {
     const ownSpy = jest.spyOn(service, 'listOwn').mockResolvedValue([]);
-    const studentSpy = jest
-      .spyOn(service, 'listOwnForStudent')
-      .mockResolvedValue([]);
+    const studentSpy = jest.spyOn(service, 'listOwnForStudent').mockResolvedValue([]);
     await service.getMySchedule({
       id: 99,
       roles: ['Docente', 'Estudiante'],
@@ -167,9 +159,7 @@ describe('ScheduleEntriesService — listOwn / getMySchedule (D1)', () => {
 
   it('actor inválido → BadRequest', async () => {
     await expect(service.listOwn(0)).rejects.toBeInstanceOf(BadRequestException);
-    await expect(service.listOwn(-1)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(service.listOwn(-1)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('11–15. list admin sin actorUserId (regresión filtros)', async () => {
@@ -190,8 +180,6 @@ describe('ScheduleEntriesService — listOwn / getMySchedule (D1)', () => {
   it('admin list sin filtros → sin andWhere de teacher (global)', async () => {
     await service.list({});
     expect(andWhereCalls.every((c) => c.params?.teacherId == null)).toBe(true);
-    expect(andWhereCalls.every((c) => c.params?.actorUserId == null)).toBe(
-      true,
-    );
+    expect(andWhereCalls.every((c) => c.params?.actorUserId == null)).toBe(true);
   });
 });

@@ -11,16 +11,10 @@ export class AcademicOfferingEligibilityPolicy {
   allowedKindsForGrade(grade: number): AcademicOfferingKind[] {
     if (!Number.isInteger(grade)) return [];
     if (grade >= 7 && grade <= 9) {
-      return [
-        AcademicOfferingKind.SUBJECT,
-        AcademicOfferingKind.EXPLORATORY_WORKSHOP,
-      ];
+      return [AcademicOfferingKind.SUBJECT, AcademicOfferingKind.EXPLORATORY_WORKSHOP];
     }
     if (grade >= 10 && grade <= 12) {
-      return [
-        AcademicOfferingKind.SUBJECT,
-        AcademicOfferingKind.TECHNICAL_SPECIALTY,
-      ];
+      return [AcademicOfferingKind.SUBJECT, AcademicOfferingKind.TECHNICAL_SPECIALTY];
     }
     return [];
   }

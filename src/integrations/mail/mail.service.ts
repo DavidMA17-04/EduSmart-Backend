@@ -34,18 +34,13 @@ export class MailService {
     const host = (this.configService.get<string>('mail.host') ?? '').trim();
     const user = this.configService.get<string>('mail.user') ?? '';
     const password = this.configService.get<string>('mail.password') ?? '';
-    const fromAddress =
-      this.configService.get<string>('mail.from') ?? 'no-reply@edusmart.local';
-    const fromName =
-      this.configService.get<string>('mail.fromName') ?? 'EduSmart CTP Hojancha';
+    const fromAddress = this.configService.get<string>('mail.from') ?? 'no-reply@edusmart.local';
+    const fromName = this.configService.get<string>('mail.fromName') ?? 'EduSmart CTP Hojancha';
     const port = Number(this.configService.get<number | string>('mail.port') ?? 587);
     const secure = this.resolveSecure(port);
 
     const smtpConfigured =
-      Boolean(host) &&
-      host !== 'smtp.example.com' &&
-      Boolean(user) &&
-      Boolean(password);
+      Boolean(host) && host !== 'smtp.example.com' && Boolean(user) && Boolean(password);
 
     if (!smtpConfigured) {
       this.logger.error(
@@ -106,9 +101,7 @@ export class MailService {
     }
   }
 
-  private toNodemailerAttachments(
-    attachments: MailCidAttachment[] | undefined,
-  ):
+  private toNodemailerAttachments(attachments: MailCidAttachment[] | undefined):
     | Array<{
         filename: string;
         content: Buffer;

@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AcademicOfferingKind } from '../../../common/enums/academic-offering-kind.enum';
 import { AttendanceSessionStatus } from '../../../common/enums/attendance-session-status.enum';
 import { Role } from '../../../common/enums/role.enum';
@@ -104,10 +100,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     teachingAssignments.findOne.mockResolvedValue(impartableTa);
     eligibility.assertOfferingAllowedForGroup.mockResolvedValue(8);
 
-    const result = await service.createSession(
-      { groupId: 20, teachingAssignmentId: 100 },
-      teacher,
-    );
+    const result = await service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher);
 
     expect(result.status).toBe(AttendanceSessionStatus.OPEN);
     expect(dataSource.transaction).toHaveBeenCalled();
@@ -122,10 +115,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-03-12T02:30:00.000Z'));
 
-    await service.createSession(
-      { groupId: 20, teachingAssignmentId: 100 },
-      teacher,
-    );
+    await service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher);
 
     expect(sessionRepoTx.create).toHaveBeenCalledWith(
       expect.objectContaining({ sessionDate: '2026-03-11' }),
@@ -136,10 +126,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
   it('8. create save + audit same transaction manager', async () => {
     teachingAssignments.findOne.mockResolvedValue(impartableTa);
     eligibility.assertOfferingAllowedForGroup.mockResolvedValue(8);
-    await service.createSession(
-      { groupId: 20, teachingAssignmentId: 100 },
-      teacher,
-    );
+    await service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher);
     expect(sessionRepoTx.save).toHaveBeenCalled();
     expect(auditRepoTx.save).toHaveBeenCalled();
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
@@ -151,10 +138,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     auditRepoTx.save.mockRejectedValue(new Error('audit failed'));
 
     await expect(
-      service.createSession(
-        { groupId: 20, teachingAssignmentId: 100 },
-        teacher,
-      ),
+      service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher),
     ).rejects.toThrow('audit failed');
   });
 
@@ -165,10 +149,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     });
 
     await expect(
-      service.createSession(
-        { groupId: 20, teachingAssignmentId: 100 },
-        teacher,
-      ),
+      service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -176,10 +157,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     teachingAssignments.findOne.mockResolvedValue(impartableTa);
 
     await expect(
-      service.createSession(
-        { groupId: 999, teachingAssignmentId: 100 },
-        teacher,
-      ),
+      service.createSession({ groupId: 999, teachingAssignmentId: 100 }, teacher),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -192,10 +170,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     });
 
     await expect(
-      service.createSession(
-        { groupId: 20, teachingAssignmentId: 100 },
-        teacher,
-      ),
+      service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher),
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'ATTENDANCE_SESSION_GUIDE_ONLY' }),
     });
@@ -213,10 +188,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     );
 
     await expect(
-      service.createSession(
-        { groupId: 20, teachingAssignmentId: 100 },
-        teacher,
-      ),
+      service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -232,10 +204,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     );
 
     await expect(
-      service.createSession(
-        { groupId: 20, teachingAssignmentId: 100 },
-        teacher,
-      ),
+      service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -288,9 +257,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
     });
     auditRepoTx.save.mockRejectedValue(new Error('audit close failed'));
 
-    await expect(service.closeSession(50, teacher)).rejects.toThrow(
-      'audit close failed',
-    );
+    await expect(service.closeSession(50, teacher)).rejects.toThrow('audit close failed');
   });
 
   it('15. PUT records and close both lock AttendanceSession row (structural)', async () => {
@@ -411,16 +378,12 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
         },
       ]);
 
-      await expect(service.listAvailableOfferings(20, teacher)).resolves.toEqual(
-        [],
-      );
+      await expect(service.listAvailableOfferings(20, teacher)).resolves.toEqual([]);
     });
 
     it('14. no incluir TAs de otro docente (filtro query)', async () => {
       eligibility.getGradeLevelForGroup.mockResolvedValue(8);
-      eligibility.allowedKindsForGroup.mockResolvedValue([
-        AcademicOfferingKind.SUBJECT,
-      ]);
+      eligibility.allowedKindsForGroup.mockResolvedValue([AcademicOfferingKind.SUBJECT]);
       const qb = mockQb([]);
       await service.listAvailableOfferings(20, teacher);
       expect(qb.andWhere).toHaveBeenCalledWith('ta.id_users = :teacherId', {
@@ -430,25 +393,17 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
 
     it('admin puede listar sin filtro de docente', async () => {
       eligibility.getGradeLevelForGroup.mockResolvedValue(8);
-      eligibility.allowedKindsForGroup.mockResolvedValue([
-        AcademicOfferingKind.SUBJECT,
-      ]);
+      eligibility.allowedKindsForGroup.mockResolvedValue([AcademicOfferingKind.SUBJECT]);
       const qb = mockQb([]);
       await service.listAvailableOfferings(20, admin);
-      expect(qb.andWhere).not.toHaveBeenCalledWith(
-        'ta.id_users = :teacherId',
-        expect.anything(),
-      );
+      expect(qb.andWhere).not.toHaveBeenCalledWith('ta.id_users = :teacherId', expect.anything());
     });
   });
 
   it('TA inexistente → 404', async () => {
     teachingAssignments.findOne.mockResolvedValue(null);
     await expect(
-      service.createSession(
-        { groupId: 20, teachingAssignmentId: 100 },
-        teacher,
-      ),
+      service.createSession({ groupId: 20, teachingAssignmentId: 100 }, teacher),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -519,9 +474,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
       ]);
 
       const views = await service.listAttendanceGroups(teacher);
-      expect(views).toEqual([
-        { groupId: 20, name: '8-1', gradeLevel: 8, sectionId: 5 },
-      ]);
+      expect(views).toEqual([{ groupId: 20, name: '8-1', gradeLevel: 8, sectionId: 5 }]);
     });
 
     it('2. Docente con TAs en 2 grupos → aparecen ambos', async () => {
@@ -625,9 +578,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
         }),
       ]);
       const views = await service.listAttendanceGroups(teacher);
-      expect(views).toEqual([
-        { groupId: 30, name: '11-1', gradeLevel: 11, sectionId: 8 },
-      ]);
+      expect(views).toEqual([{ groupId: 30, name: '11-1', gradeLevel: 11, sectionId: 8 }]);
     });
 
     it('8. Admin ve grupos con TAs impartibles de otros docentes', async () => {
@@ -644,13 +595,8 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
         }),
       ]);
       const views = await service.listAttendanceGroups(admin);
-      expect(qb.andWhere).not.toHaveBeenCalledWith(
-        'ta.id_users = :teacherId',
-        expect.anything(),
-      );
-      expect(views).toEqual([
-        { groupId: 40, name: '10-1', gradeLevel: 10, sectionId: 9 },
-      ]);
+      expect(qb.andWhere).not.toHaveBeenCalledWith('ta.id_users = :teacherId', expect.anything());
+      expect(views).toEqual([{ groupId: 40, name: '10-1', gradeLevel: 10, sectionId: 9 }]);
     });
 
     it('9. grupo solo guide-only → Admin tampoco lo recibe', async () => {
@@ -680,9 +626,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
         sessionDate: '2026-09-11',
         startedAt: new Date('2026-09-11T14:00:00Z'),
         closedAt:
-          status === AttendanceSessionStatus.CLOSED
-            ? new Date('2026-09-11T15:00:00Z')
-            : null,
+          status === AttendanceSessionStatus.CLOSED ? new Date('2026-09-11T15:00:00Z') : null,
         teachingAssignmentId: ta.id,
         teachingAssignment: ta,
       };

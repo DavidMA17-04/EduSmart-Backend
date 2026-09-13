@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AcademicOfferingKind } from '../../../../common/enums/academic-offering-kind.enum';
@@ -72,8 +68,7 @@ export class AcademicOfferingEligibilityService {
     if (hasSubject === hasSpecialty) {
       throw new BadRequestException({
         code: 'OFFERING_FK_XOR_REQUIRED',
-        message:
-          'Exactly one of subjectId or specialtyId must be set according to offeringKind',
+        message: 'Exactly one of subjectId or specialtyId must be set according to offeringKind',
       });
     }
 
