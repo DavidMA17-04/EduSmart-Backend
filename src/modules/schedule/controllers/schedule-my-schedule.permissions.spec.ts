@@ -30,23 +30,15 @@ describe('Schedule controllers permissions (D1 my-schedule)', () => {
     const controller = new ScheduleMyScheduleController({} as never);
     expect(
       guard.canActivate(
-        ctxFor(controller, controller.getMySchedule, [
-          PERMISSIONS.SCHEDULES_VIEW_OWN,
-        ]),
+        ctxFor(controller, controller.getMySchedule, [PERMISSIONS.SCHEDULES_VIEW_OWN]),
       ),
     ).toBe(true);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.getMySchedule, [
-          PERMISSIONS.SCHEDULES_VIEW,
-        ]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.getMySchedule, [PERMISSIONS.SCHEDULES_VIEW])),
     ).toBe(false);
     expect(
       guard.canActivate(
-        ctxFor(controller, controller.getMySchedule, [
-          PERMISSIONS.ATTENDANCE_READ,
-        ]),
+        ctxFor(controller, controller.getMySchedule, [PERMISSIONS.ATTENDANCE_READ]),
       ),
     ).toBe(false);
   });
@@ -54,48 +46,32 @@ describe('Schedule controllers permissions (D1 my-schedule)', () => {
   it('11. GET entries sigue requiriendo schedules.view', () => {
     const controller = new ScheduleEntriesController({} as never);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW])),
     ).toBe(true);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW_OWN]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW_OWN])),
     ).toBe(false);
   });
 
   it('17–19. view_own NO autoriza POST/PUT/DELETE entries', () => {
     const controller = new ScheduleEntriesController({} as never);
-    for (const handler of [
-      controller.create,
-      controller.update,
-      controller.remove,
-    ]) {
-      expect(
-        guard.canActivate(
-          ctxFor(controller, handler, [PERMISSIONS.SCHEDULES_VIEW_OWN]),
-        ),
-      ).toBe(false);
-      expect(
-        guard.canActivate(
-          ctxFor(controller, handler, [PERMISSIONS.SCHEDULES_EDIT]),
-        ),
-      ).toBe(true);
+    for (const handler of [controller.create, controller.update, controller.remove]) {
+      expect(guard.canActivate(ctxFor(controller, handler, [PERMISSIONS.SCHEDULES_VIEW_OWN]))).toBe(
+        false,
+      );
+      expect(guard.canActivate(ctxFor(controller, handler, [PERMISSIONS.SCHEDULES_EDIT]))).toBe(
+        true,
+      );
     }
   });
 
   it('20. view_own NO abre GET time-slots admin', () => {
     const controller = new ScheduleTimeSlotsController({} as never);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW_OWN]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW_OWN])),
     ).toBe(false);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW])),
     ).toBe(true);
   });
 
@@ -135,15 +111,7 @@ describe('migration 015 static audit (D1.1 VIEW_OWN)', () => {
   it('ALTER action enum preserva valores previos e incluye VIEW_OWN', () => {
     expect(executable).toMatch(/ALTER\s+TABLE\s+`permissions`/i);
     expect(executable).toMatch(/MODIFY\s+COLUMN\s+`action`\s+ENUM/i);
-    for (const value of [
-      'VIEW',
-      'CREATE',
-      'EDIT',
-      'DELETE',
-      'EXPORT',
-      'CONFIGURE',
-      'VIEW_OWN',
-    ]) {
+    for (const value of ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'EXPORT', 'CONFIGURE', 'VIEW_OWN']) {
       expect(executable).toContain(`'${value}'`);
     }
     expect(executable).not.toMatch(/MODIFY\s+COLUMN\s+`module`/i);
@@ -161,12 +129,8 @@ describe('migration 015 static audit (D1.1 VIEW_OWN)', () => {
   });
 
   it('insert usa action VIEW_OWN; no grant view/edit; no Estudiante', () => {
-    expect(executable).toMatch(
-      /SELECT\s+'schedules\.view_own',\s*'SCHEDULES',\s*'VIEW_OWN'/i,
-    );
-    expect(executable).not.toMatch(
-      /SELECT\s+'schedules\.view_own',\s*'SCHEDULES',\s*'VIEW'/i,
-    );
+    expect(executable).toMatch(/SELECT\s+'schedules\.view_own',\s*'SCHEDULES',\s*'VIEW_OWN'/i);
+    expect(executable).not.toMatch(/SELECT\s+'schedules\.view_own',\s*'SCHEDULES',\s*'VIEW'/i);
     expect(executable).not.toMatch(/p\.`code`\s*=\s*'schedules\.view'/);
     expect(executable).not.toContain("'schedules.edit'");
     expect(executable).not.toContain('Estudiante');

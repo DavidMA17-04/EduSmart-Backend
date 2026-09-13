@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, QueryRunner, Repository } from 'typeorm';
 import { ScheduleSlotType } from '../../../common/enums/schedule-slot-type.enum';
@@ -10,10 +6,7 @@ import { CreateScheduleTimeSlotDto } from '../dto/create-schedule-time-slot.dto'
 import { UpdateScheduleTimeSlotDto } from '../dto/update-schedule-time-slot.dto';
 import { ScheduleEntry } from '../entities/schedule-entry.entity';
 import { ScheduleTimeSlot } from '../entities/schedule-time-slot.entity';
-import {
-  ScheduleTimeSlotView,
-  toTimeSlotView,
-} from '../utils/schedule-mappers.util';
+import { ScheduleTimeSlotView, toTimeSlotView } from '../utils/schedule-mappers.util';
 import {
   acquireScheduleTimeSlotsMutateLock,
   assertLessonNumberForSlotType,
@@ -65,10 +58,7 @@ export class ScheduleTimeSlotsService {
       const endTime = normalizeScheduleTimeInput(dto.endTime);
       assertScheduleTimeSlotRange(startTime, endTime);
 
-      const lessonNumber = assertLessonNumberForSlotType(
-        dto.slotType,
-        dto.lessonNumber,
-      );
+      const lessonNumber = assertLessonNumberForSlotType(dto.slotType, dto.lessonNumber);
       const isActive = dto.isActive ?? true;
       const name = dto.name.trim();
       const displayOrder = dto.displayOrder;
@@ -102,10 +92,7 @@ export class ScheduleTimeSlotsService {
     });
   }
 
-  async update(
-    id: number,
-    dto: UpdateScheduleTimeSlotDto,
-  ): Promise<ScheduleTimeSlotView> {
+  async update(id: number, dto: UpdateScheduleTimeSlotDto): Promise<ScheduleTimeSlotView> {
     return this.runWithTimeSlotMutateLock(async (queryRunner) => {
       const manager = queryRunner.manager;
       const slot = await manager.getRepository(ScheduleTimeSlot).findOne({
@@ -128,10 +115,8 @@ export class ScheduleTimeSlotsService {
       );
 
       if (hasEntries) {
-        const startChanged =
-          normalizeScheduleTimeInput(slot.startTime) !== resultant.startTime;
-        const endChanged =
-          normalizeScheduleTimeInput(slot.endTime) !== resultant.endTime;
+        const startChanged = normalizeScheduleTimeInput(slot.startTime) !== resultant.startTime;
+        const endChanged = normalizeScheduleTimeInput(slot.endTime) !== resultant.endTime;
         const typeChanged = slot.slotType !== resultant.slotType;
 
         if (startChanged || endChanged || typeChanged) {
@@ -153,11 +138,7 @@ export class ScheduleTimeSlotsService {
           endTime: resultant.endTime,
           excludeId: id,
         });
-        await this.assertActiveDisplayOrderFree(
-          manager,
-          resultant.displayOrder,
-          id,
-        );
+        await this.assertActiveDisplayOrderFree(manager, resultant.displayOrder, id);
         await this.assertActiveLessonNumberFree(
           manager,
           {
@@ -214,10 +195,7 @@ export class ScheduleTimeSlotsService {
    * CLASS + active only. Prefer passing EntityManager when called inside a
    * QueryRunner transaction so the lookup uses the same connection.
    */
-  async requireAssignableSlot(
-    id: number,
-    manager?: EntityManager,
-  ): Promise<ScheduleTimeSlot> {
+  async requireAssignableSlot(id: number, manager?: EntityManager): Promise<ScheduleTimeSlot> {
     const slot = await this.requireSlot(id, manager);
     if (!slot.isActive) {
       throw new BadRequestException({
@@ -235,13 +213,8 @@ export class ScheduleTimeSlotsService {
     return slot;
   }
 
-  async requireSlot(
-    id: number,
-    manager?: EntityManager,
-  ): Promise<ScheduleTimeSlot> {
-    const repo = manager
-      ? manager.getRepository(ScheduleTimeSlot)
-      : this.slots;
+  async requireSlot(id: number, manager?: EntityManager): Promise<ScheduleTimeSlot> {
+    const repo = manager ? manager.getRepository(ScheduleTimeSlot) : this.slots;
     const slot = await repo.findOne({ where: { id } });
     if (!slot) throw new NotFoundException(`ScheduleTimeSlot ${id} not found`);
     return slot;
@@ -324,16 +297,14 @@ export class ScheduleTimeSlotsService {
       dto.endTime !== undefined ? dto.endTime : String(slot.endTime),
     );
     const slotType = dto.slotType !== undefined ? dto.slotType : slot.slotType;
-    const lessonNumber =
-      dto.lessonNumber !== undefined ? dto.lessonNumber : slot.lessonNumber;
+    const lessonNumber = dto.lessonNumber !== undefined ? dto.lessonNumber : slot.lessonNumber;
 
     return {
       lessonNumber: lessonNumber ?? null,
       name: dto.name !== undefined ? dto.name.trim() : slot.name,
       startTime,
       endTime,
-      displayOrder:
-        dto.displayOrder !== undefined ? dto.displayOrder : slot.displayOrder,
+      displayOrder: dto.displayOrder !== undefined ? dto.displayOrder : slot.displayOrder,
       slotType,
       isActive: dto.isActive !== undefined ? dto.isActive : slot.isActive,
     };
@@ -397,10 +368,7 @@ export class ScheduleTimeSlotsService {
     input: { slotType: ScheduleSlotType; lessonNumber: number | null },
     excludeId?: number,
   ): Promise<void> {
-    if (
-      input.slotType !== ScheduleSlotType.CLASS ||
-      input.lessonNumber == null
-    ) {
+    if (input.slotType !== ScheduleSlotType.CLASS || input.lessonNumber == null) {
       return;
     }
 

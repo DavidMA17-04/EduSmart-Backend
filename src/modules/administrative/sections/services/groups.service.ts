@@ -95,10 +95,7 @@ export class GroupsService {
     return this.findOne(id);
   }
 
-  async assignGuideTeacher(
-    id: number,
-    dto: AssignGuideTeacherDto,
-  ): Promise<GroupEntity> {
+  async assignGuideTeacher(id: number, dto: AssignGuideTeacherDto): Promise<GroupEntity> {
     const group = await this.findOne(id);
     if (dto.guideTeacherId) {
       await this.ensureGuideTeacher(dto.guideTeacherId);
@@ -118,9 +115,7 @@ export class GroupsService {
   ): Promise<void> {
     const existing = await this.repository.findBySectionAndName(sectionId, name);
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException(
-        `Group name "${name}" already exists in this section`,
-      );
+      throw new ConflictException(`Group name "${name}" already exists in this section`);
     }
   }
 
@@ -141,9 +136,7 @@ export class GroupsService {
       throw new BadRequestException('El docente debe tener una cuenta activa.');
     }
     const isTeacher = user.roles.some(
-      (role) =>
-        role.name === INSTITUTIONAL_ROLE_TEACHER &&
-        role.status === RoleStatus.ACTIVE,
+      (role) => role.name === INSTITUTIONAL_ROLE_TEACHER && role.status === RoleStatus.ACTIVE,
     );
     if (!isTeacher) {
       throw new BadRequestException(

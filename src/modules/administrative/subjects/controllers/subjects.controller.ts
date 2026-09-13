@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../../../common/decorators/permissions.decorator';
 import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
@@ -45,10 +36,7 @@ export class SubjectsController {
   @Put(':id')
   @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_EDIT)
   @ApiOperation({ summary: 'Actualizar materia' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateSubjectDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSubjectDto) {
     return this.service.update(id, dto);
   }
 

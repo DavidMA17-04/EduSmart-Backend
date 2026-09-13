@@ -15,13 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiConsumes,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { CreateSpecialtyDto } from '../dto/create-specialty.dto';
@@ -76,9 +70,7 @@ export class SpecialtiesController {
 
   @Delete('hub-covers/:kind')
   @ApiOperation({ summary: 'Quitar imagen de cover del hub' })
-  clearHubCover(
-    @Param('kind', new ParseEnumPipe(SpecialtyKind)) kind: SpecialtyKind,
-  ) {
+  clearHubCover(@Param('kind', new ParseEnumPipe(SpecialtyKind)) kind: SpecialtyKind) {
     return this.hubService.clearCover(kind);
   }
 
@@ -102,10 +94,7 @@ export class SpecialtiesController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Actualizar especialidad' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateSpecialtyDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSpecialtyDto) {
     return this.service.update(id, dto);
   }
 

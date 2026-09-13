@@ -99,9 +99,7 @@ export class BulkImportController {
     description: 'Usuarios importados exitosamente',
     type: ConfirmBulkImportResponseDto,
   })
-  async confirmImport(
-    @Body() dto: ConfirmBulkImportDto,
-  ): Promise<ConfirmBulkImportResponseDto> {
+  async confirmImport(@Body() dto: ConfirmBulkImportDto): Promise<ConfirmBulkImportResponseDto> {
     return this.service.confirmImport(dto);
   }
 

@@ -45,33 +45,37 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
       dataSource as never,
     );
 
-    manager.findOne.mockImplementation(async (entity: { name?: string }, opts: { lock?: unknown }) => {
-      lockCalls.push(opts?.lock);
-      if (entity?.name === 'User' || opts) {
-        // User lock path
+    manager.findOne.mockImplementation(
+      async (entity: { name?: string }, opts: { lock?: unknown }) => {
+        lockCalls.push(opts?.lock);
+        if (entity?.name === 'User' || opts) {
+          // User lock path
+          if (opts?.lock) {
+            return {
+              id: 7,
+              status: 'ACTIVE',
+              userRoles: [{ role: { name: 'Estudiante', status: 'ACTIVE' } }],
+            };
+          }
+        }
+        return { id: 20, academicPeriodId: 3 };
+      },
+    );
+
+    // Distinguish User vs Group by call order / lock presence
+    manager.findOne.mockImplementation(
+      async (_entity, opts: { where?: { id?: number }; lock?: unknown }) => {
         if (opts?.lock) {
+          lockCalls.push(opts.lock);
           return {
-            id: 7,
+            id: opts.where?.id ?? 7,
             status: 'ACTIVE',
             userRoles: [{ role: { name: 'Estudiante', status: 'ACTIVE' } }],
           };
         }
-      }
-      return { id: 20, academicPeriodId: 3 };
-    });
-
-    // Distinguish User vs Group by call order / lock presence
-    manager.findOne.mockImplementation(async (_entity, opts: { where?: { id?: number }; lock?: unknown }) => {
-      if (opts?.lock) {
-        lockCalls.push(opts.lock);
-        return {
-          id: opts.where?.id ?? 7,
-          status: 'ACTIVE',
-          userRoles: [{ role: { name: 'Estudiante', status: 'ACTIVE' } }],
-        };
-      }
-      return { id: opts?.where?.id ?? 20, academicPeriodId: 3 };
-    });
+        return { id: opts?.where?.id ?? 20, academicPeriodId: 3 };
+      },
+    );
   });
 
   it('create válido -> OK and requests pessimistic_write on student', async () => {
@@ -133,9 +137,7 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
       andWhere: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(null),
     };
-    enrollmentRepo.createQueryBuilder
-      .mockReturnValueOnce(activeQb)
-      .mockReturnValueOnce(overlapQb);
+    enrollmentRepo.createQueryBuilder.mockReturnValueOnce(activeQb).mockReturnValueOnce(overlapQb);
     enrollmentRepo.save
       .mockResolvedValueOnce({
         ...active,
@@ -190,9 +192,7 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
       andWhere: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(null),
     };
-    enrollmentRepo.createQueryBuilder
-      .mockReturnValueOnce(activeQb)
-      .mockReturnValueOnce(overlapQb);
+    enrollmentRepo.createQueryBuilder.mockReturnValueOnce(activeQb).mockReturnValueOnce(overlapQb);
     enrollmentRepo.save
       .mockResolvedValueOnce({
         ...active,
@@ -218,9 +218,9 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
   });
 
   it('as-of invalid userId -> 400', async () => {
-    await expect(
-      service.findGroupAsOf(Number.NaN, '2026-03-15'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.findGroupAsOf(Number.NaN, '2026-03-15')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('as-of before/after transfer window returns enrollment', async () => {
@@ -238,8 +238,6 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
       getOne: jest.fn().mockResolvedValue(enrollment),
     };
     repository.createQueryBuilder.mockReturnValue(qb);
-    await expect(service.findGroupAsOf(7, '2026-03-15')).resolves.toEqual(
-      enrollment,
-    );
+    await expect(service.findGroupAsOf(7, '2026-03-15')).resolves.toEqual(enrollment);
   });
 });

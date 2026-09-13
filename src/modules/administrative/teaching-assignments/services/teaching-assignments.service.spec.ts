@@ -70,17 +70,15 @@ describe('TeachingAssignmentsService eligibility', () => {
       name: 'Matemáticas',
     });
     eligibility.assertOfferingAllowedForGroup.mockResolvedValue(8);
-    repository.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 99,
-        offeringKind: AcademicOfferingKind.SUBJECT,
-        subjectId: 1,
-      });
+    repository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 99,
+      offeringKind: AcademicOfferingKind.SUBJECT,
+      subjectId: 1,
+    });
 
-    await expect(
-      createWith(AcademicOfferingKind.SUBJECT, { subjectId: 1 }),
-    ).resolves.toMatchObject({ id: 99 });
+    await expect(createWith(AcademicOfferingKind.SUBJECT, { subjectId: 1 })).resolves.toMatchObject(
+      { id: 99 },
+    );
     expect(eligibility.assertOfferingAllowedForGroup).toHaveBeenCalledWith(
       10,
       AcademicOfferingKind.SUBJECT,
@@ -95,9 +93,7 @@ describe('TeachingAssignmentsService eligibility', () => {
       name: 'Robótica',
     });
     eligibility.assertOfferingAllowedForGroup.mockResolvedValue(8);
-    repository.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 100 });
+    repository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 100 });
 
     await expect(
       createWith(AcademicOfferingKind.EXPLORATORY_WORKSHOP, {
@@ -137,9 +133,7 @@ describe('TeachingAssignmentsService eligibility', () => {
       name: 'Desarrollo',
     });
     eligibility.assertOfferingAllowedForGroup.mockResolvedValue(11);
-    repository.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 101 });
+    repository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 101 });
 
     await expect(
       service.create({
@@ -197,9 +191,9 @@ describe('TeachingAssignmentsService eligibility', () => {
     eligibility.assertOfferingAllowedForGroup.mockResolvedValue(8);
     repository.findOne.mockResolvedValue({ id: 50 });
 
-    await expect(
-      createWith(AcademicOfferingKind.SUBJECT, { subjectId: 1 }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(createWith(AcademicOfferingKind.SUBJECT, { subjectId: 1 })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('maps specialty kind mismatch through resolveOffering', async () => {

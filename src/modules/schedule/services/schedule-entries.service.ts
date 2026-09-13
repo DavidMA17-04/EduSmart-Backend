@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, QueryRunner, Repository } from 'typeorm';
 import { calendarDateInTimeZone } from '../../../common/utils/business-calendar-date.util';
@@ -155,10 +151,7 @@ export class ScheduleEntriesService {
       });
     }
 
-    const groupId = await this.resolveStudentGroupId(
-      actorUserId,
-      filters.periodId,
-    );
+    const groupId = await this.resolveStudentGroupId(actorUserId, filters.periodId);
     if (groupId == null) {
       return [];
     }
@@ -193,10 +186,7 @@ export class ScheduleEntriesService {
           ? this.listOwn(actor.id, filters)
           : Promise.resolve([]);
 
-    const [timeSlots, entries] = await Promise.all([
-      this.timeSlots.list(),
-      entriesPromise,
-    ]);
+    const [timeSlots, entries] = await Promise.all([this.timeSlots.list(), entriesPromise]);
     return { timeSlots, entries };
   }
 
@@ -205,18 +195,12 @@ export class ScheduleEntriesService {
     periodId?: number,
   ): Promise<number | null> {
     if (periodId != null) {
-      const enrollment = await this.groupEnrollments.findLatestForPeriod(
-        actorUserId,
-        periodId,
-      );
+      const enrollment = await this.groupEnrollments.findLatestForPeriod(actorUserId, periodId);
       return enrollment?.groupId ?? null;
     }
 
     const today = calendarDateInTimeZone(new Date());
-    const enrollment = await this.groupEnrollments.findGroupAsOf(
-      actorUserId,
-      today,
-    );
+    const enrollment = await this.groupEnrollments.findGroupAsOf(actorUserId, today);
     return enrollment?.groupId ?? null;
   }
 
@@ -243,135 +227,117 @@ export class ScheduleEntriesService {
 
   async create(dto: CreateScheduleEntryDto): Promise<ScheduleEntryView> {
     this.assertDayOfWeek(dto.dayOfWeek);
-    return this.runWithScheduleLocks(
-      async (queryRunner) => {
-        const manager = queryRunner.manager;
-        const ta = await this.loadAndValidateTeachingAssignment(
-          manager,
-          dto.teachingAssignmentId,
-        );
-        await this.timeSlots.requireAssignableSlot(dto.timeSlotId, manager);
-        await this.lockTimeSlot(manager, dto.timeSlotId);
+    return this.runWithScheduleLocks(async (queryRunner) => {
+      const manager = queryRunner.manager;
+      const ta = await this.loadAndValidateTeachingAssignment(manager, dto.teachingAssignmentId);
+      await this.timeSlots.requireAssignableSlot(dto.timeSlotId, manager);
+      await this.lockTimeSlot(manager, dto.timeSlotId);
 
-        return {
-          lockInput: {
+      return {
+        lockInput: {
+          teacherId: ta.userId,
+          groupId: ta.groupId,
+          dayOfWeek: dto.dayOfWeek,
+          timeSlotId: dto.timeSlotId,
+        },
+        work: async () => {
+          await this.assertNoConflicts(manager, {
             teacherId: ta.userId,
             groupId: ta.groupId,
+            teachingAssignmentId: ta.id,
             dayOfWeek: dto.dayOfWeek,
             timeSlotId: dto.timeSlotId,
-          },
-          work: async () => {
-            await this.assertNoConflicts(manager, {
-              teacherId: ta.userId,
-              groupId: ta.groupId,
-              teachingAssignmentId: ta.id,
-              dayOfWeek: dto.dayOfWeek,
-              timeSlotId: dto.timeSlotId,
-            });
+          });
 
-            const slot = await manager.getRepository(ScheduleTimeSlot).findOne({
-              where: { id: dto.timeSlotId },
-            });
-            if (!slot) {
-              throw new NotFoundException(
-                `ScheduleTimeSlot ${dto.timeSlotId} not found`,
-              );
-            }
-            await this.assertCreateDoesNotJoinUsedOccurrence(manager, {
-              teachingAssignmentId: ta.id,
-              dayOfWeek: dto.dayOfWeek,
-              slot,
-            });
+          const slot = await manager.getRepository(ScheduleTimeSlot).findOne({
+            where: { id: dto.timeSlotId },
+          });
+          if (!slot) {
+            throw new NotFoundException(`ScheduleTimeSlot ${dto.timeSlotId} not found`);
+          }
+          await this.assertCreateDoesNotJoinUsedOccurrence(manager, {
+            teachingAssignmentId: ta.id,
+            dayOfWeek: dto.dayOfWeek,
+            slot,
+          });
 
-            try {
-              const repo = manager.getRepository(ScheduleEntry);
-              const saved = await repo.save(
-                repo.create({
-                  teachingAssignmentId: ta.id,
-                  dayOfWeek: dto.dayOfWeek,
-                  timeSlotId: dto.timeSlotId,
-                }),
-              );
-              return toScheduleEntryView(await this.loadEntry(manager, saved.id));
-            } catch (error) {
-              this.rethrowDuplicate(error);
-              throw error;
-            }
-          },
-        };
-      },
-    );
+          try {
+            const repo = manager.getRepository(ScheduleEntry);
+            const saved = await repo.save(
+              repo.create({
+                teachingAssignmentId: ta.id,
+                dayOfWeek: dto.dayOfWeek,
+                timeSlotId: dto.timeSlotId,
+              }),
+            );
+            return toScheduleEntryView(await this.loadEntry(manager, saved.id));
+          } catch (error) {
+            this.rethrowDuplicate(error);
+            throw error;
+          }
+        },
+      };
+    });
   }
 
-  async update(
-    id: number,
-    dto: UpdateScheduleEntryDto,
-  ): Promise<ScheduleEntryView> {
-    return this.runWithScheduleLocks(
-      async (queryRunner) => {
-        const manager = queryRunner.manager;
-        const existing = await manager.getRepository(ScheduleEntry).findOne({
-          where: { id },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!existing) {
-          throw new NotFoundException(`ScheduleEntry ${id} not found`);
-        }
+  async update(id: number, dto: UpdateScheduleEntryDto): Promise<ScheduleEntryView> {
+    return this.runWithScheduleLocks(async (queryRunner) => {
+      const manager = queryRunner.manager;
+      const existing = await manager.getRepository(ScheduleEntry).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!existing) {
+        throw new NotFoundException(`ScheduleEntry ${id} not found`);
+      }
 
-        const teachingAssignmentId =
-          dto.teachingAssignmentId ?? existing.teachingAssignmentId;
-        const dayOfWeek = dto.dayOfWeek ?? existing.dayOfWeek;
-        const timeSlotId = dto.timeSlotId ?? existing.timeSlotId;
-        this.assertDayOfWeek(dayOfWeek);
+      const teachingAssignmentId = dto.teachingAssignmentId ?? existing.teachingAssignmentId;
+      const dayOfWeek = dto.dayOfWeek ?? existing.dayOfWeek;
+      const timeSlotId = dto.timeSlotId ?? existing.timeSlotId;
+      this.assertDayOfWeek(dayOfWeek);
 
-        const ta = await this.loadAndValidateTeachingAssignment(
-          manager,
-          teachingAssignmentId,
-        );
-        await this.timeSlots.requireAssignableSlot(timeSlotId, manager);
-        await this.lockTimeSlot(manager, timeSlotId);
+      const ta = await this.loadAndValidateTeachingAssignment(manager, teachingAssignmentId);
+      await this.timeSlots.requireAssignableSlot(timeSlotId, manager);
+      await this.lockTimeSlot(manager, timeSlotId);
 
-        return {
-          lockInput: {
+      return {
+        lockInput: {
+          teacherId: ta.userId,
+          groupId: ta.groupId,
+          dayOfWeek,
+          timeSlotId,
+        },
+        work: async () => {
+          await this.assertNoConflicts(manager, {
             teacherId: ta.userId,
             groupId: ta.groupId,
+            teachingAssignmentId: ta.id,
             dayOfWeek,
             timeSlotId,
-          },
-          work: async () => {
-            await this.assertNoConflicts(manager, {
-              teacherId: ta.userId,
-              groupId: ta.groupId,
-              teachingAssignmentId: ta.id,
-              dayOfWeek,
-              timeSlotId,
-              excludeEntryId: existing.id,
-            });
+            excludeEntryId: existing.id,
+          });
 
-            await this.assertUpdateDoesNotAffectUsedOccurrence(manager, {
-              existing,
-              teachingAssignmentId: ta.id,
-              dayOfWeek,
-              timeSlotId,
-            });
+          await this.assertUpdateDoesNotAffectUsedOccurrence(manager, {
+            existing,
+            teachingAssignmentId: ta.id,
+            dayOfWeek,
+            timeSlotId,
+          });
 
-            existing.teachingAssignmentId = ta.id;
-            existing.dayOfWeek = dayOfWeek;
-            existing.timeSlotId = timeSlotId;
+          existing.teachingAssignmentId = ta.id;
+          existing.dayOfWeek = dayOfWeek;
+          existing.timeSlotId = timeSlotId;
 
-            try {
-              await manager.getRepository(ScheduleEntry).save(existing);
-              return toScheduleEntryView(
-                await this.loadEntry(manager, existing.id),
-              );
-            } catch (error) {
-              this.rethrowDuplicate(error);
-              throw error;
-            }
-          },
-        };
-      },
-    );
+          try {
+            await manager.getRepository(ScheduleEntry).save(existing);
+            return toScheduleEntryView(await this.loadEntry(manager, existing.id));
+          } catch (error) {
+            this.rethrowDuplicate(error);
+            throw error;
+          }
+        },
+      };
+    });
   }
 
   async remove(id: number): Promise<{ deleted: true }> {
@@ -482,8 +448,7 @@ export class ScheduleEntriesService {
     if (isGuideOnlyAssignment(ta) || !isImpartableTeachingAssignment(ta)) {
       throw new BadRequestException({
         code: 'SCHEDULE_TA_NOT_IMPARTABLE',
-        message:
-          'Guide-only or non-impartable teaching assignments cannot be scheduled',
+        message: 'Guide-only or non-impartable teaching assignments cannot be scheduled',
       });
     }
     if (!ta.offeringKind) {
@@ -498,10 +463,7 @@ export class ScheduleEntriesService {
       subjectId: ta.subjectId,
       specialtyId: ta.specialtyId,
     });
-    await this.eligibility.assertOfferingAllowedForGroup(
-      ta.groupId,
-      ta.offeringKind,
-    );
+    await this.eligibility.assertOfferingAllowedForGroup(ta.groupId, ta.offeringKind);
 
     return ta;
   }
@@ -602,10 +564,7 @@ export class ScheduleEntriesService {
     return entry;
   }
 
-  private async loadEntry(
-    manager: EntityManager,
-    id: number,
-  ): Promise<ScheduleEntry> {
+  private async loadEntry(manager: EntityManager, id: number): Promise<ScheduleEntry> {
     const entry = await manager.getRepository(ScheduleEntry).findOne({
       where: { id },
       relations: SCHEDULE_ENTRY_RELATIONS as never,
@@ -619,9 +578,7 @@ export class ScheduleEntriesService {
     teachingAssignmentId: number,
     dayOfWeek: number,
   ) {
-    const repo = manager
-      ? manager.getRepository(ScheduleEntry)
-      : this.entries;
+    const repo = manager ? manager.getRepository(ScheduleEntry) : this.entries;
     const rows = await repo.find({
       where: { teachingAssignmentId, dayOfWeek },
       relations: { timeSlot: true },
@@ -634,18 +591,12 @@ export class ScheduleEntriesService {
     manager?: EntityManager,
   ): Promise<Set<number>> {
     if (anchorIds.length === 0) return new Set();
-    const repo = manager
-      ? manager.getRepository(AttendanceSession)
-      : this.attendanceSessions;
+    const repo = manager ? manager.getRepository(AttendanceSession) : this.attendanceSessions;
     const sessions = await repo.find({
       where: { scheduleEntryId: In(anchorIds) },
       select: { id: true, scheduleEntryId: true },
     });
-    return new Set(
-      sessions
-        .map((s) => s.scheduleEntryId)
-        .filter((id): id is number => id != null),
-    );
+    return new Set(sessions.map((s) => s.scheduleEntryId).filter((id): id is number => id != null));
   }
 
   private async assertCreateDoesNotJoinUsedOccurrence(
@@ -687,9 +638,7 @@ export class ScheduleEntriesService {
     ];
     const joined = resolveOccurrenceForEntry(withNew, provisionalId);
     if (!joined) return;
-    const touchesUsed = joined.entryIds.some(
-      (id) => id !== provisionalId && usedEntryIds.has(id),
-    );
+    const touchesUsed = joined.entryIds.some((id) => id !== provisionalId && usedEntryIds.has(id));
     if (touchesUsed) {
       throw new ScheduleOccurrenceInUseException({
         operation: 'create',
@@ -720,9 +669,7 @@ export class ScheduleEntriesService {
       relations: { timeSlot: true },
     });
     if (!existingLoaded?.timeSlot) {
-      throw new NotFoundException(
-        `ScheduleEntry ${input.existing.id} not found`,
-      );
+      throw new NotFoundException(`ScheduleEntry ${input.existing.id} not found`);
     }
 
     const beforeInputs = await this.loadOccurrenceInputsForTaDay(
@@ -747,20 +694,14 @@ export class ScheduleEntriesService {
       where: { id: input.timeSlotId },
     });
     if (!newSlot) {
-      throw new NotFoundException(
-        `ScheduleTimeSlot ${input.timeSlotId} not found`,
-      );
+      throw new NotFoundException(`ScheduleTimeSlot ${input.timeSlotId} not found`);
     }
     if (newSlot.slotType !== ScheduleSlotType.CLASS) {
       return;
     }
 
     const targetInputs = (
-      await this.loadOccurrenceInputsForTaDay(
-        manager,
-        input.teachingAssignmentId,
-        input.dayOfWeek,
-      )
+      await this.loadOccurrenceInputsForTaDay(manager, input.teachingAssignmentId, input.dayOfWeek)
     ).filter((e) => e.id !== existingLoaded.id);
 
     const provisional = {
@@ -777,18 +718,9 @@ export class ScheduleEntriesService {
       afterRunsWithoutMove.map((r) => r.anchorEntryId),
       manager,
     );
-    const afterUsed = usedEntryIdsFromRuns(
-      afterRunsWithoutMove,
-      afterUsedAnchors,
-    );
-    const joined = resolveOccurrenceForEntry(
-      [...targetInputs, provisional],
-      existingLoaded.id,
-    );
-    if (
-      joined &&
-      joined.entryIds.some((id) => id !== existingLoaded.id && afterUsed.has(id))
-    ) {
+    const afterUsed = usedEntryIdsFromRuns(afterRunsWithoutMove, afterUsedAnchors);
+    const joined = resolveOccurrenceForEntry([...targetInputs, provisional], existingLoaded.id);
+    if (joined && joined.entryIds.some((id) => id !== existingLoaded.id && afterUsed.has(id))) {
       throw new ScheduleOccurrenceInUseException({
         operation: 'update_join',
         entryId: existingLoaded.id,
@@ -797,18 +729,14 @@ export class ScheduleEntriesService {
     }
   }
 
-  private async assertDeleteDoesNotAffectUsedOccurrence(
-    entry: ScheduleEntry,
-  ): Promise<void> {
+  private async assertDeleteDoesNotAffectUsedOccurrence(entry: ScheduleEntry): Promise<void> {
     const inputs = await this.loadOccurrenceInputsForTaDay(
       null,
       entry.teachingAssignmentId,
       entry.dayOfWeek,
     );
     const runs = groupScheduleOccurrences(inputs);
-    const usedAnchors = await this.usedAnchorsAmong(
-      runs.map((r) => r.anchorEntryId),
-    );
+    const usedAnchors = await this.usedAnchorsAmong(runs.map((r) => r.anchorEntryId));
     const used = usedEntryIdsFromRuns(runs, usedAnchors);
     if (used.has(entry.id)) {
       throw new ScheduleOccurrenceInUseException({

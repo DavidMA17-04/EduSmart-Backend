@@ -205,12 +205,8 @@ describe('groupScheduleOccurrences / resolveOccurrenceForEntry (F1)', () => {
     ];
     const runs = groupScheduleOccurrences(rows);
     expect(runs).toHaveLength(2);
-    expect(runs.find((r) => r.teachingAssignmentId === 5)?.entryIds).toEqual([
-      1,
-    ]);
-    expect(runs.find((r) => r.teachingAssignmentId === 8)?.entryIds).toEqual([
-      2,
-    ]);
+    expect(runs.find((r) => r.teachingAssignmentId === 5)?.entryIds).toEqual([1]);
+    expect(runs.find((r) => r.teachingAssignmentId === 8)?.entryIds).toEqual([2]);
   });
 
   it('8. different day splits', () => {

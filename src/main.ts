@@ -22,14 +22,17 @@ async function bootstrap() {
   if (!existsSync(uploadsRoot)) {
     mkdirSync(uploadsRoot, { recursive: true });
   }
+  // Evidencias PBI-27: servidas como estáticos públicos con nombres no
+  // adivinables (`{justificationId}-{timestampMs}-{nombre}`).
+  // Decisión documentada (pbi-27-cierre): el frontend las enlaza con <a href>
+  // directo, incompatible con Bearer header; endurecer con endpoint
+  // autenticado queda como trabajo futuro sin cambiar storage.
   app.useStaticAssets(uploadsRoot, { prefix: '/uploads/' });
 
   app.setGlobalPrefix('api/v1');
 
-  const configuredCorsOrigin =
-    configService.get<string>('app.corsOrigin') ?? '*';
-  const isDev =
-    (configService.get<string>('app.nodeEnv') ?? 'development') !== 'production';
+  const configuredCorsOrigin = configService.get<string>('app.corsOrigin') ?? '*';
+  const isDev = (configService.get<string>('app.nodeEnv') ?? 'development') !== 'production';
   const corsOrigins =
     configuredCorsOrigin === '*' || isDev
       ? true
@@ -51,9 +54,7 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('EduSmart API')
-    .setDescription(
-      'API REST del Sistema Integral de Gestión Académica EduSmart.',
-    )
+    .setDescription('API REST del Sistema Integral de Gestión Académica EduSmart.')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

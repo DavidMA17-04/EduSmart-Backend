@@ -25,9 +25,7 @@ export class AdministrativeReportsController {
 
   @Get('users')
   @ApiOperation({ summary: 'Reporte de usuarios administrativos' })
-  getUsersReport(
-    @Query() filters: UserReportFilterDto,
-  ): Promise<UserReportItem[]> {
+  getUsersReport(@Query() filters: UserReportFilterDto): Promise<UserReportItem[]> {
     return this.service.getUsersReport(filters);
   }
 
@@ -37,30 +35,18 @@ export class AdministrativeReportsController {
   @Header('Content-Disposition', 'attachment; filename="reporte-usuarios.pdf"')
   @ApiOperation({ summary: 'Exportar reporte de usuarios en PDF' })
   @ApiProduces('application/pdf')
-  async exportUsersPdf(
-    @Query() filters: UserReportFilterDto,
-  ): Promise<StreamableFile> {
+  async exportUsersPdf(@Query() filters: UserReportFilterDto): Promise<StreamableFile> {
     const buffer = await this.pdfService.exportUsers(filters);
     return this.toPdfFile(buffer, 'reporte-usuarios.pdf');
   }
 
   @Get('users/excel')
   @SkipResponseWrap()
-  @Header(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  @Header(
-    'Content-Disposition',
-    'attachment; filename="reporte-usuarios.xlsx"',
-  )
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header('Content-Disposition', 'attachment; filename="reporte-usuarios.xlsx"')
   @ApiOperation({ summary: 'Exportar reporte de usuarios en Excel' })
-  @ApiProduces(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  async exportUsersExcel(
-    @Query() filters: UserReportFilterDto,
-  ): Promise<StreamableFile> {
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportUsersExcel(@Query() filters: UserReportFilterDto): Promise<StreamableFile> {
     const buffer = await this.excelService.exportUsers(filters);
     return this.toExcelFile(buffer, 'reporte-usuarios.xlsx');
   }
@@ -76,10 +62,7 @@ export class AdministrativeReportsController {
   @Get('academic-structure/pdf')
   @SkipResponseWrap()
   @Header('Content-Type', 'application/pdf')
-  @Header(
-    'Content-Disposition',
-    'attachment; filename="reporte-estructura-academica.pdf"',
-  )
+  @Header('Content-Disposition', 'attachment; filename="reporte-estructura-academica.pdf"')
   @ApiOperation({ summary: 'Exportar reporte de estructura académica en PDF' })
   @ApiProduces('application/pdf')
   async exportAcademicStructurePdf(
@@ -91,18 +74,10 @@ export class AdministrativeReportsController {
 
   @Get('academic-structure/excel')
   @SkipResponseWrap()
-  @Header(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  @Header(
-    'Content-Disposition',
-    'attachment; filename="reporte-estructura-academica.xlsx"',
-  )
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header('Content-Disposition', 'attachment; filename="reporte-estructura-academica.xlsx"')
   @ApiOperation({ summary: 'Exportar reporte de estructura académica en Excel' })
-  @ApiProduces(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   async exportAcademicStructureExcel(
     @Query() filters: AcademicStructureReportFilterDto,
   ): Promise<StreamableFile> {
@@ -121,10 +96,7 @@ export class AdministrativeReportsController {
   @Get('academic-periods/pdf')
   @SkipResponseWrap()
   @Header('Content-Type', 'application/pdf')
-  @Header(
-    'Content-Disposition',
-    'attachment; filename="reporte-periodos-academicos.pdf"',
-  )
+  @Header('Content-Disposition', 'attachment; filename="reporte-periodos-academicos.pdf"')
   @ApiOperation({ summary: 'Exportar reporte de períodos académicos en PDF' })
   @ApiProduces('application/pdf')
   async exportAcademicPeriodsPdf(
@@ -136,18 +108,10 @@ export class AdministrativeReportsController {
 
   @Get('academic-periods/excel')
   @SkipResponseWrap()
-  @Header(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
-  @Header(
-    'Content-Disposition',
-    'attachment; filename="reporte-periodos-academicos.xlsx"',
-  )
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header('Content-Disposition', 'attachment; filename="reporte-periodos-academicos.xlsx"')
   @ApiOperation({ summary: 'Exportar reporte de períodos académicos en Excel' })
-  @ApiProduces(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  )
+  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   async exportAcademicPeriodsExcel(
     @Query() filters: AcademicPeriodReportFilterDto,
   ): Promise<StreamableFile> {

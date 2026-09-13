@@ -53,7 +53,9 @@ describe('PasswordRecoveryService', () => {
     sessionsService = { revokeAllForUser: jest.fn().mockResolvedValue(undefined) };
     auditLogService = { record: jest.fn().mockResolvedValue(undefined) };
     configService = {
-      get: jest.fn((key: string) => (key === 'APP_PUBLIC_URL' ? 'http://localhost:5173' : undefined)),
+      get: jest.fn((key: string) =>
+        key === 'APP_PUBLIC_URL' ? 'http://localhost:5173' : undefined,
+      ),
     };
 
     service = new PasswordRecoveryService(

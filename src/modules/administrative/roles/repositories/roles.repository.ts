@@ -53,10 +53,7 @@ export class RolesRepository {
     return this.repository.save(entity);
   }
 
-  async setPermissions(
-    role: RoleEntity,
-    permissions: PermissionEntity[],
-  ): Promise<RoleEntity> {
+  async setPermissions(role: RoleEntity, permissions: PermissionEntity[]): Promise<RoleEntity> {
     await this.setPermissionIds(
       role.id,
       permissions.map((permission) => permission.id),
@@ -68,9 +65,7 @@ export class RolesRepository {
     await this.rolePermissions.delete({ roleId });
     if (!permissionIds.length) return;
     await this.rolePermissions.save(
-      permissionIds.map((permissionId) =>
-        this.rolePermissions.create({ roleId, permissionId }),
-      ),
+      permissionIds.map((permissionId) => this.rolePermissions.create({ roleId, permissionId })),
     );
   }
 }

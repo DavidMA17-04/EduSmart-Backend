@@ -14,9 +14,7 @@ describe('resolveMyScheduleActorKind (E1)', () => {
   });
 
   it('Docente + Estudiante → teacher (prioridad)', () => {
-    expect(resolveMyScheduleActorKind(['Estudiante', 'Docente'])).toBe(
-      'teacher',
-    );
+    expect(resolveMyScheduleActorKind(['Estudiante', 'Docente'])).toBe('teacher');
   });
 
   it('ADMIN → teacher (own TA scope, never global)', () => {

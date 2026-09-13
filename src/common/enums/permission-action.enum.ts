@@ -6,4 +6,6 @@ export enum PermissionAction {
   EXPORT = 'EXPORT',
   CONFIGURE = 'CONFIGURE',
   VIEW_OWN = 'VIEW_OWN',
+  JUSTIFY = 'JUSTIFY',
+  REVIEW = 'REVIEW',
 }

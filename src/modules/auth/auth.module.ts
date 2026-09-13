@@ -35,8 +35,7 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
         secret: configService.getOrThrow<string>('jwt.secret'),
         signOptions: {
           expiresIn: configService.getOrThrow<string>('jwt.expiresIn') as
-            | number
-            | `${number}${'s' | 'm' | 'h' | 'd'}`,
+            number | `${number}${'s' | 'm' | 'h' | 'd'}`,
         },
       }),
     }),

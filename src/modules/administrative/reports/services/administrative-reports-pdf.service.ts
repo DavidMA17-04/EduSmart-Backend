@@ -2,11 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { AcademicPeriodReportFilterDto } from '../dto/academic-period-report-filter.dto';
 import { AcademicStructureReportFilterDto } from '../dto/academic-structure-report-filter.dto';
 import { UserReportFilterDto } from '../dto/user-report-filter.dto';
-import {
-  PdfLayout,
-  PdfTableColumn,
-  ReportPdfBuilder,
-} from '../helpers/report-pdf.builder';
+import { PdfLayout, PdfTableColumn, ReportPdfBuilder } from '../helpers/report-pdf.builder';
 import {
   displayValue,
   formatDateOnly,
@@ -45,11 +41,8 @@ export class AdministrativeReportsPdfService {
     });
   }
 
-  async exportAcademicStructure(
-    filters: AcademicStructureReportFilterDto,
-  ): Promise<Buffer> {
-    const records =
-      await this.reportsService.getAcademicStructureReport(filters);
+  async exportAcademicStructure(filters: AcademicStructureReportFilterDto): Promise<Buffer> {
+    const records = await this.reportsService.getAcademicStructureReport(filters);
     return this.buildPdf({
       title: 'Reporte de Estructura Académica',
       layout: 'landscape',
@@ -69,9 +62,7 @@ export class AdministrativeReportsPdfService {
     });
   }
 
-  async exportAcademicPeriods(
-    filters: AcademicPeriodReportFilterDto,
-  ): Promise<Buffer> {
+  async exportAcademicPeriods(filters: AcademicPeriodReportFilterDto): Promise<Buffer> {
     const records = await this.reportsService.getAcademicPeriodsReport(filters);
     return this.buildPdf({
       title: 'Reporte de Períodos Académicos',
@@ -114,8 +105,7 @@ export class AdministrativeReportsPdfService {
     try {
       return await builder.toBuffer();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Error desconocido';
+      const message = error instanceof Error ? error.message : 'Error desconocido';
       throw new InternalServerErrorException(
         `No se pudo generar el PDF de ${options.title}: ${message}`,
       );
@@ -210,9 +200,7 @@ export class AdministrativeReportsPdfService {
     return joinFilterLabels(labels);
   }
 
-  private formatAcademicPeriodFilters(
-    filters: AcademicPeriodReportFilterDto,
-  ): string {
+  private formatAcademicPeriodFilters(filters: AcademicPeriodReportFilterDto): string {
     const labels: string[] = [];
 
     if (filters.status !== undefined) {

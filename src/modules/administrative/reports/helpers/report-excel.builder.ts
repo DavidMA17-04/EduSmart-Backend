@@ -1,11 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import {
-  Workbook,
-  type Borders,
-  type Cell,
-  type Worksheet,
-} from 'exceljs';
+import { Workbook, type Borders, type Cell, type Worksheet } from 'exceljs';
 
 export interface ExcelColumn {
   header: string;
@@ -135,15 +130,11 @@ function drawInstitutionalHeader(
     color: TITLE_COLOR,
     indent: IDENTITY_TEXT_INDENT,
   });
-  styleTextCell(
-    worksheet.getCell(2, IDENTITY_TEXT_COLUMN),
-    INSTITUTION.ministry,
-    {
-      size: 11,
-      color: MUTED_COLOR,
-      indent: IDENTITY_TEXT_INDENT,
-    },
-  );
+  styleTextCell(worksheet.getCell(2, IDENTITY_TEXT_COLUMN), INSTITUTION.ministry, {
+    size: 11,
+    color: MUTED_COLOR,
+    indent: IDENTITY_TEXT_INDENT,
+  });
   styleTextCell(worksheet.getCell(3, IDENTITY_TEXT_COLUMN), INSTITUTION.system, {
     size: 11,
     color: TITLE_COLOR,
@@ -154,27 +145,22 @@ function drawInstitutionalHeader(
     size: 16,
     color: TITLE_COLOR,
   });
-  styleTextCell(
-    worksheet.getCell(6, 1),
-    `Fecha de generación: ${spec.generatedAt}`,
-    { size: 10, color: MUTED_COLOR },
-  );
-  styleTextCell(
-    worksheet.getCell(7, 1),
-    `Registros exportados: ${spec.recordCount}`,
-    { size: 10, color: MUTED_COLOR },
-  );
-  styleTextCell(
-    worksheet.getCell(8, 1),
-    `Filtros aplicados: ${spec.appliedFilters}`,
-    { size: 10, color: MUTED_COLOR, wrapText: true },
-  );
+  styleTextCell(worksheet.getCell(6, 1), `Fecha de generación: ${spec.generatedAt}`, {
+    size: 10,
+    color: MUTED_COLOR,
+  });
+  styleTextCell(worksheet.getCell(7, 1), `Registros exportados: ${spec.recordCount}`, {
+    size: 10,
+    color: MUTED_COLOR,
+  });
+  styleTextCell(worksheet.getCell(8, 1), `Filtros aplicados: ${spec.appliedFilters}`, {
+    size: 10,
+    color: MUTED_COLOR,
+    wrapText: true,
+  });
 }
 
-function tryAddLogo(
-  workbook: Workbook,
-  worksheet: Worksheet,
-): void {
+function tryAddLogo(workbook: Workbook, worksheet: Worksheet): void {
   const logoPath = resolveLogoPath();
   if (!logoPath) {
     return;
@@ -198,10 +184,7 @@ function tryAddLogo(
   }
 }
 
-function drawTable(
-  worksheet: Worksheet,
-  spec: ExcelReportSpec,
-): void {
+function drawTable(worksheet: Worksheet, spec: ExcelReportSpec): void {
   const headerRow = worksheet.getRow(HEADER_ROW);
   headerRow.height = 22;
 
@@ -227,10 +210,7 @@ function drawTable(
     cell.border = THIN_BORDER;
   });
 
-  const lastDataRow =
-    spec.rows.length === 0
-      ? HEADER_ROW
-      : HEADER_ROW + spec.rows.length;
+  const lastDataRow = spec.rows.length === 0 ? HEADER_ROW : HEADER_ROW + spec.rows.length;
 
   worksheet.autoFilter = {
     from: { row: HEADER_ROW, column: 1 },
@@ -259,9 +239,7 @@ function drawTable(
       cell.border = THIN_BORDER;
 
       const statusFill =
-        column.header === 'Estado' && typeof value === 'string'
-          ? STATUS_FILLS[value]
-          : undefined;
+        column.header === 'Estado' && typeof value === 'string' ? STATUS_FILLS[value] : undefined;
 
       if (statusFill) {
         cell.fill = {
@@ -280,13 +258,8 @@ function drawTable(
   });
 }
 
-function drawFooter(
-  worksheet: Worksheet,
-  spec: ExcelReportSpec,
-  columnCount: number,
-): void {
-  const startRow =
-    (spec.rows.length === 0 ? HEADER_ROW : HEADER_ROW + spec.rows.length) + 2;
+function drawFooter(worksheet: Worksheet, spec: ExcelReportSpec, columnCount: number): void {
+  const startRow = (spec.rows.length === 0 ? HEADER_ROW : HEADER_ROW + spec.rows.length) + 2;
   const lines = [
     INSTITUTION.name,
     INSTITUTION.location,
@@ -306,12 +279,7 @@ function drawFooter(
   });
 }
 
-function mergeRow(
-  worksheet: Worksheet,
-  row: number,
-  startColumn: number,
-  endColumn: number,
-): void {
+function mergeRow(worksheet: Worksheet, row: number, startColumn: number, endColumn: number): void {
   if (endColumn > startColumn) {
     worksheet.mergeCells(row, startColumn, row, endColumn);
   }
@@ -348,15 +316,7 @@ function styleTextCell(
 function resolveLogoPath(): string | null {
   const candidates = [
     join(__dirname, '..', 'assets', LOGO_FILENAME),
-    join(
-      process.cwd(),
-      'src',
-      'modules',
-      'administrative',
-      'reports',
-      'assets',
-      LOGO_FILENAME,
-    ),
+    join(process.cwd(), 'src', 'modules', 'administrative', 'reports', 'assets', LOGO_FILENAME),
   ];
 
   for (const candidate of candidates) {
@@ -377,11 +337,7 @@ function readPngSize(image: Buffer): { width: number; height: number } | null {
     return null;
   }
 
-  const isPng =
-    image[0] === 0x89 &&
-    image[1] === 0x50 &&
-    image[2] === 0x4e &&
-    image[3] === 0x47;
+  const isPng = image[0] === 0x89 && image[1] === 0x50 && image[2] === 0x4e && image[3] === 0x47;
 
   if (!isPng) {
     return null;
@@ -393,9 +349,10 @@ function readPngSize(image: Buffer): { width: number; height: number } | null {
   };
 }
 
-function scaleLogo(
-  size: { width: number; height: number } | null,
-): { width: number; height: number } {
+function scaleLogo(size: { width: number; height: number } | null): {
+  width: number;
+  height: number;
+} {
   if (!size || size.width <= 0 || size.height <= 0) {
     return { width: LOGO_MAX_WIDTH, height: LOGO_MAX_HEIGHT };
   }

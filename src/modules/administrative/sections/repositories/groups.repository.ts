@@ -42,10 +42,7 @@ export class GroupsRepository {
     return withGuide;
   }
 
-  async findBySectionAndName(
-    sectionId: number,
-    name: string,
-  ): Promise<GroupEntity | null> {
+  async findBySectionAndName(sectionId: number, name: string): Promise<GroupEntity | null> {
     return this.repository.findOne({ where: { sectionId, name } });
   }
 
@@ -56,10 +53,7 @@ export class GroupsRepository {
     });
   }
 
-  async assignGuideTeacher(
-    group: GroupEntity,
-    teacherId: number | null,
-  ): Promise<void> {
+  async assignGuideTeacher(group: GroupEntity, teacherId: number | null): Promise<void> {
     await this.teachingAssignments.update(
       { groupId: group.id, isGuideTeacher: true },
       { isGuideTeacher: false },

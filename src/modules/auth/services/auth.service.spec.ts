@@ -48,9 +48,7 @@ describe('AuthService', () => {
       }),
     };
     configService = {
-      getOrThrow: jest.fn((key: string) =>
-        key === 'jwt.refreshExpiresIn' ? '7d' : '8h',
-      ),
+      getOrThrow: jest.fn((key: string) => (key === 'jwt.refreshExpiresIn' ? '7d' : '8h')),
     };
     sessionsService = {
       revokeCurrent: jest.fn().mockResolvedValue({ message: 'Sesión cerrada.' }),
@@ -67,7 +65,9 @@ describe('AuthService', () => {
       auditLogService as never,
     );
 
-    jest.spyOn(service, 'comparePassword').mockImplementation(async (plain) => plain === 'Admin1234');
+    jest
+      .spyOn(service, 'comparePassword')
+      .mockImplementation(async (plain) => plain === 'Admin1234');
     jest.spyOn(service, 'hashPassword').mockResolvedValue('new-hash');
   });
 

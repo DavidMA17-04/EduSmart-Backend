@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AttendanceRegistrationMethod } from '../../../common/enums/attendance-registration-method.enum';
 import { AttendanceSessionStatus } from '../../../common/enums/attendance-session-status.enum';
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
@@ -83,9 +80,7 @@ describe('AttendanceRecordsService Phase 1A', () => {
     name: 'Ana',
     first_lastname: 'Pérez',
     second_lastname: null,
-    userRoles: [
-      { role: { name: 'Estudiante', status: RoleStatus.ACTIVE } },
-    ],
+    userRoles: [{ role: { name: 'Estudiante', status: RoleStatus.ACTIVE } }],
   };
 
   function mockEnrollmentQb(repo: { createQueryBuilder: jest.Mock }, rows: unknown[]) {
@@ -177,9 +172,7 @@ describe('AttendanceRecordsService Phase 1A', () => {
           teacher,
         );
         expect(rows[0].status).toBe(status);
-        expect(rows[0].registrationMethod).toBe(
-          AttendanceRegistrationMethod.MANUAL,
-        );
+        expect(rows[0].registrationMethod).toBe(AttendanceRegistrationMethod.MANUAL);
         expect(rows[0].registeredByUserId).toBe(10);
         expect(auditRepo.save).toHaveBeenCalledWith(
           expect.objectContaining({ action: 'ATTENDANCE_RECORD_CREATED' }),
@@ -309,10 +302,7 @@ describe('AttendanceRecordsService Phase 1A', () => {
         id: 502,
         national_id: '2-2222-2222',
       };
-      mockEnrollmentQb(enrollmentRepoTx, [
-        { user: studentUser },
-        { user: student2 },
-      ]);
+      mockEnrollmentQb(enrollmentRepoTx, [{ user: studentUser }, { user: student2 }]);
 
       await expect(
         service.upsertRecords(
@@ -411,11 +401,7 @@ describe('AttendanceRecordsService Phase 1A', () => {
 
 describe('UpsertAttendanceRecordsDto status enum', () => {
   it('22. solo PRESENT/ABSENT/LATE son valores del enum', () => {
-    expect(Object.values(AttendanceStatus)).toEqual([
-      'PRESENT',
-      'ABSENT',
-      'LATE',
-    ]);
+    expect(Object.values(AttendanceStatus)).toEqual(['PRESENT', 'ABSENT', 'LATE']);
     expect(Object.values(AttendanceStatus)).not.toContain('JUSTIFIED');
   });
 });

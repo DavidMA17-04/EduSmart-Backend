@@ -1,7 +1,4 @@
-import {
-  ConflictException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import { QueryRunner } from 'typeorm';
 
 export type ScheduleConflictLockInput = {
@@ -12,9 +9,7 @@ export type ScheduleConflictLockInput = {
 };
 
 /** Build lexicographically sortable named-lock keys for teacher + group resources. */
-export function buildScheduleConflictLockKeys(
-  input: ScheduleConflictLockInput,
-): string[] {
+export function buildScheduleConflictLockKeys(input: ScheduleConflictLockInput): string[] {
   const teacherKey = `edusmart:sched:t:${input.teacherId}:${input.dayOfWeek}:${input.timeSlotId}`;
   const groupKey = `edusmart:sched:g:${input.groupId}:${input.dayOfWeek}:${input.timeSlotId}`;
   return [teacherKey, groupKey].sort();
@@ -46,10 +41,10 @@ export async function acquireScheduleConflictLocks(
 
   try {
     for (const key of keys) {
-      const rows = await queryRunner.query(
-        'SELECT GET_LOCK(?, ?) AS acquired',
-        [key, timeoutSeconds],
-      );
+      const rows = await queryRunner.query('SELECT GET_LOCK(?, ?) AS acquired', [
+        key,
+        timeoutSeconds,
+      ]);
       const result = readLockResult(rows);
 
       if (result === 1) {
@@ -114,8 +109,7 @@ export class ScheduleTeacherConflictException extends ConflictException {
   constructor(details?: Record<string, unknown>) {
     super({
       code: 'SCHEDULE_TEACHER_CONFLICT',
-      message:
-        'Teacher already has a schedule entry for this day and time slot',
+      message: 'Teacher already has a schedule entry for this day and time slot',
       ...details,
     });
   }
@@ -135,8 +129,7 @@ export class ScheduleEntryDuplicateException extends ConflictException {
   constructor(details?: Record<string, unknown>) {
     super({
       code: 'SCHEDULE_ENTRY_DUPLICATE',
-      message:
-        'This teaching assignment is already scheduled for this day and time slot',
+      message: 'This teaching assignment is already scheduled for this day and time slot',
       ...details,
     });
   }
@@ -147,8 +140,7 @@ export class ScheduleOccurrenceInUseException extends ConflictException {
   constructor(details?: Record<string, unknown>) {
     super({
       code: 'SCHEDULE_OCCURRENCE_IN_USE',
-      message:
-        'This schedule occurrence is linked to attendance and cannot be changed',
+      message: 'This schedule occurrence is linked to attendance and cannot be changed',
       ...details,
     });
   }

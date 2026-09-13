@@ -11,8 +11,7 @@ export const ACCOUNT_VERIFICATION = {
 export const VERIFICATION_GENERIC_VERIFY_ERROR =
   'No se pudo verificar la cuenta. Revise el correo y el código, o solicite uno nuevo.';
 
-export const VERIFICATION_GENERIC_SUCCESS =
-  'Cuenta verificada. Ya puede iniciar sesión.';
+export const VERIFICATION_GENERIC_SUCCESS = 'Cuenta verificada. Ya puede iniciar sesión.';
 
 export const VERIFICATION_GENERIC_RESEND =
   'Si la cuenta requiere verificación, enviamos un nuevo código al correo indicado.';

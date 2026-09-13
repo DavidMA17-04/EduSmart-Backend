@@ -8,8 +8,11 @@ import { UsersModule } from '../administrative/users/users.module';
 import { ScheduleEntry } from '../schedule/entities/schedule-entry.entity';
 import { AttendanceController } from './controllers/attendance.controller';
 import { JustificationsController } from './controllers/justifications.controller';
+import { AbsenceJustification } from './entities/absence-justification.entity';
 import { Attendance } from './entities/attendance.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
+import { GuardianStudentLink } from './entities/guardian-student-link.entity';
+import { JustificationEvidence } from './entities/justification-evidence.entity';
 import { AttendanceRecordsService } from './services/attendance-records.service';
 import { AttendanceSessionsService } from './services/attendance-sessions.service';
 import { JustificationsService } from './services/justifications.service';
@@ -19,6 +22,9 @@ import { JustificationsService } from './services/justifications.service';
     TypeOrmModule.forFeature([
       AttendanceSession,
       Attendance,
+      AbsenceJustification,
+      JustificationEvidence,
+      GuardianStudentLink,
       TeachingAssignment,
       GroupEnrollment,
       AuditLog,
@@ -28,11 +34,7 @@ import { JustificationsService } from './services/justifications.service';
     UsersModule,
   ],
   controllers: [AttendanceController, JustificationsController],
-  providers: [
-    AttendanceSessionsService,
-    AttendanceRecordsService,
-    JustificationsService,
-  ],
-  exports: [AttendanceSessionsService, AttendanceRecordsService],
+  providers: [AttendanceSessionsService, AttendanceRecordsService, JustificationsService],
+  exports: [AttendanceSessionsService, AttendanceRecordsService, JustificationsService],
 })
 export class AttendanceModule {}

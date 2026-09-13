@@ -1,12 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  Min,
-  ValidateIf,
-} from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, Min, ValidateIf } from 'class-validator';
 import { AcademicOfferingKind } from '../../../../common/enums/academic-offering-kind.enum';
 
 export class CreateTeachingAssignmentDto {
@@ -27,7 +20,9 @@ export class CreateTeachingAssignmentDto {
   @ApiPropertyOptional({
     description: 'Required when offeringKind is SUBJECT',
   })
-  @ValidateIf((dto: CreateTeachingAssignmentDto) => dto.offeringKind === AcademicOfferingKind.SUBJECT)
+  @ValidateIf(
+    (dto: CreateTeachingAssignmentDto) => dto.offeringKind === AcademicOfferingKind.SUBJECT,
+  )
   @IsInt()
   @Min(1)
   subjectId?: number | null;

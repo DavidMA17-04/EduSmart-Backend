@@ -1,12 +1,8 @@
 import { ScheduleSlotType } from '../../../common/enums/schedule-slot-type.enum';
 import { ScheduleEntry } from '../../schedule/entities/schedule-entry.entity';
-import {
-  ScheduleOccurrenceEntryInput,
-} from '../../schedule/utils/schedule-occurrence.util';
+import { ScheduleOccurrenceEntryInput } from '../../schedule/utils/schedule-occurrence.util';
 
-export function toScheduleOccurrenceInput(
-  entry: ScheduleEntry,
-): ScheduleOccurrenceEntryInput {
+export function toScheduleOccurrenceInput(entry: ScheduleEntry): ScheduleOccurrenceEntryInput {
   if (!entry.timeSlot) {
     throw new Error(`ScheduleEntry ${entry.id} missing timeSlot relation`);
   }

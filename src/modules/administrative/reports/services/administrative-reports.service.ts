@@ -33,9 +33,7 @@ export class AdministrativeReportsService {
   ): Promise<AcademicStructureReportItem[]> {
     const groups = await this.repository.findAcademicStructure(filters);
 
-    return groups.map((group) =>
-      this.toAcademicStructureReportItem(group),
-    );
+    return groups.map((group) => this.toAcademicStructureReportItem(group));
   }
 
   async getAcademicPeriodsReport(
@@ -66,9 +64,7 @@ export class AdministrativeReportsService {
     };
   }
 
-  private toAcademicStructureReportItem(
-    group: GroupEntity,
-  ): AcademicStructureReportItem {
+  private toAcademicStructureReportItem(group: GroupEntity): AcademicStructureReportItem {
     const guideTeacher = this.resolveGuideTeacher(group);
 
     return {
@@ -80,9 +76,7 @@ export class AdministrativeReportsService {
       gradeLevel: group.section?.gradeLevel ?? 0,
       specialty: group.section?.specialty?.name ?? null,
       academicPeriod: group.academicPeriod?.name ?? '',
-      guideTeacher: guideTeacher
-        ? this.buildGuideTeacherName(guideTeacher)
-        : null,
+      guideTeacher: guideTeacher ? this.buildGuideTeacherName(guideTeacher) : null,
       status: group.status,
     };
   }
@@ -110,15 +104,8 @@ export class AdministrativeReportsService {
   }
 
   private composePersonName(person: PersonNameFields): string {
-    const fullName = [
-      person.name,
-      person.first_lastname,
-      person.second_lastname,
-    ]
-      .filter(
-        (value): value is string =>
-          typeof value === 'string' && value.trim().length > 0,
-      )
+    const fullName = [person.name, person.first_lastname, person.second_lastname]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       .map((value) => value.trim())
       .join(' ')
       .trim();

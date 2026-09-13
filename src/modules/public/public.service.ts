@@ -27,23 +27,18 @@ export class PublicService {
   ) {}
 
   async getCampusSnapshot(): Promise<CampusSnapshotDto> {
-    const [
-      totalUsers,
-      activeUsers,
-      totalSections,
-      totalExploratoryWorkshops,
-      totalSpecialties,
-    ] = await Promise.all([
-      this.userRepo.count(),
-      this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
-      this.sectionRepo.count(),
-      this.specialtyRepo.count({
-        where: { kind: SpecialtyKind.EXPLORATORY_WORKSHOP },
-      }),
-      this.specialtyRepo.count({
-        where: { kind: SpecialtyKind.TECHNICAL_SPECIALTY },
-      }),
-    ]);
+    const [totalUsers, activeUsers, totalSections, totalExploratoryWorkshops, totalSpecialties] =
+      await Promise.all([
+        this.userRepo.count(),
+        this.userRepo.count({ where: { status: UserStatus.ACTIVE } }),
+        this.sectionRepo.count(),
+        this.specialtyRepo.count({
+          where: { kind: SpecialtyKind.EXPLORATORY_WORKSHOP },
+        }),
+        this.specialtyRepo.count({
+          where: { kind: SpecialtyKind.TECHNICAL_SPECIALTY },
+        }),
+      ]);
 
     return {
       activeUsers,

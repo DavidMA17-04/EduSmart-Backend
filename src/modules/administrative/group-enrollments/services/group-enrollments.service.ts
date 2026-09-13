@@ -56,9 +56,7 @@ export class GroupEnrollmentsService {
           academicPeriodId,
           startsOn,
           endsOn,
-          status: endsOn
-            ? GroupEnrollmentStatus.ENDED
-            : GroupEnrollmentStatus.ACTIVE,
+          status: endsOn ? GroupEnrollmentStatus.ENDED : GroupEnrollmentStatus.ACTIVE,
         }),
       );
     });
@@ -76,8 +74,7 @@ export class GroupEnrollmentsService {
     return this.dataSource.transaction(async (manager) => {
       await this.lockStudentUser(manager, dto.userId);
       const newGroup = await this.requireGroup(manager, dto.newGroupId);
-      const academicPeriodId =
-        dto.academicPeriodId ?? newGroup.academicPeriodId;
+      const academicPeriodId = dto.academicPeriodId ?? newGroup.academicPeriodId;
 
       const repo = manager.getRepository(GroupEnrollment);
       const active = await repo
@@ -94,15 +91,11 @@ export class GroupEnrollmentsService {
       let closed: GroupEnrollment | null = null;
       if (active) {
         if (active.groupId === newGroup.id) {
-          throw new ConflictException(
-            'Student is already enrolled in the target group',
-          );
+          throw new ConflictException('Student is already enrolled in the target group');
         }
         const endsOn = this.dayBefore(effectiveOn);
         if (endsOn < active.startsOn) {
-          throw new BadRequestException(
-            'Transfer date must be after the current enrollment start',
-          );
+          throw new BadRequestException('Transfer date must be after the current enrollment start');
         }
         active.endsOn = endsOn;
         active.status = GroupEnrollmentStatus.ENDED;
@@ -154,9 +147,7 @@ export class GroupEnrollmentsService {
 
     if (academicPeriodId != null) {
       if (!Number.isInteger(academicPeriodId) || academicPeriodId < 1) {
-        throw new BadRequestException(
-          'academicPeriodId must be a positive integer',
-        );
+        throw new BadRequestException('academicPeriodId must be a positive integer');
       }
       qb.andWhere('e.id_academic_periods = :periodId', {
         periodId: academicPeriodId,
@@ -179,9 +170,7 @@ export class GroupEnrollmentsService {
       throw new BadRequestException('userId must be a positive integer');
     }
     if (!Number.isInteger(academicPeriodId) || academicPeriodId < 1) {
-      throw new BadRequestException(
-        'academicPeriodId must be a positive integer',
-      );
+      throw new BadRequestException('academicPeriodId must be a positive integer');
     }
 
     return this.repository
@@ -200,10 +189,7 @@ export class GroupEnrollmentsService {
    * Lock the student user row so concurrent create/transfer for the same
    * student serialize even when no group_enrollments row exists yet.
    */
-  private async lockStudentUser(
-    manager: EntityManager,
-    userId: number,
-  ): Promise<User> {
+  private async lockStudentUser(manager: EntityManager, userId: number): Promise<User> {
     const user = await manager.findOne(User, {
       where: { id: userId },
       relations: { userRoles: { role: true } },
@@ -215,8 +201,7 @@ export class GroupEnrollmentsService {
     }
     const isStudent = (user.userRoles ?? []).some(
       (row) =>
-        row.role?.status === RoleStatus.ACTIVE &&
-        row.role.name === INSTITUTIONAL_ROLE_STUDENT,
+        row.role?.status === RoleStatus.ACTIVE && row.role.name === INSTITUTIONAL_ROLE_STUDENT,
     );
     if (!isStudent) {
       throw new BadRequestException('User must have Estudiante role');
@@ -224,10 +209,7 @@ export class GroupEnrollmentsService {
     return user;
   }
 
-  private async requireGroup(
-    manager: EntityManager,
-    groupId: number,
-  ): Promise<GroupEntity> {
+  private async requireGroup(manager: EntityManager, groupId: number): Promise<GroupEntity> {
     const group = await manager.findOne(GroupEntity, { where: { id: groupId } });
     if (!group) throw new NotFoundException(`Group ${groupId} not found`);
     return group;

@@ -39,9 +39,7 @@ export class UsersBootstrapService implements OnModuleInit {
     await this.utf8RepairService.repairAll();
     const permissions = await this.ensurePermissions();
 
-    const adminRole = await this.ensureAdminRole(
-      permissions.map((item) => item.id),
-    );
+    const adminRole = await this.ensureAdminRole(permissions.map((item) => item.id));
 
     if (!adminRole) {
       throw new Error('No se pudo sembrar el rol Administrador');
@@ -61,9 +59,7 @@ export class UsersBootstrapService implements OnModuleInit {
       return existing;
     }
 
-    const existingKeys = new Set(
-      existing.map((item) => `${item.module}.${item.action}`),
-    );
+    const existingKeys = new Set(existing.map((item) => `${item.module}.${item.action}`));
 
     for (const module of Object.values(PermissionModule)) {
       for (const action of Object.values(PermissionAction)) {
@@ -93,22 +89,14 @@ export class UsersBootstrapService implements OnModuleInit {
   }
 
   private async ensureAdminRole(permissionIds: number[]) {
-    const existing = await this.rolesRepository.findByName(
-      INSTITUTIONAL_ROLE_ADMIN,
-    );
+    const existing = await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_ADMIN);
 
     if (existing) {
       if (!(existing.permissions?.length >= 66)) {
-        await this.rolesRepository.setPermissionIds(
-          existing.id,
-          permissionIds,
-        );
+        await this.rolesRepository.setPermissionIds(existing.id, permissionIds);
       }
 
-      return (
-        (await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_ADMIN)) ??
-        existing
-      );
+      return (await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_ADMIN)) ?? existing;
     }
 
     const role = await this.rolesRepository.save(
@@ -126,9 +114,7 @@ export class UsersBootstrapService implements OnModuleInit {
   }
 
   private async ensureTeacherRole() {
-    const existing = await this.rolesRepository.findByName(
-      INSTITUTIONAL_ROLE_TEACHER,
-    );
+    const existing = await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_TEACHER);
 
     if (existing) {
       return existing;
@@ -137,8 +123,7 @@ export class UsersBootstrapService implements OnModuleInit {
     return this.rolesRepository.save(
       this.rolesRepository.create({
         name: INSTITUTIONAL_ROLE_TEACHER,
-        description:
-          'Personal docente. Puede asignarse como docente guía de una sección.',
+        description: 'Personal docente. Puede asignarse como docente guía de una sección.',
         isSystemRole: true,
         status: RoleStatus.ACTIVE,
       }),
@@ -146,9 +131,7 @@ export class UsersBootstrapService implements OnModuleInit {
   }
 
   private async ensureStudentRole() {
-    const byTitle = await this.rolesRepository.findByName(
-      INSTITUTIONAL_ROLE_STUDENT,
-    );
+    const byTitle = await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_STUDENT);
 
     if (byTitle) {
       return byTitle;
@@ -163,8 +146,7 @@ export class UsersBootstrapService implements OnModuleInit {
     return this.rolesRepository.save(
       this.rolesRepository.create({
         name: INSTITUTIONAL_ROLE_STUDENT,
-        description:
-          'Estudiante institucional. Destinatario de la importación masiva de usuarios.',
+        description: 'Estudiante institucional. Destinatario de la importación masiva de usuarios.',
         isSystemRole: true,
         status: RoleStatus.ACTIVE,
       }),
@@ -172,14 +154,9 @@ export class UsersBootstrapService implements OnModuleInit {
   }
 
   private async ensureAdminUser(roleId: number) {
-    const email = (
-      process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL
-    )
-      .trim()
-      .toLowerCase();
+    const email = (process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL).trim().toLowerCase();
 
-    const password =
-      process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD;
+    const password = process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD;
 
     const existing = await this.usersRepository.findByEmail(email);
 
@@ -221,8 +198,7 @@ export class UsersBootstrapService implements OnModuleInit {
   }
 
   private async ensureSpecialty() {
-    const existing =
-      await this.specialtiesRepository.findByName('Informática');
+    const existing = await this.specialtiesRepository.findByName('Informática');
 
     if (existing) {
       return;

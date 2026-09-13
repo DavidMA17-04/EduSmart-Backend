@@ -26,47 +26,33 @@ describe('Schedule controllers permissions', () => {
   it('7. time-slots GET requires schedules.view', () => {
     const controller = new ScheduleTimeSlotsController({} as never);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW])),
     ).toBe(true);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.ATTENDANCE_READ]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.ATTENDANCE_READ])),
     ).toBe(false);
   });
 
   it('25. entries mutations require schedules.edit', () => {
     const controller = new ScheduleEntriesController({} as never);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.create, [PERMISSIONS.SCHEDULES_EDIT]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.create, [PERMISSIONS.SCHEDULES_EDIT])),
     ).toBe(true);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.create, [PERMISSIONS.SCHEDULES_VIEW]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.create, [PERMISSIONS.SCHEDULES_VIEW])),
     ).toBe(false);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.remove, [PERMISSIONS.SCHEDULES_EDIT]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.remove, [PERMISSIONS.SCHEDULES_EDIT])),
     ).toBe(true);
   });
 
   it('entries list requires schedules.view (not view_own)', () => {
     const controller = new ScheduleEntriesController({} as never);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW])),
     ).toBe(true);
     expect(
-      guard.canActivate(
-        ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW_OWN]),
-      ),
+      guard.canActivate(ctxFor(controller, controller.list, [PERMISSIONS.SCHEDULES_VIEW_OWN])),
     ).toBe(false);
   });
 });

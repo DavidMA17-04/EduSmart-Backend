@@ -68,7 +68,11 @@ export class AuthService {
     const identifier = dto.identifier.trim();
     const user = await this.authRepository.findByIdentifier(identifier);
 
-    if (!user || !user.passwordHash || !(await this.comparePassword(dto.password, user.passwordHash))) {
+    if (
+      !user ||
+      !user.passwordHash ||
+      !(await this.comparePassword(dto.password, user.passwordHash))
+    ) {
       await this.auditLogService.record({
         actorId: user?.id ?? null,
         action: 'LOGIN_FAILED',

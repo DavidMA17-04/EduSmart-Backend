@@ -21,10 +21,7 @@ export class TokenService {
     private readonly sessionsRepository: UserSessionsRepository,
   ) {}
 
-  async signAccessToken(
-    payload: JwtPayload,
-    expiresInOverride?: string,
-  ): Promise<string> {
+  async signAccessToken(payload: JwtPayload, expiresInOverride?: string): Promise<string> {
     const expiresIn = (expiresInOverride ??
       this.configService.getOrThrow<string>('jwt.expiresIn')) as ExpiresIn;
 

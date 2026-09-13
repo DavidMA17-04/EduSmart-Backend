@@ -1,12 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  ArrayMinSize,
-  IsArray,
-  IsEnum,
-  IsInt,
-  Min,
-  ValidateNested,
-} from 'class-validator';
+import { ArrayMinSize, IsArray, IsEnum, IsInt, Min, ValidateNested } from 'class-validator';
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
 
 export class AttendanceRecordItemDto {

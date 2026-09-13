@@ -77,21 +77,15 @@ export function toScheduleEntryView(entry: ScheduleEntry): ScheduleEntryView {
   }
 
   const offeringId =
-    ta.offeringKind === AcademicOfferingKind.SUBJECT
-      ? ta.subjectId
-      : ta.specialtyId;
+    ta.offeringKind === AcademicOfferingKind.SUBJECT ? ta.subjectId : ta.specialtyId;
   const offeringName =
-    ta.offeringKind === AcademicOfferingKind.SUBJECT
-      ? ta.subject?.name
-      : ta.specialty?.name;
+    ta.offeringKind === AcademicOfferingKind.SUBJECT ? ta.subject?.name : ta.specialty?.name;
 
   if (offeringId == null || !offeringName) {
     throw new Error('ScheduleEntry TA offering unresolved');
   }
 
-  const teacherName = ta.user
-    ? formatUserFullName(ta.user)
-    : `Docente #${ta.userId}`;
+  const teacherName = ta.user ? formatUserFullName(ta.user) : `Docente #${ta.userId}`;
 
   return {
     entryId: entry.id,
@@ -103,7 +97,7 @@ export function toScheduleEntryView(entry: ScheduleEntry): ScheduleEntryView {
       endTime: normalizeTime(slot.endTime),
       displayOrder: slot.displayOrder,
       slotType: slot.slotType,
-      },
+    },
     teachingAssignment: {
       id: ta.id,
       teacher: { id: ta.userId, name: teacherName },

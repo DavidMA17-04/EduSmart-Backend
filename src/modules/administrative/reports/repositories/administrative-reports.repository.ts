@@ -76,22 +76,14 @@ export class AdministrativeReportsRepository {
       .getMany();
   }
 
-  async findAcademicStructure(
-    filters: AcademicStructureReportFilterDto,
-  ): Promise<GroupEntity[]> {
+  async findAcademicStructure(filters: AcademicStructureReportFilterDto): Promise<GroupEntity[]> {
     const query = this.groupsRepository
       .createQueryBuilder('group')
       .leftJoinAndSelect('group.section', 'section')
       .leftJoinAndSelect('section.specialty', 'specialty')
       .leftJoinAndSelect('group.academicPeriod', 'academicPeriod')
-      .leftJoinAndSelect(
-        'group.teachingAssignments',
-        'teachingAssignment',
-      )
-      .leftJoinAndSelect(
-        'teachingAssignment.user',
-        'guideTeacher',
-      )
+      .leftJoinAndSelect('group.teachingAssignments', 'teachingAssignment')
+      .leftJoinAndSelect('teachingAssignment.user', 'guideTeacher')
       .select([
         'group.id',
         'group.name',
@@ -144,9 +136,7 @@ export class AdministrativeReportsRepository {
       .getMany();
   }
 
-  async findAcademicPeriods(
-    filters: AcademicPeriodReportFilterDto,
-  ): Promise<AcademicPeriod[]> {
+  async findAcademicPeriods(filters: AcademicPeriodReportFilterDto): Promise<AcademicPeriod[]> {
     const query = this.academicPeriodsRepository
       .createQueryBuilder('academicPeriod')
       .select([
@@ -176,8 +166,6 @@ export class AdministrativeReportsRepository {
       });
     }
 
-    return query
-      .orderBy('academicPeriod.startDate', 'DESC')
-      .getMany();
+    return query.orderBy('academicPeriod.startDate', 'DESC').getMany();
   }
 }

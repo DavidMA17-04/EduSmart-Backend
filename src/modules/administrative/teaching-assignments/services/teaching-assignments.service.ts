@@ -39,13 +39,9 @@ export class TeachingAssignmentsService {
       specialtyId: dto.specialtyId,
     });
 
-    await this.eligibility.assertOfferingAllowedForGroup(
-      group.id,
-      offering.kind,
-    );
+    await this.eligibility.assertOfferingAllowedForGroup(group.id, offering.kind);
 
-    const academicPeriodId =
-      dto.academicPeriodId ?? group.academicPeriodId ?? null;
+    const academicPeriodId = dto.academicPeriodId ?? group.academicPeriodId ?? null;
 
     await this.assertNoDuplicate({
       userId: dto.userId,
@@ -75,10 +71,7 @@ export class TeachingAssignmentsService {
     }
   }
 
-  async update(
-    id: number,
-    dto: UpdateTeachingAssignmentDto,
-  ): Promise<TeachingAssignment> {
+  async update(id: number, dto: UpdateTeachingAssignmentDto): Promise<TeachingAssignment> {
     const assignment = await this.findOne(id);
     if (!assignment.offeringKind && (dto.offeringKind || dto.subjectId || dto.specialtyId)) {
       // promoting guide-only row to offering assignment
@@ -86,15 +79,11 @@ export class TeachingAssignmentsService {
 
     const offeringKind = dto.offeringKind ?? assignment.offeringKind;
     if (!offeringKind) {
-      throw new BadRequestException(
-        'Guide-only assignment cannot be updated without offeringKind',
-      );
+      throw new BadRequestException('Guide-only assignment cannot be updated without offeringKind');
     }
 
-    const subjectId =
-      dto.subjectId !== undefined ? dto.subjectId : assignment.subjectId;
-    const specialtyId =
-      dto.specialtyId !== undefined ? dto.specialtyId : assignment.specialtyId;
+    const subjectId = dto.subjectId !== undefined ? dto.subjectId : assignment.subjectId;
+    const specialtyId = dto.specialtyId !== undefined ? dto.specialtyId : assignment.specialtyId;
 
     const offering = await this.eligibility.resolveOffering({
       offeringKind,
@@ -102,15 +91,12 @@ export class TeachingAssignmentsService {
       specialtyId,
     });
 
-    await this.eligibility.assertOfferingAllowedForGroup(
-      assignment.groupId,
-      offering.kind,
-    );
+    await this.eligibility.assertOfferingAllowedForGroup(assignment.groupId, offering.kind);
 
     const academicPeriodId =
       dto.academicPeriodId !== undefined
         ? dto.academicPeriodId
-        : assignment.academicPeriodId ?? null;
+        : (assignment.academicPeriodId ?? null);
 
     await this.assertNoDuplicate({
       userId: assignment.userId,
@@ -158,11 +144,13 @@ export class TeachingAssignmentsService {
    * List impartible assignments only (offeringKind IS NOT NULL).
    * Optional filters: groupId, teacherId (userId), periodId.
    */
-  async list(filters: {
-    groupId?: number;
-    teacherId?: number;
-    periodId?: number;
-  } = {}): Promise<TeachingAssignment[]> {
+  async list(
+    filters: {
+      groupId?: number;
+      teacherId?: number;
+      periodId?: number;
+    } = {},
+  ): Promise<TeachingAssignment[]> {
     const where: Record<string, unknown> = {
       offeringKind: Not(IsNull()),
     };
@@ -208,8 +196,7 @@ export class TeachingAssignmentsService {
     }
     const isTeacher = (user.userRoles ?? []).some(
       (row) =>
-        row.role?.status === RoleStatus.ACTIVE &&
-        row.role.name === INSTITUTIONAL_ROLE_TEACHER,
+        row.role?.status === RoleStatus.ACTIVE && row.role.name === INSTITUTIONAL_ROLE_TEACHER,
     );
     if (!isTeacher) {
       throw new BadRequestException('User must have Docente role');

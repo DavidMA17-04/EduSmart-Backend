@@ -15,27 +15,12 @@ import { SectionsService } from './services/sections.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      SectionEntity,
-      GroupEntity,
-      User,
-      TeachingAssignment,
-    ]),
+    TypeOrmModule.forFeature([SectionEntity, GroupEntity, User, TeachingAssignment]),
     AcademicPeriodsModule,
     SpecialtiesModule,
   ],
   controllers: [SectionsController, GroupsController],
-  providers: [
-    SectionsService,
-    SectionsRepository,
-    GroupsService,
-    GroupsRepository,
-  ],
-  exports: [
-    SectionsService,
-    SectionsRepository,
-    GroupsService,
-    GroupsRepository,
-  ],
+  providers: [SectionsService, SectionsRepository, GroupsService, GroupsRepository],
+  exports: [SectionsService, SectionsRepository, GroupsService, GroupsRepository],
 })
 export class SectionsModule {}

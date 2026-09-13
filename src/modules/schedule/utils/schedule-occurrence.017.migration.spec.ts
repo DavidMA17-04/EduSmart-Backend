@@ -15,17 +15,13 @@ describe('migration 017 static audit (F1 schedule occurrence anchor)', () => {
 
   it('ALTER only attendance_sessions; nullable id_schedule_entries', () => {
     expect(executable).toMatch(/ALTER\s+TABLE\s+`attendance_sessions`/i);
-    expect(executable).toMatch(
-      /ADD\s+COLUMN\s+`id_schedule_entries`\s+INT\s+NULL/i,
-    );
+    expect(executable).toMatch(/ADD\s+COLUMN\s+`id_schedule_entries`\s+INT\s+NULL/i);
     expect(executable).not.toMatch(/ALTER\s+TABLE\s+`schedule_entries`/i);
     expect(executable).not.toMatch(/ALTER\s+TABLE\s+`attendance_records`/i);
   });
 
   it('FK → schedule_entries ON DELETE RESTRICT; UNIQUE anchor + session_date', () => {
-    expect(executable).toMatch(
-      /CONSTRAINT\s+`FK_attendance_sessions_schedule_entries`/i,
-    );
+    expect(executable).toMatch(/CONSTRAINT\s+`FK_attendance_sessions_schedule_entries`/i);
     expect(executable).toMatch(
       /FOREIGN\s+KEY\s+\(`id_schedule_entries`\)\s+REFERENCES\s+`schedule_entries`\s+\(`id_schedule_entries`\)/i,
     );
@@ -47,11 +43,7 @@ describe('migration 017 static audit (F1 schedule occurrence anchor)', () => {
   });
 
   it('UNIQUE leftmost covers FK index need; no redundant KEY on same column alone', () => {
-    expect(executable).toMatch(
-      /UQ_attendance_sessions_schedule_anchor_date/,
-    );
-    expect(executable).not.toMatch(
-      /KEY\s+`IDX_attendance_sessions_schedule_entries`/i,
-    );
+    expect(executable).toMatch(/UQ_attendance_sessions_schedule_anchor_date/);
+    expect(executable).not.toMatch(/KEY\s+`IDX_attendance_sessions_schedule_entries`/i);
   });
 });

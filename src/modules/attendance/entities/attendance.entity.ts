@@ -3,12 +3,15 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { AttendanceJustificationStatus } from '../../../common/enums/attendance-justification-status.enum';
 import { AttendanceRegistrationMethod } from '../../../common/enums/attendance-registration-method.enum';
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
 import { User } from '../../administrative/users/entities/user.entity';
+import { AbsenceJustification } from './absence-justification.entity';
 import { AttendanceSession } from './attendance-session.entity';
 
 /**
@@ -45,6 +48,14 @@ export class Attendance {
   status!: AttendanceStatus;
 
   @Column({
+    name: 'justification_status',
+    type: 'enum',
+    enum: AttendanceJustificationStatus,
+    default: AttendanceJustificationStatus.NONE,
+  })
+  justificationStatus!: AttendanceJustificationStatus;
+
+  @Column({
     name: 'registration_method',
     type: 'enum',
     enum: AttendanceRegistrationMethod,
@@ -71,4 +82,7 @@ export class Attendance {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'id_users_updated_by' })
   updatedBy?: User | null;
+
+  @OneToMany(() => AbsenceJustification, (row) => row.attendance)
+  justifications?: AbsenceJustification[];
 }

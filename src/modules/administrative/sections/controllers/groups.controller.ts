@@ -42,19 +42,13 @@ export class GroupsController {
 
   @Put(':id/guide-teacher')
   @ApiOperation({ summary: 'Asignar docente guía a la sección' })
-  assignGuideTeacher(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AssignGuideTeacherDto,
-  ) {
+  assignGuideTeacher(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignGuideTeacherDto) {
     return this.service.assignGuideTeacher(id, dto);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Actualizar sección' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateGroupDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateGroupDto) {
     return this.service.update(id, dto);
   }
 

@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { RoleStatus } from '../../../../common/enums/role-status.enum';
 import { PermissionsService } from '../../permissions/services/permissions.service';
 import { AssignPermissionsDto } from '../dto/assign-permissions.dto';
@@ -72,9 +68,7 @@ export class RolesService {
     await this.repository.save(role);
 
     if (dto.permissionIds !== undefined) {
-      const permissions = await this.permissionsService.findByIdsOrFail(
-        dto.permissionIds,
-      );
+      const permissions = await this.permissionsService.findByIdsOrFail(dto.permissionIds);
       return this.repository.setPermissions(role, permissions);
     }
 
@@ -86,21 +80,13 @@ export class RolesService {
     return this.repository.deactivate(role);
   }
 
-  async assignPermissions(
-    id: number,
-    dto: AssignPermissionsDto,
-  ): Promise<RoleEntity> {
+  async assignPermissions(id: number, dto: AssignPermissionsDto): Promise<RoleEntity> {
     const role = await this.findOne(id);
-    const permissions = await this.permissionsService.findByIdsOrFail(
-      dto.permissionIds,
-    );
+    const permissions = await this.permissionsService.findByIdsOrFail(dto.permissionIds);
     return this.repository.setPermissions(role, permissions);
   }
 
-  private async ensureUniqueName(
-    name: string,
-    excludeId?: number,
-  ): Promise<void> {
+  private async ensureUniqueName(name: string, excludeId?: number): Promise<void> {
     const existing = await this.repository.findByName(name);
     if (existing && existing.id !== excludeId) {
       throw new ConflictException(`Role name "${name}" already exists`);

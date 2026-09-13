@@ -231,10 +231,7 @@ export class BulkImportService {
         '';
 
       const phone =
-        normalizedRow['telefono'] ||
-        normalizedRow['celular'] ||
-        normalizedRow['phone'] ||
-        '';
+        normalizedRow['telefono'] || normalizedRow['celular'] || normalizedRow['phone'] || '';
 
       const invalidFields: string[] = [];
       const errorMessages: string[] = [];

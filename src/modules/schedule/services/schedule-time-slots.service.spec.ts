@@ -24,14 +24,12 @@ describe('ScheduleTimeSlotsService (hardening)', () => {
 
   const slotRepo = {
     find: jest.fn(),
-    findOne: jest.fn(
-      async (opts: { where?: { id?: number }; lock?: unknown }) => {
-        if (opts?.lock) callOrder.push('pessimistic_write');
-        const id = opts?.where?.id;
-        if (id == null) return null;
-        return slotStore.get(id) ?? null;
-      },
-    ),
+    findOne: jest.fn(async (opts: { where?: { id?: number }; lock?: unknown }) => {
+      if (opts?.lock) callOrder.push('pessimistic_write');
+      const id = opts?.where?.id;
+      if (id == null) return null;
+      return slotStore.get(id) ?? null;
+    }),
     create: jest.fn((data: Record<string, unknown>) => ({ ...data })),
     save: jest.fn(async (row: Record<string, unknown>) => {
       const id = (row.id as number | undefined) ?? nextId++;
@@ -64,10 +62,7 @@ describe('ScheduleTimeSlotsService (hardening)', () => {
         if (slotQbState.result) return slotQbState.result;
         for (const slot of slotStore.values()) {
           if (slot.isActive !== true && slot.isActive !== 1) continue;
-          if (
-            slotQbState.excludeId != null &&
-            slot.id === slotQbState.excludeId
-          ) {
+          if (slotQbState.excludeId != null && slot.id === slotQbState.excludeId) {
             continue;
           }
           const f = slotQbState.filters;
@@ -277,9 +272,9 @@ describe('ScheduleTimeSlotsService (hardening)', () => {
       throw new Error('expected');
     } catch (error) {
       expect(error).toBeInstanceOf(ServiceUnavailableException);
-      expect(
-        (error as ServiceUnavailableException).getResponse(),
-      ).toMatchObject({ code: 'SCHEDULE_TIME_SLOT_LOCK_TIMEOUT' });
+      expect((error as ServiceUnavailableException).getResponse()).toMatchObject({
+        code: 'SCHEDULE_TIME_SLOT_LOCK_TIMEOUT',
+      });
     }
   });
 
@@ -797,27 +792,21 @@ describe('ScheduleTimeSlotsService (hardening)', () => {
       slotType: ScheduleSlotType.BREAK,
       isActive: true,
     });
-    await expect(service.requireAssignableSlot(3)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(service.requireAssignableSlot(3)).rejects.toBeInstanceOf(BadRequestException);
 
     listRepo.findOne.mockResolvedValueOnce({
       id: 9,
       slotType: ScheduleSlotType.LUNCH,
       isActive: true,
     });
-    await expect(service.requireAssignableSlot(9)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(service.requireAssignableSlot(9)).rejects.toBeInstanceOf(BadRequestException);
 
     listRepo.findOne.mockResolvedValueOnce({
       id: 1,
       slotType: ScheduleSlotType.CLASS,
       isActive: false,
     });
-    await expect(service.requireAssignableSlot(1)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(service.requireAssignableSlot(1)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('list ordenado por displayOrder (repo list)', async () => {
@@ -857,9 +846,9 @@ describe('ScheduleTimeSlotsService (hardening)', () => {
       throw new Error('expected');
     } catch (error) {
       expect(error).toBeInstanceOf(ServiceUnavailableException);
-      expect(
-        (error as ServiceUnavailableException).getResponse(),
-      ).toMatchObject({ code: 'SCHEDULE_TIME_SLOT_LOCK_ERROR' });
+      expect((error as ServiceUnavailableException).getResponse()).toMatchObject({
+        code: 'SCHEDULE_TIME_SLOT_LOCK_ERROR',
+      });
     }
   });
 });

@@ -74,11 +74,7 @@ function normalizeDayPeriod(value: string): string {
     .trim()
     .toLowerCase();
 
-  if (
-    normalized.startsWith('p') ||
-    normalized.includes('p.m') ||
-    normalized.includes('pm')
-  ) {
+  if (normalized.startsWith('p') || normalized.includes('p.m') || normalized.includes('pm')) {
     return 'p. m.';
   }
 

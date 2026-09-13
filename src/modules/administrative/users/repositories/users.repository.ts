@@ -143,10 +143,7 @@ export class UsersRepository {
     });
   }
 
-  async findByNationalId(
-    nationalId: string,
-    excludeId?: number,
-  ): Promise<User | null> {
+  async findByNationalId(nationalId: string, excludeId?: number): Promise<User | null> {
     return this.repository.findOne({
       where: excludeId
         ? { national_id: nationalId, id: Not(excludeId) }
@@ -164,9 +161,7 @@ export class UsersRepository {
     await this.userRoles.delete({ userId });
     if (!roles.length) return;
     await this.userRoles.save(
-      roles.map((role) =>
-        this.userRoles.create({ userId, roleId: role.id }),
-      ),
+      roles.map((role) => this.userRoles.create({ userId, roleId: role.id })),
     );
   }
 }

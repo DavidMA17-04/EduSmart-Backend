@@ -125,15 +125,11 @@ export class AttendanceSessionsService {
       if (!allowedKinds.includes(ta.offeringKind)) continue;
 
       const offeringId =
-        ta.offeringKind === AcademicOfferingKind.SUBJECT
-          ? ta.subjectId
-          : ta.specialtyId;
+        ta.offeringKind === AcademicOfferingKind.SUBJECT ? ta.subjectId : ta.specialtyId;
       if (offeringId == null) continue;
 
       const name =
-        ta.offeringKind === AcademicOfferingKind.SUBJECT
-          ? ta.subject?.name
-          : ta.specialty?.name;
+        ta.offeringKind === AcademicOfferingKind.SUBJECT ? ta.subject?.name : ta.specialty?.name;
       if (!name) continue;
 
       views.push({
@@ -152,9 +148,7 @@ export class AttendanceSessionsService {
    * Groups relevant for attendance: at least one impartable TA for the actor
    * (or any teacher if admin), coherent with grade eligibility.
    */
-  async listAttendanceGroups(
-    actor: AuthenticatedUser,
-  ): Promise<AttendanceGroupView[]> {
+  async listAttendanceGroups(actor: AuthenticatedUser): Promise<AttendanceGroupView[]> {
     const qb = this.teachingAssignments
       .createQueryBuilder('ta')
       .innerJoinAndSelect('ta.group', 'g')
@@ -197,9 +191,7 @@ export class AttendanceSessionsService {
 
     const views: AttendanceGroupView[] = [];
     for (const [groupId, row] of byGroupId) {
-      const eligible = row.kinds.some((kind) =>
-        policy.isKindAllowedForGrade(kind, row.gradeLevel),
-      );
+      const eligible = row.kinds.some((kind) => policy.isKindAllowedForGrade(kind, row.gradeLevel));
       if (!eligible) continue;
       views.push({
         groupId,
@@ -241,13 +233,9 @@ export class AttendanceSessionsService {
     }
 
     const offeringId =
-      ta.offeringKind === AcademicOfferingKind.SUBJECT
-        ? ta.subjectId
-        : ta.specialtyId;
+      ta.offeringKind === AcademicOfferingKind.SUBJECT ? ta.subjectId : ta.specialtyId;
     const offeringName =
-      ta.offeringKind === AcademicOfferingKind.SUBJECT
-        ? ta.subject?.name
-        : ta.specialty?.name;
+      ta.offeringKind === AcademicOfferingKind.SUBJECT ? ta.subject?.name : ta.specialty?.name;
 
     if (offeringId == null || !offeringName) {
       throw new BadRequestException({
@@ -286,9 +274,7 @@ export class AttendanceSessionsService {
       relations: { subject: true, specialty: true, group: { section: true } },
     });
     if (!ta) {
-      throw new NotFoundException(
-        `TeachingAssignment ${dto.teachingAssignmentId} not found`,
-      );
+      throw new NotFoundException(`TeachingAssignment ${dto.teachingAssignmentId} not found`);
     }
 
     this.assertCanManageTeachingAssignment(ta, actor);
@@ -307,10 +293,7 @@ export class AttendanceSessionsService {
       });
     }
 
-    await this.eligibility.assertOfferingAllowedForGroup(
-      ta.groupId,
-      ta.offeringKind,
-    );
+    await this.eligibility.assertOfferingAllowedForGroup(ta.groupId, ta.offeringKind);
 
     const now = new Date();
     const sessionDate = calendarDateInTimeZone(now);
@@ -369,25 +352,19 @@ export class AttendanceSessionsService {
     if (clock.dayOfWeek !== run.dayOfWeek) {
       throw new BadRequestException({
         code: 'ATTENDANCE_SCHEDULE_WRONG_DAY',
-        message:
-          'Schedule occurrence dayOfWeek does not match today in America/Costa_Rica',
+        message: 'Schedule occurrence dayOfWeek does not match today in America/Costa_Rica',
         expectedDayOfWeek: run.dayOfWeek,
         todayDayOfWeek: clock.dayOfWeek,
         date: clock.date,
       });
     }
 
-    const existing = await this.findByAnchorAndDate(
-      run.anchorEntryId,
-      clock.date,
-    );
+    const existing = await this.findByAnchorAndDate(run.anchorEntryId, clock.date);
     if (existing) {
       return existing;
     }
 
-    if (
-      !isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time)
-    ) {
+    if (!isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time)) {
       throw new BadRequestException({
         code: 'ATTENDANCE_OUTSIDE_SCHEDULE_WINDOW',
         message:
@@ -440,10 +417,7 @@ export class AttendanceSessionsService {
       return this.findOne(savedId);
     } catch (error) {
       if (this.isDuplicateAnchorDate(error)) {
-        const raced = await this.findByAnchorAndDate(
-          run.anchorEntryId,
-          clock.date,
-        );
+        const raced = await this.findByAnchorAndDate(run.anchorEntryId, clock.date);
         if (raced) return raced;
       }
       throw error;
@@ -495,26 +469,18 @@ export class AttendanceSessionsService {
         .map((s) => [s.scheduleEntryId as number, s]),
     );
 
-    const occurrences: AttendanceScheduleOccurrenceContext[] = runs.map(
-      (run) => {
-        const session = byAnchor.get(run.anchorEntryId) ?? null;
-        return {
-          anchorEntryId: run.anchorEntryId,
-          entryIds: run.entryIds,
-          teachingAssignmentId: run.teachingAssignmentId,
-          startTime: run.startTime,
-          endTime: run.endTime,
-          withinStartWindow: isWithinScheduleStartWindow(
-            run.startTime,
-            run.endTime,
-            clock.time,
-          ),
-          attendanceSession: session
-            ? { id: session.id, status: session.status }
-            : null,
-        };
-      },
-    );
+    const occurrences: AttendanceScheduleOccurrenceContext[] = runs.map((run) => {
+      const session = byAnchor.get(run.anchorEntryId) ?? null;
+      return {
+        anchorEntryId: run.anchorEntryId,
+        entryIds: run.entryIds,
+        teachingAssignmentId: run.teachingAssignmentId,
+        startTime: run.startTime,
+        endTime: run.endTime,
+        withinStartWindow: isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time),
+        attendanceSession: session ? { id: session.id, status: session.status } : null,
+      };
+    });
 
     return {
       date: clock.date,
@@ -558,10 +524,7 @@ export class AttendanceSessionsService {
       });
     }
 
-    await this.eligibility.assertOfferingAllowedForGroup(
-      ta.groupId,
-      ta.offeringKind,
-    );
+    await this.eligibility.assertOfferingAllowedForGroup(ta.groupId, ta.offeringKind);
 
     const siblings = await this.scheduleEntries.find({
       where: {
@@ -600,10 +563,7 @@ export class AttendanceSessionsService {
     return /UQ_attendance_sessions_schedule_anchor_date/i.test(msg);
   }
 
-  async closeSession(
-    sessionId: number,
-    actor: AuthenticatedUser,
-  ): Promise<AttendanceSession> {
+  async closeSession(sessionId: number, actor: AuthenticatedUser): Promise<AttendanceSession> {
     await this.dataSource.transaction(async (manager) => {
       const sessionRepo = manager.getRepository(AttendanceSession);
       const auditRepo = manager.getRepository(AuditLog);
@@ -675,10 +635,7 @@ export class AttendanceSessionsService {
     return session;
   }
 
-  assertCanManageTeachingAssignment(
-    ta: TeachingAssignment,
-    actor: AuthenticatedUser,
-  ): void {
+  assertCanManageTeachingAssignment(ta: TeachingAssignment, actor: AuthenticatedUser): void {
     if (this.isAdminActor(actor)) return;
     if (ta.userId === actor.id) return;
     throw new ForbiddenException({

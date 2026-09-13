@@ -25,10 +25,7 @@ function resolveFirstName(user: User): string | null {
 }
 
 function resolveLastName(user: User): string | null {
-  const fromParts = [user.first_lastname, user.second_lastname]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
+  const fromParts = [user.first_lastname, user.second_lastname].filter(Boolean).join(' ').trim();
   return fromParts || null;
 }
 
@@ -40,10 +37,7 @@ export function displayUserName(user: User): string {
       .trim();
     return composed || user.name.trim();
   }
-  const fallback = [user.first_lastname, user.second_lastname]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
+  const fallback = [user.first_lastname, user.second_lastname].filter(Boolean).join(' ').trim();
   return fallback || user.email || '';
 }
 

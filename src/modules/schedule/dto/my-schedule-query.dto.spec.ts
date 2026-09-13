@@ -34,8 +34,6 @@ describe('MyScheduleQueryDto', () => {
     });
     expect(errors.length).toBeGreaterThan(0);
     const messages = errors.flatMap((e) => Object.values(e.constraints ?? {}));
-    expect(messages.some((m) => /property teacherId should not exist/i.test(m))).toBe(
-      true,
-    );
+    expect(messages.some((m) => /property teacherId should not exist/i.test(m))).toBe(true);
   });
 });

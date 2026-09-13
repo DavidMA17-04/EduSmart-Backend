@@ -34,9 +34,9 @@ describe('PermissionAction / buildCode (D1.1 VIEW_OWN)', () => {
   });
 
   it('3–5. SCHEDULES+VIEW y SCHEDULES+VIEW_OWN son pares distintos; uniqueness sigue', async () => {
-    expect(
-      `${PermissionModule.SCHEDULES}.${PermissionAction.VIEW}`,
-    ).not.toBe(`${PermissionModule.SCHEDULES}.${PermissionAction.VIEW_OWN}`);
+    expect(`${PermissionModule.SCHEDULES}.${PermissionAction.VIEW}`).not.toBe(
+      `${PermissionModule.SCHEDULES}.${PermissionAction.VIEW_OWN}`,
+    );
 
     const findByModuleAndAction = jest
       .fn()

@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { SectionStatus } from '../../../../common/enums/section-status.enum';
 import { AcademicPeriodsRepository } from '../../academic-periods/repositories/academic-periods.repository';
 import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';

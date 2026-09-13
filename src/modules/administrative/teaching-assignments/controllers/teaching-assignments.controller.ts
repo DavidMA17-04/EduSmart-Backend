@@ -16,10 +16,7 @@ import { CreateTeachingAssignmentDto } from '../dto/create-teaching-assignment.d
 import { UpdateTeachingAssignmentDto } from '../dto/update-teaching-assignment.dto';
 import { TeachingAssignmentsService } from '../services/teaching-assignments.service';
 
-function optionalPositiveInt(
-  raw: string | undefined,
-  field: string,
-): number | undefined {
+function optionalPositiveInt(raw: string | undefined, field: string): number | undefined {
   if (raw == null || raw === '') return undefined;
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
@@ -46,8 +43,7 @@ export class TeachingAssignmentsController {
   @Get()
   @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_VIEW)
   @ApiOperation({
-    summary:
-      'Listar asignaciones impartibles (filtros opcionales: groupId, teacherId, periodId)',
+    summary: 'Listar asignaciones impartibles (filtros opcionales: groupId, teacherId, periodId)',
   })
   list(
     @Query('groupId') groupId?: string,
@@ -71,10 +67,7 @@ export class TeachingAssignmentsController {
   @Put(':id')
   @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_EDIT)
   @ApiOperation({ summary: 'Actualizar asignación docente' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateTeachingAssignmentDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTeachingAssignmentDto) {
     return this.service.update(id, dto);
   }
 }

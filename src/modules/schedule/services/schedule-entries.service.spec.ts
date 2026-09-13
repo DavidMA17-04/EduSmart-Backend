@@ -204,16 +204,14 @@ describe('ScheduleEntriesService (QueryRunner lifecycle)', () => {
   function stubHappyCreate(ta = impartableTa()) {
     taRepo.findOne.mockResolvedValue(ta);
     entryRepo.createQueryBuilder.mockReturnValue(conflictQb([]));
-    entryRepo.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 100,
-        dayOfWeek: 1,
-        timeSlotId: 1,
-        teachingAssignmentId: ta.id,
-        timeSlot: classSlot,
-        teachingAssignment: ta,
-      });
+    entryRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 100,
+      dayOfWeek: 1,
+      timeSlotId: 1,
+      teachingAssignmentId: ta.id,
+      timeSlot: classSlot,
+      teachingAssignment: ta,
+    });
   }
 
   it('4. success create: GET_LOCK → INSERT → COMMIT → RELEASE_LOCK', async () => {
@@ -233,9 +231,7 @@ describe('ScheduleEntriesService (QueryRunner lifecycle)', () => {
     expect(commitIdx).toBeGreaterThan(insertIdx);
     expect(releaseIdx).toBeGreaterThan(commitIdx);
     expect(callOrder).toContain('release');
-    expect(callOrder.indexOf('RELEASE_LOCK')).toBeLessThan(
-      callOrder.lastIndexOf('release'),
-    );
+    expect(callOrder.indexOf('RELEASE_LOCK')).toBeLessThan(callOrder.lastIndexOf('release'));
   });
 
   it('5. success update: COMMIT antes de RELEASE_LOCK', async () => {
@@ -271,9 +267,7 @@ describe('ScheduleEntriesService (QueryRunner lifecycle)', () => {
     });
 
     await service.update(100, { dayOfWeek: 2 });
-    expect(callOrder.indexOf('COMMIT')).toBeLessThan(
-      callOrder.indexOf('RELEASE_LOCK'),
-    );
+    expect(callOrder.indexOf('COMMIT')).toBeLessThan(callOrder.indexOf('RELEASE_LOCK'));
     expect(callOrder.indexOf('UPDATE')).toBeLessThan(callOrder.indexOf('COMMIT'));
   });
 
@@ -303,9 +297,7 @@ describe('ScheduleEntriesService (QueryRunner lifecycle)', () => {
     expect(callOrder).toContain('RELEASE_LOCK');
     expect(callOrder).toContain('release');
     expect(callOrder).not.toContain('COMMIT');
-    expect(callOrder.indexOf('ROLLBACK')).toBeLessThan(
-      callOrder.indexOf('RELEASE_LOCK'),
-    );
+    expect(callOrder.indexOf('ROLLBACK')).toBeLessThan(callOrder.indexOf('RELEASE_LOCK'));
   });
 
   it('7. fallo INSERT: rollback → release locks', async () => {
@@ -536,9 +528,7 @@ describe('ScheduleEntriesService (QueryRunner lifecycle)', () => {
     entryRepo.save.mockImplementation(async (row) => row);
     await service.update(100, { dayOfWeek: 2 });
     expect(callOrder).toContain('GET_LOCK');
-    expect(callOrder.indexOf('COMMIT')).toBeLessThan(
-      callOrder.indexOf('RELEASE_LOCK'),
-    );
+    expect(callOrder.indexOf('COMMIT')).toBeLessThan(callOrder.indexOf('RELEASE_LOCK'));
   });
 
   it('GET_LOCK timeout en create', async () => {
@@ -589,9 +579,7 @@ describe('ScheduleEntriesService (QueryRunner lifecycle)', () => {
         timeSlot: classSlot,
       },
     ]);
-    attendanceSessionRepo.find.mockResolvedValue([
-      { id: 1, scheduleEntryId: 100 },
-    ]);
+    attendanceSessionRepo.find.mockResolvedValue([{ id: 1, scheduleEntryId: 100 }]);
     await expectConflictCode(service.remove(100), 'SCHEDULE_OCCURRENCE_IN_USE');
   });
 
@@ -614,9 +602,7 @@ describe('ScheduleEntriesService (QueryRunner lifecycle)', () => {
         },
       },
     ]);
-    attendanceSessionRepo.find.mockResolvedValue([
-      { id: 1, scheduleEntryId: 50 },
-    ]);
+    attendanceSessionRepo.find.mockResolvedValue([{ id: 1, scheduleEntryId: 50 }]);
     slotRepo.findOne.mockResolvedValue({
       id: 2,
       startTime: '07:40:00',
