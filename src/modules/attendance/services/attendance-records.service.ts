@@ -20,6 +20,18 @@ import { AttendanceSession } from '../entities/attendance-session.entity';
 import { AttendanceSessionsService } from './attendance-sessions.service';
 import { formatUserFullName } from '../utils/attendance-labels.util';
 
+function isActiveStudentRole(role: {
+  name?: string | null;
+  status?: RoleStatus | null;
+} | null | undefined): boolean {
+  if (!role || role.status !== RoleStatus.ACTIVE || !role.name) return false;
+  const normalized = role.name.trim().toLowerCase();
+  return (
+    normalized === INSTITUTIONAL_ROLE_STUDENT.toLowerCase() ||
+    normalized === 'student'
+  );
+}
+
 export type RosterStudentView = {
   userId: number;
   nationalId: string;
@@ -248,14 +260,15 @@ export class AttendanceRecordsService {
       .addOrderBy('u.name', 'ASC')
       .getMany();
 
-    const students = rows
-      .map((e) => e.user)
-      .filter((user) =>
-        (user.userRoles ?? []).some(
-          (row) =>
-            row.role?.status === RoleStatus.ACTIVE && row.role.name === INSTITUTIONAL_ROLE_STUDENT,
-        ),
-      );
+    const enrolledUsers = rows.map((e) => e.user).filter(Boolean);
+    const withStudentRole = enrolledUsers.filter((user) =>
+      (user.userRoles ?? []).some((row) => isActiveStudentRole(row.role)),
+    );
+
+    // Prefer active Estudiante role; if none match but enrollments exist,
+    // fall back to enrolled users so the manual roster is usable (data quirks).
+    const students =
+      withStudentRole.length > 0 ? withStudentRole : enrolledUsers;
 
     const byId = new Map<number, (typeof students)[number]>();
     for (const user of students) {

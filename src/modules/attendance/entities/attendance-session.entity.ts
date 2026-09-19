@@ -54,6 +54,13 @@ export class AttendanceSession {
   })
   status!: AttendanceSessionStatus;
 
+  /** PBI-25: redeemable code while session is OPEN (cleared on close optional). */
+  @Column({ name: 'attendance_token', type: 'varchar', length: 32, nullable: true })
+  attendanceToken?: string | null;
+
+  @Column({ name: 'attendance_token_expires_at', type: 'datetime', nullable: true })
+  attendanceTokenExpiresAt?: Date | null;
+
   @Column({ name: 'id_users_created_by', type: 'int' })
   createdByUserId!: number;
 

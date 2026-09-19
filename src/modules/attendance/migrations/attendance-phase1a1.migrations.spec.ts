@@ -22,4 +22,19 @@ describe('Phase 1A.1 attendance migrations (static)', () => {
     expect(sql).not.toContain("'attendance.configure'");
     expect(sql).not.toMatch(/id_roles\s*=\s*\d/);
   });
+
+  it('018 adds session token columns and history indexes without touching 017 UQ', () => {
+    const sql = readFileSync(
+      join(migrationsDir, '018_attendance_history_and_session_tokens.sql'),
+      'utf8',
+    );
+    expect(sql).toContain('attendance_token');
+    expect(sql).toContain('attendance_token_expires_at');
+    expect(sql).toContain('UQ_attendance_sessions_token');
+    expect(sql).toContain('IDX_attendance_session_status');
+    expect(sql).toContain('IDX_attendance_sessions_date_ta');
+    expect(sql).not.toMatch(
+      /ADD\s+UNIQUE\s+KEY\s+`UQ_attendance_sessions_schedule_anchor_date`/i,
+    );
+  });
 });

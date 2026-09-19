@@ -53,6 +53,8 @@ export type AttendanceSessionDetailView = {
   startedAt: Date;
   closedAt: Date | null;
   teachingAssignmentId: number;
+  attendanceToken: string | null;
+  attendanceTokenExpiresAt: Date | null;
   group: {
     id: number;
     name: string;
@@ -251,6 +253,8 @@ export class AttendanceSessionsService {
       startedAt: session.startedAt,
       closedAt: session.closedAt ?? null,
       teachingAssignmentId: session.teachingAssignmentId,
+      attendanceToken: session.attendanceToken ?? null,
+      attendanceTokenExpiresAt: session.attendanceTokenExpiresAt ?? null,
       group: {
         id: group.id,
         name: group.name,
@@ -596,6 +600,8 @@ export class AttendanceSessionsService {
 
       session.status = AttendanceSessionStatus.CLOSED;
       session.closedAt = new Date();
+      session.attendanceToken = null;
+      session.attendanceTokenExpiresAt = null;
       await sessionRepo.save(session);
 
       await auditRepo.save(

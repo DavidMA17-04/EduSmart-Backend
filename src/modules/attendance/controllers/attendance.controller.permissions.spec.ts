@@ -7,7 +7,13 @@ import { AttendanceController } from '../controllers/attendance.controller';
 describe('Phase 1A.1 AttendanceController permissions', () => {
   const reflector = new Reflector();
   const guard = new PermissionsGuard(reflector);
-  const controller = new AttendanceController({} as never, {} as never);
+  const controller = new AttendanceController(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
 
   function ctxFor(handler: (...args: never[]) => unknown, permissions: string[]): ExecutionContext {
     return {
@@ -103,6 +109,56 @@ describe('Phase 1A.1 AttendanceController permissions', () => {
     ).toBe(true);
     expect(
       guard.canActivate(ctxFor(controller.getSessionDetail, [PERMISSIONS.ATTENDANCE_EDIT])),
+    ).toBe(false);
+  });
+
+  it('history → attendance.view', () => {
+    expect(
+      guard.canActivate(
+        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_READ]),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_REGISTER]),
+      ),
+    ).toBe(false);
+  });
+
+  it('generate token → attendance.edit', () => {
+    expect(
+      guard.canActivate(
+        ctxFor(controller.generateSessionToken, [PERMISSIONS.ATTENDANCE_EDIT]),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        ctxFor(controller.generateSessionToken, [PERMISSIONS.ATTENDANCE_READ]),
+      ),
+    ).toBe(false);
+  });
+
+  it('redeem-token requires no attendance permission (JWT + student check)', () => {
+    expect(
+      guard.canActivate(ctxFor(controller.redeemToken, [])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        ctxFor(controller.redeemToken, [PERMISSIONS.SCHEDULES_VIEW_OWN]),
+      ),
+    ).toBe(true);
+  });
+
+  it('export pdf/excel → attendance.view', () => {
+    expect(
+      guard.canActivate(
+        ctxFor(controller.exportPdf, [PERMISSIONS.ATTENDANCE_READ]),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        ctxFor(controller.exportExcel, [PERMISSIONS.ATTENDANCE_EDIT]),
+      ),
     ).toBe(false);
   });
 });

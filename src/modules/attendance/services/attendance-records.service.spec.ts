@@ -180,8 +180,8 @@ describe('AttendanceRecordsService Phase 1A', () => {
       }
     });
 
-    it('22. status inválido JUSTIFIED no existe en enum de dominio', () => {
-      expect(Object.values(AttendanceStatus)).not.toContain('JUSTIFIED');
+    it('22. status JUSTIFIED es valor válido del enum de dominio', () => {
+      expect(Object.values(AttendanceStatus)).toContain('JUSTIFIED');
     });
 
     it('23. estudiante fuera de roster → reject', async () => {
@@ -400,8 +400,12 @@ describe('AttendanceRecordsService Phase 1A', () => {
 });
 
 describe('UpsertAttendanceRecordsDto status enum', () => {
-  it('22. solo PRESENT/ABSENT/LATE son valores del enum', () => {
-    expect(Object.values(AttendanceStatus)).toEqual(['PRESENT', 'ABSENT', 'LATE']);
-    expect(Object.values(AttendanceStatus)).not.toContain('JUSTIFIED');
+  it('22. PRESENT/ABSENT/LATE/JUSTIFIED son valores del enum', () => {
+    expect(Object.values(AttendanceStatus)).toEqual([
+      'PRESENT',
+      'ABSENT',
+      'LATE',
+      'JUSTIFIED',
+    ]);
   });
 });
