@@ -8,11 +8,13 @@ import { INSTITUTIONAL_ROLE_TEACHER } from '../../../../common/constants/institu
 import { GroupStatus } from '../../../../common/enums/group-status.enum';
 import { RoleStatus } from '../../../../common/enums/role-status.enum';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { AcademicPeriodsRepository } from '../../academic-periods/repositories/academic-periods.repository';
+import { AcademicYearsRepository } from '../../academic-years/repositories/academic-years.repository';
+import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
 import { AssignGuideTeacherDto } from '../dto/assign-guide-teacher.dto';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { GroupEntity } from '../entities/group.entity';
-import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
 import { GroupsRepository } from '../repositories/groups.repository';
 import { SectionsService } from './sections.service';
 
@@ -22,6 +24,8 @@ export class GroupsService {
     private readonly repository: GroupsRepository,
     private readonly sectionsService: SectionsService,
     private readonly specialtiesRepository: SpecialtiesRepository,
+    private readonly academicPeriodsRepository: AcademicPeriodsRepository,
+    private readonly academicYearsRepository: AcademicYearsRepository,
   ) {}
 
   async create(dto: CreateGroupDto): Promise<GroupEntity> {
@@ -30,10 +34,12 @@ export class GroupsService {
     await this.ensureSpecialty(dto.specialtyId);
     if (dto.guideTeacherId) await this.ensureGuideTeacher(dto.guideTeacherId);
 
+    // Cascarón vacío: sin auto-promoción masiva de alumnos al crear sección.
     const group = await this.repository.save(
       this.repository.create({
         name: dto.name,
-        studentCount: dto.studentCount ?? 0,
+        studentCount: 0,
+        maxCapacity: dto.maxCapacity,
         sectionId: dto.sectionId,
         specialtyId: dto.specialtyId ?? null,
         academicPeriodId: dto.academicPeriodId ?? section.academicPeriodId,
@@ -50,6 +56,13 @@ export class GroupsService {
 
   async findAll(): Promise<GroupEntity[]> {
     return this.repository.findAll();
+  }
+
+  async findVisibleForTeacher(): Promise<GroupEntity[]> {
+    const periodIds = await this.activePeriodIds();
+    if (periodIds.length === 0) return [];
+    const all = await this.repository.findAll();
+    return all.filter((group) => periodIds.includes(group.academicPeriodId));
   }
 
   async findOne(id: number): Promise<GroupEntity> {
@@ -73,6 +86,14 @@ export class GroupsService {
     if (dto.sectionId !== undefined) group.sectionId = dto.sectionId;
     if (dto.name !== undefined) group.name = dto.name;
     if (dto.studentCount !== undefined) group.studentCount = dto.studentCount;
+    if (dto.maxCapacity !== undefined) {
+      if (dto.maxCapacity < group.studentCount) {
+        throw new BadRequestException(
+          `El cupo máximo (${dto.maxCapacity}) no puede ser menor que los alumnos inscritos (${group.studentCount}).`,
+        );
+      }
+      group.maxCapacity = dto.maxCapacity;
+    }
     if (dto.specialtyId !== undefined) {
       await this.ensureSpecialty(dto.specialtyId);
       group.specialtyId = dto.specialtyId ?? null;
@@ -106,6 +127,16 @@ export class GroupsService {
 
   async remove(id: number): Promise<void> {
     await this.repository.remove(await this.findOne(id));
+  }
+
+  private async activePeriodIds(): Promise<number[]> {
+    const activeYear = await this.academicYearsRepository.findActive();
+    if (activeYear) {
+      const periods = await this.academicPeriodsRepository.findByAcademicYearId(activeYear.id);
+      return periods.map((p) => p.id);
+    }
+    const activePeriods = await this.academicPeriodsRepository.findActive();
+    return activePeriods.map((p) => p.id);
   }
 
   private async ensureUniqueName(

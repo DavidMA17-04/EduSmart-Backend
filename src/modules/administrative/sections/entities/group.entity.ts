@@ -28,6 +28,10 @@ export class GroupEntity {
   @Column({ name: 'student_count', type: 'int', default: 0 })
   studentCount!: number;
 
+  /** Cupo máximo de la sección (cascarón). studentCount refleja inscritos actuales. */
+  @Column({ name: 'max_capacity', type: 'int', default: 30 })
+  maxCapacity!: number;
+
   @Column({ name: 'id_sections', type: 'int' })
   sectionId!: number;
 
@@ -76,6 +80,7 @@ export class GroupEntity {
       id: this.id,
       name: this.name,
       studentCount: this.studentCount,
+      maxCapacity: this.maxCapacity,
       sectionId: this.sectionId,
       specialtyId: this.specialtyId ?? this.specialty?.id ?? null,
       specialty: this.specialty ? { id: this.specialty.id, name: this.specialty.name } : null,

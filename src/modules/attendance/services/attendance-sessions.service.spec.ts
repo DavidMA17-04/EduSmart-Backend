@@ -81,6 +81,7 @@ describe('AttendanceSessionsService Phase 1A / 1A.1', () => {
       { findOne: jest.fn(), find: jest.fn(), createQueryBuilder: jest.fn() } as never,
       eligibility as never,
       dataSource as never,
+      { findActiveForDate: jest.fn().mockResolvedValue(null) } as never,
     );
     sessions.findOne.mockResolvedValue({
       id: 50,

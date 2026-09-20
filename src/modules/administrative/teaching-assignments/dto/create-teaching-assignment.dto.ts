@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsInt, IsOptional, Min, ValidateIf } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { AcademicOfferingKind } from '../../../../common/enums/academic-offering-kind.enum';
 
 export class CreateTeachingAssignmentDto {
@@ -8,10 +18,26 @@ export class CreateTeachingAssignmentDto {
   @Min(1)
   userId!: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description: 'Una sección. Usar groupIds para asignación múltiple.',
+  })
+  @ValidateIf((dto: CreateTeachingAssignmentDto) => !dto.groupIds?.length)
   @IsInt()
   @Min(1)
-  groupId!: number;
+  groupId?: number;
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description: 'Múltiples secciones para asignación simultánea del mismo docente/oferta',
+    example: [1, 2, 3],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  groupIds?: number[];
 
   @ApiProperty({ enum: AcademicOfferingKind })
   @IsEnum(AcademicOfferingKind)
@@ -28,7 +54,7 @@ export class CreateTeachingAssignmentDto {
   subjectId?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Required when offeringKind is a specialty kind',
+    description: 'Required when offeringKind is a specialty / Carrera Técnica kind',
   })
   @ValidateIf(
     (dto: CreateTeachingAssignmentDto) =>
@@ -40,7 +66,7 @@ export class CreateTeachingAssignmentDto {
   specialtyId?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Defaults to the group academic period when omitted',
+    description: 'Defaults to the group academic period (curso lectivo) when omitted',
   })
   @IsOptional()
   @IsInt()

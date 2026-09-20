@@ -39,6 +39,7 @@ export class GroupEnrollmentsService {
     return this.dataSource.transaction(async (manager) => {
       await this.lockStudentUser(manager, dto.userId);
       const group = await this.requireGroup(manager, dto.groupId);
+      await this.assertGroupHasCapacity(manager, group);
       const academicPeriodId = dto.academicPeriodId ?? group.academicPeriodId;
 
       await this.assertNoOverlap(manager, {
@@ -49,7 +50,7 @@ export class GroupEnrollmentsService {
       });
 
       const repo = manager.getRepository(GroupEnrollment);
-      return repo.save(
+      const saved = await repo.save(
         repo.create({
           userId: dto.userId,
           groupId: group.id,
@@ -59,6 +60,9 @@ export class GroupEnrollmentsService {
           status: endsOn ? GroupEnrollmentStatus.ENDED : GroupEnrollmentStatus.ACTIVE,
         }),
       );
+
+      await this.bumpGroupStudentCount(manager, group.id, 1);
+      return saved;
     });
   }
 
@@ -74,6 +78,7 @@ export class GroupEnrollmentsService {
     return this.dataSource.transaction(async (manager) => {
       await this.lockStudentUser(manager, dto.userId);
       const newGroup = await this.requireGroup(manager, dto.newGroupId);
+      await this.assertGroupHasCapacity(manager, newGroup);
       const academicPeriodId = dto.academicPeriodId ?? newGroup.academicPeriodId;
 
       const repo = manager.getRepository(GroupEnrollment);
@@ -120,6 +125,11 @@ export class GroupEnrollmentsService {
           status: GroupEnrollmentStatus.ACTIVE,
         }),
       );
+
+      if (closed) {
+        await this.bumpGroupStudentCount(manager, closed.groupId, -1);
+      }
+      await this.bumpGroupStudentCount(manager, newGroup.id, 1);
 
       return { closed, opened };
     });
@@ -213,6 +223,37 @@ export class GroupEnrollmentsService {
     const group = await manager.findOne(GroupEntity, { where: { id: groupId } });
     if (!group) throw new NotFoundException(`Group ${groupId} not found`);
     return group;
+  }
+
+  private async assertGroupHasCapacity(
+    manager: EntityManager,
+    group: GroupEntity,
+  ): Promise<void> {
+    const activeCount = await manager.getRepository(GroupEnrollment).count({
+      where: {
+        groupId: group.id,
+        status: GroupEnrollmentStatus.ACTIVE,
+      },
+    });
+    const capacity = group.maxCapacity ?? 30;
+    if (activeCount >= capacity) {
+      throw new BadRequestException(
+        `El cupo de la sección "${group.name}" está completo (${activeCount}/${capacity}).`,
+      );
+    }
+  }
+
+  private async bumpGroupStudentCount(
+    manager: EntityManager,
+    groupId: number,
+    delta: number,
+  ): Promise<void> {
+    await manager
+      .createQueryBuilder()
+      .update(GroupEntity)
+      .set({ studentCount: () => `GREATEST(0, student_count + (${delta}))` })
+      .where('id_groups = :groupId', { groupId })
+      .execute();
   }
 
   private assertDateRange(startsOn: string, endsOn: string | null): void {

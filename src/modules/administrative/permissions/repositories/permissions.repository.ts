@@ -44,6 +44,16 @@ export class PermissionsRepository {
     return this.repository.findOne({ where: { code } });
   }
 
+  async findByCodes(codes: string[]): Promise<PermissionEntity[]> {
+    if (codes.length === 0) {
+      return [];
+    }
+
+    return this.repository.find({
+      where: { code: In(codes) },
+    });
+  }
+
   async findByModuleAndAction(
     module: PermissionModule,
     action: PermissionAction,

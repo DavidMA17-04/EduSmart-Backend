@@ -54,4 +54,13 @@ export class RolesController {
   assignPermissions(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignPermissionsDto) {
     return this.service.assignPermissions(id, dto);
   }
+
+  @Post(':id/reset-defaults')
+  @Permissions(PERMISSIONS.ROLES_PERMISSIONS_EDIT)
+  @ApiOperation({
+    summary: 'Restablecer permisos del rol a su plantilla predeterminada',
+  })
+  resetToDefaults(@Param('id', ParseIntPipe) id: number) {
+    return this.service.resetToDefaults(id);
+  }
 }

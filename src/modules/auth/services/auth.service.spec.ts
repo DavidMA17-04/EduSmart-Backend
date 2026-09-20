@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { UserStatus } from '../../../common/enums/user-status.enum';
 import { AuthService } from './auth.service';
 
@@ -78,7 +78,7 @@ describe('AuthService', () => {
     });
 
     await expect(
-      service.login({ identifier: activeUser.email, password: 'Admin1234' }),
+      service.login({ identifier: activeUser.national_id, password: 'Admin1234' }),
     ).rejects.toMatchObject({
       response: expect.objectContaining({
         message: expect.stringMatching(/pendiente de verificación/i),
@@ -88,17 +88,43 @@ describe('AuthService', () => {
     expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();
   });
 
-  it('issues session tokens and records LOGIN_SUCCESS for active users', async () => {
+  it('issues session tokens and records LOGIN_SUCCESS for active users by national_id', async () => {
     authRepository.findByIdentifier.mockResolvedValue({ ...activeUser });
 
-    const result = await service.login({ identifier: activeUser.email, password: 'Admin1234' });
+    const result = await service.login({
+      identifier: activeUser.national_id,
+      password: 'Admin1234',
+    });
 
+    expect(authRepository.findByIdentifier).toHaveBeenCalledWith(activeUser.national_id);
     expect(result.accessToken).toBe('access');
     expect(result.refreshToken).toBe('refresh');
     expect(result.user.email).toBe(activeUser.email);
     expect(auditLogService.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'LOGIN_SUCCESS' }),
     );
+  });
+
+  it('does not authenticate when repository finds no user for an email-like identifier', async () => {
+    authRepository.findByIdentifier.mockResolvedValue(null);
+
+    await expect(
+      service.login({ identifier: activeUser.email, password: 'Admin1234' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();
+  });
+
+  it('rejects inactive accounts before password comparison', async () => {
+    authRepository.findByIdentifier.mockResolvedValue({
+      ...activeUser,
+      status: UserStatus.INACTIVE,
+    });
+
+    await expect(
+      service.login({ identifier: activeUser.national_id, password: 'wrong-pass' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(service.comparePassword).not.toHaveBeenCalled();
+    expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();
   });
 
   it('changePassword requires the current password and revokes every session', async () => {

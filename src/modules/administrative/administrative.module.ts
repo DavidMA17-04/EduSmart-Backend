@@ -6,6 +6,7 @@ import { SpecialtiesModule } from './specialties/specialties.module';
 import { SubjectsModule } from './subjects/subjects.module';
 import { SectionsModule } from './sections/sections.module';
 import { AcademicPeriodsModule } from './academic-periods/academic-periods.module';
+import { AcademicYearsModule } from './academic-years/academic-years.module';
 import { AcademicOfferingsModule } from './academic-offerings/academic-offerings.module';
 import { TeachingAssignmentsModule } from './teaching-assignments/teaching-assignments.module';
 import { GroupEnrollmentsModule } from './group-enrollments/group-enrollments.module';
@@ -20,6 +21,7 @@ import { AdministrativeReportsModule } from './reports/administrative-reports.mo
     SpecialtiesModule,
     SubjectsModule,
     SectionsModule,
+    AcademicYearsModule,
     AcademicPeriodsModule,
     AcademicOfferingsModule,
     TeachingAssignmentsModule,
@@ -34,6 +36,7 @@ import { AdministrativeReportsModule } from './reports/administrative-reports.mo
     SpecialtiesModule,
     SubjectsModule,
     SectionsModule,
+    AcademicYearsModule,
     AcademicPeriodsModule,
     AcademicOfferingsModule,
     TeachingAssignmentsModule,

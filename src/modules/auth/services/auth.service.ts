@@ -65,19 +65,15 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, meta: SessionClientMeta = {}): Promise<LoginResult> {
-    const identifier = dto.identifier.trim();
+    const identifier = dto.identifier.trim().replace(/-/g, '');
     const user = await this.authRepository.findByIdentifier(identifier);
 
-    if (
-      !user ||
-      !user.passwordHash ||
-      !(await this.comparePassword(dto.password, user.passwordHash))
-    ) {
+    if (!user) {
       await this.auditLogService.record({
-        actorId: user?.id ?? null,
+        actorId: null,
         action: 'LOGIN_FAILED',
         entity: 'User',
-        entityId: user ? String(user.id) : identifier,
+        entityId: identifier,
         after: { reason: 'invalid_credentials' },
       });
       throw new UnauthorizedException(INVALID_CREDENTIALS);
@@ -99,6 +95,17 @@ export class AuthService {
         after: { reason: user.status },
       });
       throw new ForbiddenException(ACCOUNT_UNAVAILABLE);
+    }
+
+    if (!user.passwordHash || !(await this.comparePassword(dto.password, user.passwordHash))) {
+      await this.auditLogService.record({
+        actorId: user.id,
+        action: 'LOGIN_FAILED',
+        entity: 'User',
+        entityId: String(user.id),
+        after: { reason: 'invalid_credentials' },
+      });
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
     await this.authRepository.touchLastLogin(user.id);

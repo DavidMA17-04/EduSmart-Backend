@@ -1,4 +1,16 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  DEFAULT_ROLE_PERMISSIONS_ALL,
+  getDefaultPermissionTemplate,
+} from '../../../../common/constants/default-role-permissions.constant';
+import { INSTITUTIONAL_ROLE_ADMIN } from '../../../../common/constants/institutional-roles.constant';
+import { PROTECTED_ADMIN_PERMISSIONS } from '../../../../common/constants/protected-admin-permissions.constant';
 import { RoleStatus } from '../../../../common/enums/role-status.enum';
 import { PermissionsService } from '../../permissions/services/permissions.service';
 import { AssignPermissionsDto } from '../dto/assign-permissions.dto';
@@ -69,6 +81,7 @@ export class RolesService {
 
     if (dto.permissionIds !== undefined) {
       const permissions = await this.permissionsService.findByIdsOrFail(dto.permissionIds);
+      this.assertAdminProtectedPermissions(role, permissions.map((item) => item.code));
       return this.repository.setPermissions(role, permissions);
     }
 
@@ -83,7 +96,46 @@ export class RolesService {
   async assignPermissions(id: number, dto: AssignPermissionsDto): Promise<RoleEntity> {
     const role = await this.findOne(id);
     const permissions = await this.permissionsService.findByIdsOrFail(dto.permissionIds);
+    this.assertAdminProtectedPermissions(role, permissions.map((item) => item.code));
     return this.repository.setPermissions(role, permissions);
+  }
+
+  async resetToDefaults(id: number): Promise<RoleEntity> {
+    const role = await this.findOne(id);
+    const template = getDefaultPermissionTemplate(role.name);
+
+    if (!template) {
+      throw new BadRequestException(
+        `El rol "${role.name}" no tiene plantilla de permisos predeterminados.`,
+      );
+    }
+
+    const permissions =
+      template === DEFAULT_ROLE_PERMISSIONS_ALL
+        ? await this.permissionsService.findAll()
+        : await this.permissionsService.findByCodesOrFail([...template]);
+
+    this.assertAdminProtectedPermissions(
+      role,
+      permissions.map((item) => item.code),
+    );
+
+    return this.repository.setPermissions(role, permissions);
+  }
+
+  private assertAdminProtectedPermissions(role: RoleEntity, assignedCodes: string[]): void {
+    if (role.name !== INSTITUTIONAL_ROLE_ADMIN) {
+      return;
+    }
+
+    const assigned = new Set(assignedCodes);
+    const missing = PROTECTED_ADMIN_PERMISSIONS.filter((code) => !assigned.has(code));
+
+    if (missing.length > 0) {
+      throw new ForbiddenException(
+        `No se pueden revocar permisos críticos del Administrador: ${missing.join(', ')}`,
+      );
+    }
   }
 
   private async ensureUniqueName(name: string, excludeId?: number): Promise<void> {
