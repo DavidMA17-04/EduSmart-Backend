@@ -26,6 +26,7 @@ export const PERMISSIONS = {
   STUDENTS_UPDATE: 'students.edit',
   ATTENDANCE_REGISTER: 'attendance.create',
   ATTENDANCE_READ: 'attendance.view',
+  ATTENDANCE_VIEW_OWN: 'attendance.view_own',
   ATTENDANCE_EDIT: 'attendance.edit',
   ATTENDANCE_JUSTIFY: 'attendance.justify',
   ATTENDANCE_REVIEW: 'attendance.review',

@@ -48,15 +48,65 @@ export class AttendanceController {
     private readonly exports: AttendanceExportService,
   ) {}
 
-  /** PermissionsGuard requires ALL listed codes — one permission per handler. */
+  /** PermissionsGuard requires ALL listed codes — one permission per handler.
+   * History endpoints authorize inside the service (view OR view_own / student).
+   */
 
   @Get('history')
-  @Permissions(PERMISSIONS.ATTENDANCE_READ)
   searchHistory(
     @Query() query: AttendanceHistoryFilterDto,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.history.search(query, actor);
+  }
+
+  @Get('history/summary')
+  summarizeHistory(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.history.summarize(query, actor);
+  }
+
+  @Get('history/export/pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="historial-asistencia.pdf"',
+  )
+  @ApiProduces('application/pdf')
+  async exportHistoryPdf(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportHistoryPdf(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: 'attachment; filename="historial-asistencia.pdf"',
+    });
+  }
+
+  @Get('history/export/excel')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="historial-asistencia.xlsx"',
+  )
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async exportHistoryExcel(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportHistoryExcel(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="historial-asistencia.xlsx"',
+    });
   }
 
   @Get('groups')

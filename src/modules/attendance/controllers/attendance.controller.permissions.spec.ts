@@ -112,17 +112,22 @@ describe('Phase 1A.1 AttendanceController permissions', () => {
     ).toBe(false);
   });
 
-  it('history → attendance.view', () => {
+  it('history authorizes inside service (guard allows any authenticated JWT)', () => {
+    expect(guard.canActivate(ctxFor(controller.searchHistory, []))).toBe(true);
     expect(
       guard.canActivate(
-        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_READ]),
+        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_VIEW_OWN]),
       ),
     ).toBe(true);
     expect(
-      guard.canActivate(
-        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_REGISTER]),
-      ),
-    ).toBe(false);
+      guard.canActivate(ctxFor(controller.summarizeHistory, [])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(ctxFor(controller.exportHistoryPdf, [])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(ctxFor(controller.exportHistoryExcel, [])),
+    ).toBe(true);
   });
 
   it('generate token → attendance.edit', () => {

@@ -18,6 +18,7 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   'periods.export': 'Exportar períodos',
   'periods.configure': 'Configurar períodos',
   'attendance.view': 'Ver asistencias',
+  'attendance.view_own': 'Ver el propio historial de asistencia',
   'attendance.create': 'Crear asistencias',
   'attendance.edit': 'Editar asistencias',
   'attendance.delete': 'Eliminar asistencias',
