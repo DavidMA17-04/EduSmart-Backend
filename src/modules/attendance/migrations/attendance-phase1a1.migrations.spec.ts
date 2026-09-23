@@ -38,9 +38,9 @@ describe('Phase 1A.1 attendance migrations (static)', () => {
     );
   });
 
-  it('020 creates attendance_calendar_exceptions with period FK RESTRICT', () => {
+  it('022 creates attendance_calendar_exceptions with period FK RESTRICT', () => {
     const sql = readFileSync(
-      join(migrationsDir, '020_attendance_calendar_exceptions.sql'),
+      join(migrationsDir, '022_attendance_calendar_exceptions.sql'),
       'utf8',
     );
     expect(sql).toContain('attendance_calendar_exceptions');

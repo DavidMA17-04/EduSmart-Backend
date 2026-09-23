@@ -1,5 +1,5 @@
 /**
- * Apply SQL migration 020 (attendance calendar exceptions) to local MySQL.
+ * Apply SQL migration 022 (attendance calendar exceptions) to local MySQL.
  * Loads credentials from Backend/.env — does not log secrets.
  */
 import fs from 'fs';
@@ -11,7 +11,7 @@ import dotenv from 'dotenv';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-const FILE = '020_attendance_calendar_exceptions.sql';
+const FILE = '022_attendance_calendar_exceptions.sql';
 const migrationsDir = path.join(__dirname, '..', 'src', 'database', 'migrations');
 
 async function main() {

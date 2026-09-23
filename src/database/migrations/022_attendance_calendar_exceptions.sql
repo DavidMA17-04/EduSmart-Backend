@@ -1,5 +1,5 @@
 -- Fase 4 (PO-02-15): calendar exceptions for exam weeks / institutional periods.
--- Idempotent where practical. Do not edit migrations 001-019.
+-- Idempotent where practical. Do not edit migrations 001-021.
 
 SET NAMES utf8mb4;
 
