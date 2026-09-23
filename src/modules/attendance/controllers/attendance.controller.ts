@@ -18,12 +18,15 @@ import { Permissions } from '../../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { AttendanceHistoryFilterDto } from '../dto/attendance-history-filter.dto';
+import { AttendanceAnalyticsFilterDto } from '../dto/attendance-analytics-filter.dto';
 import { CreateAttendanceSessionDto } from '../dto/create-attendance-session.dto';
 import { CreateAttendanceSessionFromScheduleDto } from '../dto/create-attendance-session-from-schedule.dto';
 import { RedeemAttendanceTokenDto } from '../dto/redeem-attendance-token.dto';
 import { UpsertAttendanceRecordsDto } from '../dto/upsert-attendance-records.dto';
+import { AttendanceAnalyticsService } from '../services/attendance-analytics.service';
 import { AttendanceExportService } from '../services/attendance-export.service';
 import { AttendanceHistoryService } from '../services/attendance-history.service';
+import { AttendanceRangeExportService } from '../services/attendance-range-export.service';
 import { AttendanceRecordsService } from '../services/attendance-records.service';
 import { AttendanceSessionsService } from '../services/attendance-sessions.service';
 import { AttendanceTokenService } from '../services/attendance-token.service';
@@ -46,17 +49,130 @@ export class AttendanceController {
     private readonly history: AttendanceHistoryService,
     private readonly tokens: AttendanceTokenService,
     private readonly exports: AttendanceExportService,
+    private readonly analytics: AttendanceAnalyticsService,
+    private readonly rangeExports: AttendanceRangeExportService,
   ) {}
 
-  /** PermissionsGuard requires ALL listed codes — one permission per handler. */
+  /** PermissionsGuard requires ALL listed codes — one permission per handler.
+   * History endpoints authorize inside the service (view OR view_own / student).
+   */
 
   @Get('history')
-  @Permissions(PERMISSIONS.ATTENDANCE_READ)
   searchHistory(
     @Query() query: AttendanceHistoryFilterDto,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.history.search(query, actor);
+  }
+
+  @Get('history/summary')
+  summarizeHistory(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.history.summarize(query, actor);
+  }
+
+  @Get('history/export/pdf')
+  @Header('Content-Type', 'application/pdf')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="historial-asistencia.pdf"',
+  )
+  @ApiProduces('application/pdf')
+  async exportHistoryPdf(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportHistoryPdf(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: 'attachment; filename="historial-asistencia.pdf"',
+    });
+  }
+
+  @Get('history/export/excel')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="historial-asistencia.xlsx"',
+  )
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async exportHistoryExcel(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportHistoryExcel(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="historial-asistencia.xlsx"',
+    });
+  }
+
+  @Get('analytics/dashboard-kpis')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getDashboardKpis(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.analytics.getDashboardKpis(query, actor);
+  }
+
+  @Get('analytics/summary')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getAnalyticsSummary(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.analytics.getSummary(query, actor);
+  }
+
+  @Get('reports/export/excel')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="reporte-asistencia.xlsx"',
+  )
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async exportRangeExcel(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.rangeExports.exportExcel(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="reporte-asistencia.xlsx"',
+    });
+  }
+
+  @Get('reports/export/pdf')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @Header('Content-Type', 'application/pdf')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="reporte-asistencia.pdf"',
+  )
+  @ApiProduces('application/pdf')
+  async exportRangePdf(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.rangeExports.exportPdf(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: 'attachment; filename="reporte-asistencia.pdf"',
+    });
   }
 
   @Get('groups')

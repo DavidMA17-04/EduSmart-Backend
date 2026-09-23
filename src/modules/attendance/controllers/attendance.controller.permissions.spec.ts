@@ -13,6 +13,8 @@ describe('Phase 1A.1 AttendanceController permissions', () => {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
+    {} as never,
   );
 
   function ctxFor(handler: (...args: never[]) => unknown, permissions: string[]): ExecutionContext {
@@ -112,17 +114,22 @@ describe('Phase 1A.1 AttendanceController permissions', () => {
     ).toBe(false);
   });
 
-  it('history → attendance.view', () => {
+  it('history authorizes inside service (guard allows any authenticated JWT)', () => {
+    expect(guard.canActivate(ctxFor(controller.searchHistory, []))).toBe(true);
     expect(
       guard.canActivate(
-        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_READ]),
+        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_VIEW_OWN]),
       ),
     ).toBe(true);
     expect(
-      guard.canActivate(
-        ctxFor(controller.searchHistory, [PERMISSIONS.ATTENDANCE_REGISTER]),
-      ),
-    ).toBe(false);
+      guard.canActivate(ctxFor(controller.summarizeHistory, [])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(ctxFor(controller.exportHistoryPdf, [])),
+    ).toBe(true);
+    expect(
+      guard.canActivate(ctxFor(controller.exportHistoryExcel, [])),
+    ).toBe(true);
   });
 
   it('generate token → attendance.edit', () => {
@@ -160,5 +167,28 @@ describe('Phase 1A.1 AttendanceController permissions', () => {
         ctxFor(controller.exportExcel, [PERMISSIONS.ATTENDANCE_EDIT]),
       ),
     ).toBe(false);
+  });
+
+  it('dashboard-kpis y reportes de rango → attendance.view', () => {
+    expect(
+      guard.canActivate(
+        ctxFor(controller.getDashboardKpis, [PERMISSIONS.ATTENDANCE_READ]),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        ctxFor(controller.getAnalyticsSummary, [PERMISSIONS.ATTENDANCE_REGISTER]),
+      ),
+    ).toBe(false);
+    expect(
+      guard.canActivate(
+        ctxFor(controller.exportRangeExcel, [PERMISSIONS.ATTENDANCE_READ]),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        ctxFor(controller.exportRangePdf, [PERMISSIONS.ATTENDANCE_READ]),
+      ),
+    ).toBe(true);
   });
 });
