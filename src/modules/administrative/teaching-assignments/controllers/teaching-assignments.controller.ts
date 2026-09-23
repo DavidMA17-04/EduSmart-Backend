@@ -34,7 +34,7 @@ export class TeachingAssignmentsController {
   @Post()
   @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_EDIT)
   @ApiOperation({
-    summary: 'Asignar docente a oferta+grupo (con elegibilidad por grado)',
+    summary: 'Asignar docente a oferta+sección(es). Acepta groupId o groupIds (múltiple).',
   })
   create(@Body() dto: CreateTeachingAssignmentDto) {
     return this.service.create(dto);

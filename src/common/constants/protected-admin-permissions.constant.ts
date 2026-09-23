@@ -1,0 +1,21 @@
+import { PERMISSIONS } from './permissions.constant';
+
+/**
+ * Permisos críticos del rol Administrador que no pueden revocarse
+ * (PO-02-05 / fase-2). Evita auto-bloqueo de gestión de roles y configuración.
+ */
+export const PROTECTED_ADMIN_PERMISSIONS = [
+  PERMISSIONS.ROLES_PERMISSIONS_VIEW,
+  PERMISSIONS.ROLES_PERMISSIONS_CREATE,
+  PERMISSIONS.ROLES_PERMISSIONS_EDIT,
+  PERMISSIONS.ROLES_PERMISSIONS_DELETE,
+  PERMISSIONS.ADMINISTRATOR_VIEW,
+  PERMISSIONS.ADMINISTRATOR_CREATE,
+  PERMISSIONS.ADMINISTRATOR_EDIT,
+  PERMISSIONS.ADMINISTRATOR_DELETE,
+  PERMISSIONS.ADMINISTRATOR_CONFIGURE,
+] as const;
+
+export type ProtectedAdminPermission = (typeof PROTECTED_ADMIN_PERMISSIONS)[number];
+
+export const PROTECTED_ADMIN_PERMISSION_SET = new Set<string>(PROTECTED_ADMIN_PERMISSIONS);

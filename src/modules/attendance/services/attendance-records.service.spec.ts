@@ -16,6 +16,7 @@ describe('AttendanceRecordsService Phase 1A', () => {
   const sessionsService = {
     findOne: jest.fn(),
     assertCanManageTeachingAssignment: jest.fn(),
+    resolveExceptionForTeachingAssignment: jest.fn(),
   };
 
   const attendanceRepo = {
@@ -107,6 +108,7 @@ describe('AttendanceRecordsService Phase 1A', () => {
     );
     sessionsService.findOne.mockResolvedValue(openSession);
     sessionsService.assertCanManageTeachingAssignment.mockImplementation(() => undefined);
+    sessionsService.resolveExceptionForTeachingAssignment.mockResolvedValue(null);
     sessionRepo.findOne.mockResolvedValue(openSession);
     mockEnrollmentQb(enrollments, [{ user: studentUser }]);
     mockEnrollmentQb(enrollmentRepoTx, [{ user: studentUser }]);
@@ -395,6 +397,45 @@ describe('AttendanceRecordsService Phase 1A', () => {
           code: 'ATTENDANCE_DUPLICATE_STUDENT_IN_PAYLOAD',
         }),
       });
+    });
+
+    it('AUTO_JUSTIFIED convierte ABSENT en JUSTIFIED institucional', async () => {
+      sessionsService.resolveExceptionForTeachingAssignment.mockResolvedValue({
+        id: 9,
+        academicPeriodId: 1,
+        sectionId: null,
+        title: 'Exámenes',
+        description: null,
+        startDate: '2026-09-11',
+        endDate: '2026-09-15',
+        exceptionType: 'AUTO_JUSTIFIED',
+        createdByUserId: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const rows = await service.upsertRecords(
+        50,
+        {
+          records: [{ studentUserId: 501, status: AttendanceStatus.ABSENT }],
+        },
+        teacher,
+      );
+
+      expect(rows[0].status).toBe(AttendanceStatus.JUSTIFIED);
+      expect(rows[0].justificationStatus).toBe('JUSTIFIED');
+    });
+
+    it('fuera de excepción persiste ABSENT sin justificación', async () => {
+      const rows = await service.upsertRecords(
+        50,
+        {
+          records: [{ studentUserId: 501, status: AttendanceStatus.ABSENT }],
+        },
+        teacher,
+      );
+
+      expect(rows[0].status).toBe(AttendanceStatus.ABSENT);
     });
   });
 });

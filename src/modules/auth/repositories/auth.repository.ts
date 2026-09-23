@@ -22,11 +22,10 @@ export class AuthRepository {
   }
 
   findByIdentifier(identifier: string): Promise<User | null> {
-    const trimmed = identifier.trim();
-    const email = trimmed.toLowerCase();
+    const nationalId = identifier.trim().replace(/-/g, '');
 
     return this.users.findOne({
-      where: [{ email }, { national_id: trimmed }],
+      where: { national_id: nationalId },
       relations: USER_AUTH_RELATIONS,
     });
   }

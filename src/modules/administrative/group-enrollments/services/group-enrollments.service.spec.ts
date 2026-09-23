@@ -7,11 +7,18 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
     create: jest.fn((data) => ({ ...data })),
     save: jest.fn(),
     createQueryBuilder: jest.fn(),
+    count: jest.fn().mockResolvedValue(0),
   };
 
   const manager = {
     findOne: jest.fn(),
     getRepository: jest.fn(() => enrollmentRepo),
+    createQueryBuilder: jest.fn(() => ({
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue(undefined),
+    })),
   };
 
   const dataSource = {
@@ -73,9 +80,22 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
             userRoles: [{ role: { name: 'Estudiante', status: 'ACTIVE' } }],
           };
         }
-        return { id: opts?.where?.id ?? 20, academicPeriodId: 3 };
+        return {
+          id: opts?.where?.id ?? 20,
+          name: '7-1',
+          academicPeriodId: 3,
+          maxCapacity: 30,
+          studentCount: 0,
+        };
       },
     );
+  });
+
+  it('rechaza matrícula cuando el cupo está completo', async () => {
+    enrollmentRepo.count.mockResolvedValueOnce(30);
+    await expect(
+      service.create({ userId: 7, groupId: 20, startsOn: '2026-02-01' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('create válido -> OK and requests pessimistic_write on student', async () => {

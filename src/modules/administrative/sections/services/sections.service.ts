@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SectionStatus } from '../../../../common/enums/section-status.enum';
 import { AcademicPeriodsRepository } from '../../academic-periods/repositories/academic-periods.repository';
+import { AcademicYearsRepository } from '../../academic-years/repositories/academic-years.repository';
 import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
 import { CreateSectionDto } from '../dto/create-section.dto';
 import { UpdateSectionDto } from '../dto/update-section.dto';
@@ -12,6 +13,7 @@ export class SectionsService {
   constructor(
     private readonly repository: SectionsRepository,
     private readonly academicPeriodsRepository: AcademicPeriodsRepository,
+    private readonly academicYearsRepository: AcademicYearsRepository,
     private readonly specialtiesRepository: SpecialtiesRepository,
   ) {}
 
@@ -33,6 +35,13 @@ export class SectionsService {
 
   async findAll(): Promise<SectionEntity[]> {
     return this.repository.findAll();
+  }
+
+  async findVisibleForTeacher(): Promise<SectionEntity[]> {
+    const periodIds = await this.activePeriodIds();
+    if (periodIds.length === 0) return [];
+    const all = await this.repository.findAll();
+    return all.filter((section) => periodIds.includes(section.academicPeriodId));
   }
 
   async findOne(id: number): Promise<SectionEntity> {
@@ -66,10 +75,20 @@ export class SectionsService {
     return this.repository.deactivate(await this.findOne(id));
   }
 
+  private async activePeriodIds(): Promise<number[]> {
+    const activeYear = await this.academicYearsRepository.findActive();
+    if (activeYear) {
+      const periods = await this.academicPeriodsRepository.findByAcademicYearId(activeYear.id);
+      return periods.map((p) => p.id);
+    }
+    const activePeriods = await this.academicPeriodsRepository.findActive();
+    return activePeriods.map((p) => p.id);
+  }
+
   private async ensureAcademicPeriod(id: number): Promise<void> {
     const period = await this.academicPeriodsRepository.findById(id);
     if (!period) {
-      throw new NotFoundException(`Academic period ${id} not found`);
+      throw new NotFoundException(`Curso lectivo ${id} no encontrado`);
     }
   }
 

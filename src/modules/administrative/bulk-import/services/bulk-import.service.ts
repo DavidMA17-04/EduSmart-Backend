@@ -6,10 +6,15 @@ import {
   NotFoundException,
   NotImplementedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { DataSource } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { MailService } from '../../../../integrations/mail/mail.service';
+import { tryLoadInstitutionLogoAttachment } from '../../../../integrations/mail/optional-logo.attachment';
+import { buildWelcomeCredentialsMail } from '../../../../integrations/mail/templates/welcome-credentials.mail';
 import { RoleEntity } from '../../roles/entities/role.entity';
 import { RolesRepository } from '../../roles/repositories/roles.repository';
 import { User } from '../../users/entities/user.entity';
@@ -44,6 +49,12 @@ import {
   pickFirstValue,
 } from '../utils/bulk-import-normalizers';
 
+type PendingWelcomeCredential = {
+  email: string;
+  fullName: string;
+  temporaryPassword: string;
+};
+
 const REQUIRED_HEADER_GROUPS: Array<{ label: string; aliases: string[] }> = [
   { label: 'identificacion', aliases: ['identificacion', 'cedula', 'national_id'] },
   { label: 'nombres', aliases: ['nombres', 'nombre', 'name'] },
@@ -63,7 +74,14 @@ export class BulkImportService {
     private readonly rolesRepository: RolesRepository,
     private readonly dataSource: DataSource,
     private readonly importBatchesRepository: ImportBatchesRepository,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
+
+  /** Contraseña temporal criptográficamente segura (PO-02-03). */
+  generateTemporaryPassword(): string {
+    return randomBytes(8).toString('base64url');
+  }
 
   private normalizeKey(key: string): string {
     return key
@@ -413,8 +431,9 @@ export class BulkImportService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
+    const pendingCredentials: PendingWelcomeCredential[] = [];
+
     try {
-      const defaultPasswordHash = await bcrypt.hash('EduSmart2026*', 10);
       let insertedCount = 0;
 
       for (const record of validRecords) {
@@ -422,14 +441,22 @@ export class BulkImportService {
           throw new BadRequestException(BULK_IMPORT_STUDENT_ONLY_ERROR);
         }
 
+        const temporaryPassword = this.generateTemporaryPassword();
+        const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+        const email = record.email.trim().toLowerCase();
+        const name = record.name.trim();
+        const firstLastname = record.first_lastname.trim();
+        const secondLastname = record.second_lastname ? record.second_lastname.trim() : null;
+        const fullName = [name, firstLastname, secondLastname].filter(Boolean).join(' ');
+
         const user = queryRunner.manager.create(User, {
           national_id: record.national_id.trim(),
-          name: record.name.trim(),
-          first_lastname: record.first_lastname.trim(),
-          second_lastname: record.second_lastname ? record.second_lastname.trim() : null,
-          email: record.email.trim().toLowerCase(),
+          name,
+          first_lastname: firstLastname,
+          second_lastname: secondLastname,
+          email,
           phone: record.phone ? record.phone.trim() : null,
-          password_hash: defaultPasswordHash,
+          password_hash: passwordHash,
           status: record.user_status ?? UserStatus.ACTIVE,
           mustChangePassword: true,
           lastLoginAt: null,
@@ -443,6 +470,11 @@ export class BulkImportService {
         });
         await queryRunner.manager.save(userRole);
 
+        pendingCredentials.push({
+          email,
+          fullName,
+          temporaryPassword,
+        });
         insertedCount++;
       }
 
@@ -450,6 +482,8 @@ export class BulkImportService {
       this.logger.log(
         `Importación masiva completada: ${insertedCount} usuarios guardados en MySQL con user_roles.`,
       );
+
+      await this.dispatchWelcomeCredentials(pendingCredentials);
 
       return {
         importedCount: insertedCount,
@@ -469,6 +503,51 @@ export class BulkImportService {
       );
     } finally {
       await queryRunner.release();
+    }
+  }
+
+  private publicAppUrl(): string {
+    return (
+      this.configService.get<string>('APP_PUBLIC_URL')?.replace(/\/$/, '') ||
+      'http://localhost:5173'
+    );
+  }
+
+  /**
+   * Envía correos de bienvenida tras el commit. Fallos SMTP no revierten usuarios.
+   */
+  private async dispatchWelcomeCredentials(
+    credentials: PendingWelcomeCredential[],
+  ): Promise<void> {
+    if (credentials.length === 0) {
+      return;
+    }
+
+    const loginUrl = `${this.publicAppUrl()}/login`;
+    const logo = tryLoadInstitutionLogoAttachment();
+
+    for (const item of credentials) {
+      try {
+        const mail = buildWelcomeCredentialsMail({
+          email: item.email,
+          fullName: item.fullName,
+          temporaryPassword: item.temporaryPassword,
+          loginUrl,
+          includeLogo: Boolean(logo),
+        });
+        await this.mailService.sendMail({
+          to: item.email,
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html,
+          ...(logo ? { attachments: [logo] } : {}),
+        });
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo enviar correo de credenciales a ${item.email} (usuario ya creado).`,
+        );
+        this.logger.debug(error instanceof Error ? error.message : String(error));
+      }
     }
   }
 

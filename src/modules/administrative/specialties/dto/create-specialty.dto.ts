@@ -11,7 +11,7 @@ export class CreateSpecialtyDto {
   name!: string;
 
   @ApiPropertyOptional({
-    example: 'Especialidad orientada al desarrollo de software',
+    example: 'Carrera Técnica orientada al desarrollo de software',
   })
   @IsOptional()
   @IsString()
@@ -29,6 +29,8 @@ export class CreateSpecialtyDto {
   @ApiPropertyOptional({
     enum: SpecialtyKind,
     default: SpecialtyKind.TECHNICAL_SPECIALTY,
+    description:
+      'TECHNICAL_SPECIALTY = Carrera Técnica (MEP); EXPLORATORY_WORKSHOP = taller exploratorio',
   })
   @IsOptional()
   @IsEnum(SpecialtyKind)

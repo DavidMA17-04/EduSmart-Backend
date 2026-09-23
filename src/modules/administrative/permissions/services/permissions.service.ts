@@ -91,6 +91,19 @@ export class PermissionsService {
     return permissions;
   }
 
+  async findByCodesOrFail(codes: string[]): Promise<PermissionEntity[]> {
+    const uniqueCodes = [...new Set(codes)];
+    const permissions = await this.repository.findByCodes(uniqueCodes);
+
+    if (permissions.length !== uniqueCodes.length) {
+      const found = new Set(permissions.map((item) => item.code));
+      const missing = uniqueCodes.filter((code) => !found.has(code));
+      throw new NotFoundException(`Permissions not found by code: ${missing.join(', ')}`);
+    }
+
+    return permissions;
+  }
+
   private buildCode(module: PermissionModule, action: PermissionAction): string {
     return `${module.toLowerCase()}.${action.toLowerCase()}`;
   }

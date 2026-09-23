@@ -11,6 +11,9 @@ import {
   Put,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../../auth/interfaces/authenticated-user.interface';
+import { actorSeesFullAcademicHistory } from '../../shared/academic-visibility.util';
 import { AssignGuideTeacherDto } from '../dto/assign-guide-teacher.dto';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
@@ -23,15 +26,20 @@ export class GroupsController {
   constructor(private readonly service: GroupsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Crear sección' })
+  @ApiOperation({ summary: 'Crear sección (cascarón con cupo máximo)' })
   create(@Body() dto: CreateGroupDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar secciones' })
-  findAll() {
-    return this.service.findAll();
+  @ApiOperation({
+    summary: 'Listar secciones (docente: solo año lectivo activo)',
+  })
+  findAll(@CurrentUser() actor: AuthenticatedUser) {
+    if (actorSeesFullAcademicHistory(actor?.roles ?? [])) {
+      return this.service.findAll();
+    }
+    return this.service.findVisibleForTeacher();
   }
 
   @Get(':id')

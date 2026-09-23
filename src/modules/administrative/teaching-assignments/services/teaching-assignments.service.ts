@@ -29,8 +29,10 @@ export class TeachingAssignmentsService {
     private readonly eligibility: AcademicOfferingEligibilityService,
   ) {}
 
-  async create(dto: CreateTeachingAssignmentDto): Promise<TeachingAssignment> {
-    const group = await this.requireGroup(dto.groupId);
+  async create(
+    dto: CreateTeachingAssignmentDto,
+  ): Promise<TeachingAssignment | TeachingAssignment[]> {
+    const groupIds = this.resolveGroupIds(dto);
     await this.requireTeacher(dto.userId);
 
     const offering = await this.eligibility.resolveOffering({
@@ -39,36 +41,53 @@ export class TeachingAssignmentsService {
       specialtyId: dto.specialtyId,
     });
 
-    await this.eligibility.assertOfferingAllowedForGroup(group.id, offering.kind);
+    const created: TeachingAssignment[] = [];
+    for (const groupId of groupIds) {
+      const group = await this.requireGroup(groupId);
+      await this.eligibility.assertOfferingAllowedForGroup(group.id, offering.kind);
 
-    const academicPeriodId = dto.academicPeriodId ?? group.academicPeriodId ?? null;
+      const academicPeriodId = dto.academicPeriodId ?? group.academicPeriodId ?? null;
 
-    await this.assertNoDuplicate({
-      userId: dto.userId,
-      groupId: group.id,
-      offeringKind: offering.kind,
-      subjectId: offering.subjectId,
-      specialtyId: offering.specialtyId,
-      academicPeriodId,
-    });
+      await this.assertNoDuplicate({
+        userId: dto.userId,
+        groupId: group.id,
+        offeringKind: offering.kind,
+        subjectId: offering.subjectId,
+        specialtyId: offering.specialtyId,
+        academicPeriodId,
+      });
 
-    try {
-      const saved = await this.repository.save(
-        this.repository.create({
-          userId: dto.userId,
-          groupId: group.id,
-          academicPeriodId,
-          offeringKind: offering.kind,
-          subjectId: offering.subjectId,
-          specialtyId: offering.specialtyId,
-          isGuideTeacher: dto.isGuideTeacher ?? false,
-        }),
-      );
-      return this.findOne(saved.id);
-    } catch (error) {
-      this.rethrowDuplicate(error);
-      throw error;
+      try {
+        const saved = await this.repository.save(
+          this.repository.create({
+            userId: dto.userId,
+            groupId: group.id,
+            academicPeriodId,
+            offeringKind: offering.kind,
+            subjectId: offering.subjectId,
+            specialtyId: offering.specialtyId,
+            isGuideTeacher: dto.isGuideTeacher ?? false,
+          }),
+        );
+        created.push(await this.findOne(saved.id));
+      } catch (error) {
+        this.rethrowDuplicate(error);
+        throw error;
+      }
     }
+
+    return created.length === 1 ? created[0]! : created;
+  }
+
+  private resolveGroupIds(dto: CreateTeachingAssignmentDto): number[] {
+    const fromArray = (dto.groupIds ?? []).filter((id) => Number.isInteger(id) && id > 0);
+    if (fromArray.length > 0) {
+      return [...new Set(fromArray)];
+    }
+    if (dto.groupId != null && dto.groupId > 0) {
+      return [dto.groupId];
+    }
+    throw new BadRequestException('Debe indicar groupId o groupIds con al menos una sección');
   }
 
   async update(id: number, dto: UpdateTeachingAssignmentDto): Promise<TeachingAssignment> {

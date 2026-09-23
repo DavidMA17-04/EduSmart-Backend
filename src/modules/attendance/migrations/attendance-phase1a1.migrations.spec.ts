@@ -37,4 +37,15 @@ describe('Phase 1A.1 attendance migrations (static)', () => {
       /ADD\s+UNIQUE\s+KEY\s+`UQ_attendance_sessions_schedule_anchor_date`/i,
     );
   });
+
+  it('020 creates attendance_calendar_exceptions with period FK RESTRICT', () => {
+    const sql = readFileSync(
+      join(migrationsDir, '020_attendance_calendar_exceptions.sql'),
+      'utf8',
+    );
+    expect(sql).toContain('attendance_calendar_exceptions');
+    expect(sql).toContain('SUSPENDED');
+    expect(sql).toContain('AUTO_JUSTIFIED');
+    expect(sql).toMatch(/FK_att_cal_exc_period[\s\S]*ON DELETE RESTRICT/);
+  });
 });

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AcademicPeriod } from '../administrative/academic-periods/entities/academic-period.entity';
 import { AcademicOfferingsModule } from '../administrative/academic-offerings/academic-offerings.module';
 import { GroupEnrollment } from '../administrative/group-enrollments/entities/group-enrollment.entity';
+import { SectionEntity } from '../administrative/sections/entities/section.entity';
 import { TeachingAssignment } from '../administrative/teaching-assignments/entities/teaching-assignment.entity';
 import { AuditLog } from '../administrative/users/entities/audit-log.entity';
 import { User } from '../administrative/users/entities/user.entity';
@@ -10,6 +11,7 @@ import { UsersModule } from '../administrative/users/users.module';
 import { ScheduleEntry } from '../schedule/entities/schedule-entry.entity';
 import { ScheduleTimeSlot } from '../schedule/entities/schedule-time-slot.entity';
 import { AbsenteeismController } from './controllers/absenteeism.controller';
+import { AttendanceCalendarExceptionsController } from './controllers/attendance-calendar-exceptions.controller';
 import { AttendanceController } from './controllers/attendance.controller';
 import { JustificationsController } from './controllers/justifications.controller';
 import { AbsenceJustification } from './entities/absence-justification.entity';
@@ -17,11 +19,13 @@ import { AbsenteeismAlertNotification } from './entities/absenteeism-alert-notif
 import { AbsenteeismAlertRule } from './entities/absenteeism-alert-rule.entity';
 import { AbsenteeismAlert } from './entities/absenteeism-alert.entity';
 import { Attendance } from './entities/attendance.entity';
+import { AttendanceCalendarException } from './entities/attendance-calendar-exception.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { GuardianStudentLink } from './entities/guardian-student-link.entity';
 import { JustificationEvidence } from './entities/justification-evidence.entity';
 import { AbsenteeismService } from './services/absenteeism.service';
 import { AttendanceAnalyticsService } from './services/attendance-analytics.service';
+import { AttendanceCalendarExceptionsService } from './services/attendance-calendar-exceptions.service';
 import { AttendanceExportService } from './services/attendance-export.service';
 import { AttendanceHistoryService } from './services/attendance-history.service';
 import { AttendanceRangeExportService } from './services/attendance-range-export.service';
@@ -35,6 +39,7 @@ import { JustificationsService } from './services/justifications.service';
     TypeOrmModule.forFeature([
       AttendanceSession,
       Attendance,
+      AttendanceCalendarException,
       AcademicPeriod,
       AbsenceJustification,
       JustificationEvidence,
@@ -43,6 +48,7 @@ import { JustificationsService } from './services/justifications.service';
       GroupEnrollment,
       AuditLog,
       ScheduleEntry,
+      SectionEntity,
       ScheduleTimeSlot,
       AbsenteeismAlert,
       AbsenteeismAlertRule,
@@ -55,6 +61,7 @@ import { JustificationsService } from './services/justifications.service';
   controllers: [
     AttendanceController,
     JustificationsController,
+    AttendanceCalendarExceptionsController,
     AbsenteeismController,
   ],
   providers: [
@@ -66,6 +73,7 @@ import { JustificationsService } from './services/justifications.service';
     AttendanceAnalyticsService,
     AttendanceRangeExportService,
     JustificationsService,
+    AttendanceCalendarExceptionsService,
     AbsenteeismService,
   ],
   exports: [
@@ -75,6 +83,7 @@ import { JustificationsService } from './services/justifications.service';
     AttendanceTokenService,
     AttendanceAnalyticsService,
     JustificationsService,
+    AttendanceCalendarExceptionsService,
     AbsenteeismService,
   ],
 })

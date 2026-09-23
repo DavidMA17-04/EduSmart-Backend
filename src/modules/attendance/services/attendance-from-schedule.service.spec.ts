@@ -124,6 +124,7 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
       scheduleEntries as never,
       eligibility as never,
       dataSource as never,
+      { findActiveForDate: jest.fn().mockResolvedValue(null) } as never,
     );
     sessions.findOne.mockImplementation(async ({ where }) => {
       if (where?.id != null) {
@@ -326,6 +327,7 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
   it('16–21. schedule-context occurrences for actor today', async () => {
     const qb = {
       innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       getMany: jest
@@ -349,11 +351,13 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
     expect(ctx.date).toBe('2026-09-14');
     expect(ctx.dayOfWeek).toBe(1);
     expect(ctx.occurrences).toHaveLength(1);
+    expect(ctx.calendarException).toBeNull();
     expect(ctx.occurrences[0]).toMatchObject({
       anchorEntryId: 1,
       entryIds: [1, 2],
       withinStartWindow: true,
       attendanceSession: { id: 9, status: AttendanceSessionStatus.OPEN },
+      calendarException: null,
     });
   });
 

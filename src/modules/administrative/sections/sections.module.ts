@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AcademicPeriodsModule } from '../academic-periods/academic-periods.module';
+import { AcademicYearsModule } from '../academic-years/academic-years.module';
 import { SpecialtiesModule } from '../specialties/specialties.module';
 import { TeachingAssignment } from '../teaching-assignments/entities/teaching-assignment.entity';
 import { User } from '../users/entities/user.entity';
@@ -17,6 +18,7 @@ import { SectionsService } from './services/sections.service';
   imports: [
     TypeOrmModule.forFeature([SectionEntity, GroupEntity, User, TeachingAssignment]),
     AcademicPeriodsModule,
+    AcademicYearsModule,
     SpecialtiesModule,
   ],
   controllers: [SectionsController, GroupsController],

@@ -25,11 +25,16 @@ import {
   resolveOccurrenceForEntry,
   type ScheduleOccurrenceRun,
 } from '../../schedule/utils/schedule-occurrence.util';
+import { AttendanceCalendarExceptionType } from '../../../common/enums/attendance-calendar-exception-type.enum';
 import { CreateAttendanceSessionDto } from '../dto/create-attendance-session.dto';
 import { CreateAttendanceSessionFromScheduleDto } from '../dto/create-attendance-session-from-schedule.dto';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { offeringKindLabel } from '../utils/attendance-labels.util';
 import { toScheduleOccurrenceInput } from '../utils/schedule-occurrence-input.util';
+import {
+  AttendanceCalendarExceptionsService,
+  type AttendanceCalendarExceptionView,
+} from './attendance-calendar-exceptions.service';
 
 export type AvailableOfferingView = {
   teachingAssignmentId: number;
@@ -66,6 +71,7 @@ export type AttendanceSessionDetailView = {
     name: string;
     labelKind: string;
   };
+  calendarException: AttendanceCalendarExceptionView | null;
 };
 
 export type AttendanceScheduleOccurrenceContext = {
@@ -76,12 +82,15 @@ export type AttendanceScheduleOccurrenceContext = {
   endTime: string;
   withinStartWindow: boolean;
   attendanceSession: null | { id: number; status: AttendanceSessionStatus };
+  calendarException: AttendanceCalendarExceptionView | null;
 };
 
 export type AttendanceScheduleContextView = {
   date: string;
   dayOfWeek: number;
   occurrences: AttendanceScheduleOccurrenceContext[];
+  /** First active exception found among today's occurrences (banner hint). */
+  calendarException: AttendanceCalendarExceptionView | null;
 };
 
 /**
@@ -99,6 +108,7 @@ export class AttendanceSessionsService {
     private readonly scheduleEntries: Repository<ScheduleEntry>,
     private readonly eligibility: AcademicOfferingEligibilityService,
     private readonly dataSource: DataSource,
+    private readonly calendarExceptions: AttendanceCalendarExceptionsService,
   ) {}
 
   async listAvailableOfferings(
@@ -246,6 +256,11 @@ export class AttendanceSessionsService {
       });
     }
 
+    const calendarException = await this.resolveExceptionForTeachingAssignment(
+      ta,
+      session.sessionDate,
+    );
+
     return {
       sessionId: session.id,
       status: session.status,
@@ -266,6 +281,7 @@ export class AttendanceSessionsService {
         name: offeringName,
         labelKind: offeringKindLabel(ta.offeringKind),
       },
+      calendarException,
     };
   }
 
@@ -435,13 +451,20 @@ export class AttendanceSessionsService {
   ): Promise<AttendanceScheduleContextView> {
     const clock = localClockInTimeZone(now);
     if (clock.dayOfWeek < 1 || clock.dayOfWeek > 5) {
-      return { date: clock.date, dayOfWeek: clock.dayOfWeek, occurrences: [] };
+      return {
+        date: clock.date,
+        dayOfWeek: clock.dayOfWeek,
+        occurrences: [],
+        calendarException: null,
+      };
     }
 
     const qb = this.scheduleEntries
       .createQueryBuilder('entry')
       .innerJoinAndSelect('entry.timeSlot', 'timeSlot')
       .innerJoinAndSelect('entry.teachingAssignment', 'ta')
+      .leftJoinAndSelect('ta.group', 'grp')
+      .leftJoinAndSelect('grp.section', 'sec')
       .where('entry.day_of_week = :dayOfWeek', { dayOfWeek: clock.dayOfWeek });
 
     if (!this.isAdminActor(actor)) {
@@ -457,7 +480,12 @@ export class AttendanceSessionsService {
     const inputs = rows.map(toScheduleOccurrenceInput);
     const runs = groupScheduleOccurrences(inputs);
     if (runs.length === 0) {
-      return { date: clock.date, dayOfWeek: clock.dayOfWeek, occurrences: [] };
+      return {
+        date: clock.date,
+        dayOfWeek: clock.dayOfWeek,
+        occurrences: [],
+        calendarException: null,
+      };
     }
 
     const anchors = runs.map((r) => r.anchorEntryId);
@@ -473,9 +501,26 @@ export class AttendanceSessionsService {
         .map((s) => [s.scheduleEntryId as number, s]),
     );
 
-    const occurrences: AttendanceScheduleOccurrenceContext[] = runs.map((run) => {
+    const taById = new Map(rows.map((row) => [row.teachingAssignmentId, row.teachingAssignment]));
+    const exceptionCache = new Map<string, AttendanceCalendarExceptionView | null>();
+
+    const occurrences: AttendanceScheduleOccurrenceContext[] = [];
+    for (const run of runs) {
       const session = byAnchor.get(run.anchorEntryId) ?? null;
-      return {
+      const ta = taById.get(run.teachingAssignmentId);
+      const cacheKey = `${ta?.academicPeriodId ?? 'x'}:${ta?.group?.sectionId ?? 'x'}`;
+      let calendarException: AttendanceCalendarExceptionView | null = null;
+      if (ta?.academicPeriodId != null) {
+        if (!exceptionCache.has(cacheKey)) {
+          exceptionCache.set(
+            cacheKey,
+            await this.resolveExceptionForTeachingAssignment(ta, clock.date),
+          );
+        }
+        calendarException = exceptionCache.get(cacheKey) ?? null;
+      }
+
+      occurrences.push({
         anchorEntryId: run.anchorEntryId,
         entryIds: run.entryIds,
         teachingAssignmentId: run.teachingAssignmentId,
@@ -483,14 +528,40 @@ export class AttendanceSessionsService {
         endTime: run.endTime,
         withinStartWindow: isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time),
         attendanceSession: session ? { id: session.id, status: session.status } : null,
-      };
-    });
+        calendarException,
+      });
+    }
+
+    const calendarException =
+      occurrences.find((o) => o.calendarException != null)?.calendarException ?? null;
 
     return {
       date: clock.date,
       dayOfWeek: clock.dayOfWeek,
       occurrences,
+      calendarException,
     };
+  }
+
+  async resolveExceptionForTeachingAssignment(
+    ta: Pick<TeachingAssignment, 'academicPeriodId'> & {
+      group?: { sectionId?: number; section?: { id?: number } | null } | null;
+    },
+    date: string,
+  ): Promise<AttendanceCalendarExceptionView | null> {
+    if (ta.academicPeriodId == null) return null;
+    const sectionId = ta.group?.sectionId ?? ta.group?.section?.id ?? null;
+    return this.calendarExceptions.findActiveForDate({
+      date,
+      academicPeriodId: ta.academicPeriodId,
+      sectionId,
+    });
+  }
+
+  isSuspendedException(
+    exception: AttendanceCalendarExceptionView | null | undefined,
+  ): boolean {
+    return exception?.exceptionType === AttendanceCalendarExceptionType.SUSPENDED;
   }
 
   private async resolveOwnedOccurrence(

@@ -160,6 +160,15 @@ export class UsersService {
   async update(id: number, dto: UpdateUserDto, actorId?: number): Promise<UserPublicView> {
     const user = await this.getByIdOrFail(id);
     const before = toUserPublicView(user) as unknown as Record<string, unknown>;
+    const deactivationReason = (dto.reason ?? dto.deactivationReason)?.trim();
+
+    if (dto.status === UserStatus.INACTIVE && user.status !== UserStatus.INACTIVE) {
+      if (!deactivationReason) {
+        throw new BadRequestException(
+          'El motivo de baja es obligatorio al inactivar un usuario.',
+        );
+      }
+    }
 
     if (dto.nationalId || dto.national_id) {
       const nationalId = (dto.nationalId || dto.national_id)!.replace(/-/g, '').trim();
@@ -204,6 +213,12 @@ export class UsersService {
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
     const after = toUserPublicView(persisted);
+    const afterAudit: Record<string, unknown> = {
+      ...(after as unknown as Record<string, unknown>),
+    };
+    if (deactivationReason && dto.status === UserStatus.INACTIVE) {
+      afterAudit.deactivationReason = deactivationReason;
+    }
 
     await this.auditLogService.record({
       actorId: actorId ?? null,
@@ -211,7 +226,7 @@ export class UsersService {
       entity: 'User',
       entityId: String(saved.id),
       before,
-      after: after as unknown as Record<string, unknown>,
+      after: afterAudit,
     });
 
     return after;
@@ -262,7 +277,7 @@ export class UsersService {
       { isGuideTeacher: false },
     );
 
-    return this.update(id, { status: UserStatus.INACTIVE }, actorId);
+    return this.update(id, { status: UserStatus.INACTIVE, reason: 'Inactivación desde docentes guía' }, actorId);
   }
 
   private async getTeacherRole() {

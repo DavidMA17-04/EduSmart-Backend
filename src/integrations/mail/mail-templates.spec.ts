@@ -3,6 +3,7 @@ import { escapeHtml } from './mail-html.util';
 import { tryLoadInstitutionLogoAttachment } from './optional-logo.attachment';
 import { buildAccountVerificationMail } from './templates/account-verification.mail';
 import { buildPasswordResetMail } from './templates/password-reset.mail';
+import { buildWelcomeCredentialsMail } from './templates/welcome-credentials.mail';
 
 describe('mail HTML utilities', () => {
   it('escapes special characters for HTML', () => {
@@ -109,6 +110,49 @@ describe('buildPasswordResetMail', () => {
 
     expect(mail.html).toContain('evil&lt;script&gt;@ejemplo.com');
     expect(mail.html).toContain('token=&lt;tok&gt;');
+    expect(mail.html).not.toContain('<script>');
+  });
+});
+
+describe('buildWelcomeCredentialsMail', () => {
+  const email = 'estudiante@ctp.hojancha.edu';
+  const fullName = 'Ana Pérez Solís';
+  const temporaryPassword = 'Ab12CdEf';
+  const loginUrl = 'http://localhost:5173/login';
+
+  it('includes credentials, login URL and institutional branding', () => {
+    const mail = buildWelcomeCredentialsMail({
+      email,
+      fullName,
+      temporaryPassword,
+      loginUrl,
+      includeLogo: false,
+    });
+
+    expect(mail.subject).toContain('Bienvenida');
+    expect(mail.subject).toContain('EduSmart');
+    expect(mail.text).toContain(email);
+    expect(mail.text).toContain(temporaryPassword);
+    expect(mail.text).toContain(loginUrl);
+    expect(mail.text).toContain(fullName);
+    expect(mail.html).toContain(temporaryPassword);
+    expect(mail.html).toContain(loginUrl);
+    expect(mail.html).toContain(MAIL_BRAND.gold);
+    expect(mail.html).toContain('Contraseña temporal');
+    expect(mail.html).not.toContain(`cid:${MAIL_BRAND.logoCid}`);
+  });
+
+  it('escapes special characters in name, email and password', () => {
+    const mail = buildWelcomeCredentialsMail({
+      email: 'a<b>@ejemplo.com',
+      fullName: 'Ana<script>',
+      temporaryPassword: 'x&y"z',
+      loginUrl,
+    });
+
+    expect(mail.html).toContain('a&lt;b&gt;@ejemplo.com');
+    expect(mail.html).toContain('Ana&lt;script&gt;');
+    expect(mail.html).toContain('x&amp;y&quot;z');
     expect(mail.html).not.toContain('<script>');
   });
 });

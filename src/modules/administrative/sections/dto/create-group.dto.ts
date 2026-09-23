@@ -20,13 +20,28 @@ export class CreateGroupDto {
   @MaxLength(50)
   name!: string;
 
-  @ApiPropertyOptional({ example: 30, default: 0 })
+  @ApiPropertyOptional({
+    example: 0,
+    default: 0,
+    description:
+      'Contador de inscritos. En creación de cascarón se fuerza a 0 (sin auto-promoción).',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @Max(100)
   studentCount?: number;
+
+  @ApiProperty({
+    example: 30,
+    description: 'Cupo máximo obligatorio de la sección (cascarón vacío)',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  maxCapacity!: number;
 
   @ApiProperty({ description: 'ID del nivel al que pertenece la sección' })
   @Type(() => Number)
@@ -36,7 +51,8 @@ export class CreateGroupDto {
   @ApiPropertyOptional({
     example: null,
     nullable: true,
-    description: 'Especialidad opcional de la sección. Null si el nivel no aplica especialidad.',
+    description:
+      'Carrera Técnica u oferta opcional de la sección. Null si el nivel no aplica.',
   })
   @Transform(({ value }) => (value === '' ? null : value))
   @ValidateIf((_, value) => value !== null)
@@ -46,7 +62,7 @@ export class CreateGroupDto {
   specialtyId?: number | null;
 
   @ApiPropertyOptional({
-    description: 'ID del período académico. Si se omite se usa el del nivel.',
+    description: 'ID del curso lectivo. Si se omite se usa el del nivel.',
   })
   @IsOptional()
   @Type(() => Number)

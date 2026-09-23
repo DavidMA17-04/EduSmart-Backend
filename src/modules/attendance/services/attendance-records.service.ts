@@ -7,10 +7,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { INSTITUTIONAL_ROLE_STUDENT } from '../../../common/constants/institutional-roles.constant';
+import { AttendanceJustificationStatus } from '../../../common/enums/attendance-justification-status.enum';
 import { AttendanceRegistrationMethod } from '../../../common/enums/attendance-registration-method.enum';
 import { AttendanceSessionStatus } from '../../../common/enums/attendance-session-status.enum';
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
 import { RoleStatus } from '../../../common/enums/role-status.enum';
+import { AttendanceCalendarExceptionType } from '../../../common/enums/attendance-calendar-exception-type.enum';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { GroupEnrollment } from '../../administrative/group-enrollments/entities/group-enrollment.entity';
 import { AuditLog } from '../../administrative/users/entities/audit-log.entity';
@@ -18,6 +20,7 @@ import { UpsertAttendanceRecordsDto } from '../dto/upsert-attendance-records.dto
 import { Attendance } from '../entities/attendance.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { AttendanceSessionsService } from './attendance-sessions.service';
+import type { AttendanceCalendarExceptionView } from './attendance-calendar-exceptions.service';
 import { formatUserFullName } from '../utils/attendance-labels.util';
 
 function isActiveStudentRole(role: {
@@ -111,7 +114,9 @@ export class AttendanceRecordsService {
       const session = await sessionRepo.findOne({
         where: { id: sessionId },
         relations: {
-          teachingAssignment: true,
+          teachingAssignment: {
+            group: { section: true },
+          },
         },
         lock: { mode: 'pessimistic_write' },
       });
@@ -127,6 +132,12 @@ export class AttendanceRecordsService {
           message: 'Attendance records can only be modified while session is OPEN',
         });
       }
+
+      const calendarException =
+        await this.sessionsService.resolveExceptionForTeachingAssignment(
+          session.teachingAssignment,
+          session.sessionDate,
+        );
 
       const rosterUsers = await this.loadRosterUsers(
         session.teachingAssignment.groupId,
@@ -166,6 +177,7 @@ export class AttendanceRecordsService {
       const results: Attendance[] = [];
 
       for (const item of dto.records) {
+        const applied = this.applyCalendarExceptionStatus(item.status, calendarException);
         const existing = existingByStudent.get(item.studentUserId);
         if (!existing) {
           try {
@@ -173,7 +185,8 @@ export class AttendanceRecordsService {
               attendanceRepo.create({
                 attendanceSessionId: session.id,
                 studentUserId: item.studentUserId,
-                status: item.status,
+                status: applied.status,
+                justificationStatus: applied.justificationStatus,
                 registrationMethod: AttendanceRegistrationMethod.MANUAL,
                 registeredAt: now,
                 registeredByUserId: actor.id,
@@ -192,8 +205,10 @@ export class AttendanceRecordsService {
                   sessionId: session.id,
                   studentUserId: created.studentUserId,
                   status: created.status,
+                  justificationStatus: created.justificationStatus,
                   registrationMethod: created.registrationMethod,
                   registeredByUserId: created.registeredByUserId,
+                  calendarExceptionId: calendarException?.id ?? null,
                 },
               }),
             );
@@ -205,9 +220,13 @@ export class AttendanceRecordsService {
           const before = {
             id: existing.id,
             status: existing.status,
+            justificationStatus: existing.justificationStatus,
             updatedByUserId: existing.updatedByUserId ?? null,
           };
-          existing.status = item.status;
+          existing.status = applied.status;
+          if (applied.justificationStatus !== undefined) {
+            existing.justificationStatus = applied.justificationStatus;
+          }
           existing.updatedByUserId = actor.id;
           const updated = await attendanceRepo.save(existing);
           results.push(updated);
@@ -221,8 +240,10 @@ export class AttendanceRecordsService {
               after: {
                 id: updated.id,
                 status: updated.status,
+                justificationStatus: updated.justificationStatus,
                 updatedByUserId: updated.updatedByUserId ?? null,
                 registeredByUserId: updated.registeredByUserId,
+                calendarExceptionId: calendarException?.id ?? null,
               },
             }),
           );
@@ -275,6 +296,28 @@ export class AttendanceRecordsService {
       byId.set(user.id, user);
     }
     return [...byId.values()];
+  }
+
+  private applyCalendarExceptionStatus(
+    status: AttendanceStatus,
+    exception: AttendanceCalendarExceptionView | null,
+  ): {
+    status: AttendanceStatus;
+    justificationStatus?: AttendanceJustificationStatus;
+  } {
+    if (!exception || status !== AttendanceStatus.ABSENT) {
+      return { status };
+    }
+    if (
+      exception.exceptionType === AttendanceCalendarExceptionType.AUTO_JUSTIFIED ||
+      exception.exceptionType === AttendanceCalendarExceptionType.SUSPENDED
+    ) {
+      return {
+        status: AttendanceStatus.JUSTIFIED,
+        justificationStatus: AttendanceJustificationStatus.JUSTIFIED,
+      };
+    }
+    return { status };
   }
 
   private rethrowDuplicate(error: unknown): void {
