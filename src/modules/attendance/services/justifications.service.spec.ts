@@ -207,8 +207,13 @@ describe('JustificationsService state machine', () => {
     });
   });
 
-  it('AttendanceStatus enum still has no JUSTIFIED mark', () => {
-    expect(Object.values(AttendanceStatus)).not.toContain('JUSTIFIED');
+  it('AttendanceStatus incluye JUSTIFIED además de PRESENT/ABSENT/LATE', () => {
+    expect(Object.values(AttendanceStatus)).toEqual([
+      'PRESENT',
+      'ABSENT',
+      'LATE',
+      'JUSTIFIED',
+    ]);
   });
 
   function absentMark(studentUserId: number) {

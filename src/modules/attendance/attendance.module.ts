@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AcademicPeriod } from '../administrative/academic-periods/entities/academic-period.entity';
 import { AcademicOfferingsModule } from '../administrative/academic-offerings/academic-offerings.module';
 import { GroupEnrollment } from '../administrative/group-enrollments/entities/group-enrollment.entity';
 import { TeachingAssignment } from '../administrative/teaching-assignments/entities/teaching-assignment.entity';
@@ -20,8 +21,10 @@ import { AttendanceSession } from './entities/attendance-session.entity';
 import { GuardianStudentLink } from './entities/guardian-student-link.entity';
 import { JustificationEvidence } from './entities/justification-evidence.entity';
 import { AbsenteeismService } from './services/absenteeism.service';
+import { AttendanceAnalyticsService } from './services/attendance-analytics.service';
 import { AttendanceExportService } from './services/attendance-export.service';
 import { AttendanceHistoryService } from './services/attendance-history.service';
+import { AttendanceRangeExportService } from './services/attendance-range-export.service';
 import { AttendanceRecordsService } from './services/attendance-records.service';
 import { AttendanceSessionsService } from './services/attendance-sessions.service';
 import { AttendanceTokenService } from './services/attendance-token.service';
@@ -32,6 +35,7 @@ import { JustificationsService } from './services/justifications.service';
     TypeOrmModule.forFeature([
       AttendanceSession,
       Attendance,
+      AcademicPeriod,
       AbsenceJustification,
       JustificationEvidence,
       GuardianStudentLink,
@@ -59,6 +63,8 @@ import { JustificationsService } from './services/justifications.service';
     AttendanceHistoryService,
     AttendanceTokenService,
     AttendanceExportService,
+    AttendanceAnalyticsService,
+    AttendanceRangeExportService,
     JustificationsService,
     AbsenteeismService,
   ],
@@ -67,6 +73,7 @@ import { JustificationsService } from './services/justifications.service';
     AttendanceRecordsService,
     AttendanceHistoryService,
     AttendanceTokenService,
+    AttendanceAnalyticsService,
     JustificationsService,
     AbsenteeismService,
   ],

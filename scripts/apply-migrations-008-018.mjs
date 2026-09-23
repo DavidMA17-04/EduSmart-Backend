@@ -25,6 +25,9 @@ const FILES = [
   '016_schedule_student_view_own_permission.sql',
   '017_attendance_session_schedule_anchor.sql',
   '018_attendance_history_and_session_tokens.sql',
+  '018_attendance_justifications.sql',
+  '019_attendance_status_justified.sql',
+  '019_attendance_guardian_bridge.sql',
 ];
 
 async function archiveLegacyAttendanceStubs(conn) {
@@ -105,7 +108,8 @@ async function main() {
         (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'schedule_entries') AS schedule_entries,
         (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_sessions') AS attendance_sessions,
         (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'teaching_assignments' AND COLUMN_NAME = 'offering_kind') AS offering_kind,
-        (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_sessions' AND COLUMN_NAME = 'attendance_token') AS attendance_token
+        (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_sessions' AND COLUMN_NAME = 'attendance_token') AS attendance_token,
+        (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'absence_justifications') AS absence_justifications
     `);
     console.log('\nVerification:', check[0]);
   } finally {
