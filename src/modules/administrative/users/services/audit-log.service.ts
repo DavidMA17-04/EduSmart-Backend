@@ -15,4 +15,8 @@ export class AuditLogService {
       .findByEntity('User', String(userId))
       .then((logs) => logs.map(toAuditLogView));
   }
+
+  listAll(): Promise<AuditLogView[]> {
+    return this.repository.findAll().then((logs) => logs.map(toAuditLogView));
+  }
 }

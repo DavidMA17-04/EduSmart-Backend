@@ -27,7 +27,13 @@ export class AuditLogRepository {
   async findByEntity(entity: string, entityId: string): Promise<AuditLog[]> {
     return this.repository.find({
       where: { entity, entityId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+  }
+
+  async findAll(): Promise<AuditLog[]> {
+    return this.repository.find({
+      order: { createdAt: 'DESC', id: 'DESC' },
     });
   }
 }

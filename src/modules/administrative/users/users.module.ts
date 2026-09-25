@@ -14,6 +14,7 @@ import { Utf8RepairService } from '../../../database/services/utf8-repair.servic
 import { AuditLogService } from './services/audit-log.service';
 import { UsersRepository } from './repositories/users.repository';
 import { AuditLogRepository } from './repositories/audit-log.repository';
+import { AuditLogsController } from './controllers/audit-logs.controller';
 import { UsersController } from './controllers/users.controller';
 
 @Module({
@@ -24,7 +25,7 @@ import { UsersController } from './controllers/users.controller';
     AcademicPeriodsModule,
     SpecialtiesModule,
   ],
-  controllers: [UsersController],
+  controllers: [UsersController, AuditLogsController],
   providers: [
     UsersService,
     UsersBootstrapService,
