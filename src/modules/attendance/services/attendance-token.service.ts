@@ -11,7 +11,6 @@ import { AcademicOfferingKind } from '../../../common/enums/academic-offering-ki
 import { AttendanceRegistrationMethod } from '../../../common/enums/attendance-registration-method.enum';
 import { AttendanceSessionStatus } from '../../../common/enums/attendance-session-status.enum';
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
-import { Role } from '../../../common/enums/role.enum';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { GroupEnrollment } from '../../administrative/group-enrollments/entities/group-enrollment.entity';
 import { AuditLog } from '../../administrative/users/entities/audit-log.entity';
@@ -22,6 +21,7 @@ import {
 import { Attendance } from '../entities/attendance.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { offeringKindLabel } from '../utils/attendance-labels.util';
+import { isStudentActor } from '../utils/attendance-actor.util';
 import { AttendanceRecordsService } from './attendance-records.service';
 import { AttendanceSessionsService } from './attendance-sessions.service';
 
@@ -114,7 +114,7 @@ export class AttendanceTokenService {
     dto: RedeemAttendanceTokenDto,
     actor: AuthenticatedUser,
   ): Promise<RedeemAttendanceTokenView> {
-    if (!(actor.roles ?? []).includes(Role.STUDENT)) {
+    if (!isStudentActor(actor)) {
       throw new ForbiddenException({
         code: 'ATTENDANCE_TOKEN_STUDENT_ONLY',
         message: 'Only students can redeem attendance tokens',

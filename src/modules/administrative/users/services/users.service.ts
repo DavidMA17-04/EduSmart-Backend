@@ -23,6 +23,7 @@ import { UpdateUserDto } from '../dto/update-user.dto';
 import { User } from '../entities/user.entity';
 import { toUserPublicView, UserPublicView } from '../mappers/user-public.mapper';
 import { UsersRepository } from '../repositories/users.repository';
+import { AccountVerificationService } from './account-verification.service';
 import { AuditLogService } from './audit-log.service';
 
 @Injectable()
@@ -31,6 +32,7 @@ export class UsersService {
     private readonly repository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
     private readonly auditLogService: AuditLogService,
+    private readonly accountVerificationService: AccountVerificationService,
     @InjectRepository(TeachingAssignment)
     private readonly teachingAssignments: Repository<TeachingAssignment>,
   ) {}
@@ -153,6 +155,11 @@ export class UsersService {
       entityId: String(persisted.id),
       after: view as unknown as Record<string, unknown>,
     });
+
+    // PBI-16: PENDING accounts get a verification code (mail failure is non-fatal).
+    if (persisted.status === UserStatus.PENDING) {
+      await this.accountVerificationService.issueAndSend(persisted.id, actorId ?? null);
+    }
 
     return view;
   }
