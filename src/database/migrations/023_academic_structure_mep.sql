@@ -16,19 +16,27 @@ CREATE TABLE IF NOT EXISTS `academic_years` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Backfill años solo si la tabla está vacía y hay períodos.
+-- Compatible con ONLY_FULL_GROUP_BY: agrupar por YEAR(...) y proyectar desde el alias.
 INSERT INTO `academic_years` (`name`, `start_date`, `end_date`, `status`)
 SELECT
-  CONCAT('Año ', YEAR(`start_date`)),
-  MIN(`start_date`),
-  MAX(`end_date`),
-  CASE
-    WHEN SUM(CASE WHEN `status` = 'ACTIVE' THEN 1 ELSE 0 END) > 0 THEN 'ACTIVE'
-    WHEN SUM(CASE WHEN `status` = 'PLANNED' THEN 1 ELSE 0 END) > 0 THEN 'PLANNED'
-    ELSE 'CLOSED'
-  END
-FROM `academic_periods`
-WHERE (SELECT COUNT(*) FROM `academic_years`) = 0
-GROUP BY YEAR(`start_date`);
+  CONCAT('Año ', `yr`),
+  `start_date`,
+  `end_date`,
+  `status`
+FROM (
+  SELECT
+    YEAR(`start_date`) AS `yr`,
+    MIN(`start_date`) AS `start_date`,
+    MAX(`end_date`) AS `end_date`,
+    CASE
+      WHEN SUM(CASE WHEN `status` = 'ACTIVE' THEN 1 ELSE 0 END) > 0 THEN 'ACTIVE'
+      WHEN SUM(CASE WHEN `status` = 'PLANNED' THEN 1 ELSE 0 END) > 0 THEN 'PLANNED'
+      ELSE 'CLOSED'
+    END AS `status`
+  FROM `academic_periods`
+  WHERE (SELECT COUNT(*) FROM `academic_years`) = 0
+  GROUP BY YEAR(`start_date`)
+) AS `by_year`;
 
 SET @col_year := (
   SELECT COUNT(*)

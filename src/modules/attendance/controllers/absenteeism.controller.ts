@@ -70,7 +70,7 @@ export class AbsenteeismController {
   }
 
   @Patch('rules/:id')
-  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @Permissions(PERMISSIONS.ATTENDANCE_EDIT)
   updateRule(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateAbsenteeismRuleDto,

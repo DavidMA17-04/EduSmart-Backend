@@ -169,6 +169,22 @@ describe('AttendanceTokenService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('accepts institutional Estudiante role name for redeem', async () => {
+    sessionRepo.findOne.mockResolvedValue({
+      ...openSession,
+      attendanceToken: 'ABCD1234',
+      attendanceTokenExpiresAt: new Date(Date.now() + 60_000),
+    });
+    recordsService.loadRosterUsers.mockResolvedValue([{ id: 501 }]);
+    attendanceRepo.findOne.mockResolvedValue(null);
+
+    const result = await service.redeemToken(
+      { token: 'ABCD1234' },
+      { ...student, roles: ['Estudiante'] as unknown as Role[] },
+    );
+    expect(result.status).toBe(AttendanceStatus.PRESENT);
+  });
+
   it('rejects expired tokens', async () => {
     sessionRepo.findOne.mockResolvedValue({
       ...openSession,
