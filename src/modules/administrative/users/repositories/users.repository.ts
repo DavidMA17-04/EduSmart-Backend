@@ -9,6 +9,7 @@ import { User } from '../entities/user.entity';
 
 const USER_RELATIONS = {
   userRoles: { role: true },
+  teacherProfile: { department: true },
 } as const;
 
 @Injectable()
@@ -112,6 +113,8 @@ export class UsersRepository {
         .createQueryBuilder('user')
         .leftJoinAndSelect('user.userRoles', 'userRoles')
         .leftJoinAndSelect('userRoles.role', 'role')
+        .leftJoinAndSelect('user.teacherProfile', 'teacherProfile')
+        .leftJoinAndSelect('teacherProfile.department', 'department')
         .orderBy('user.name', 'ASC'),
     );
 

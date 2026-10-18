@@ -13,6 +13,8 @@ import {
   INSTITUTIONAL_ROLE_TEACHER,
 } from '../../../../common/constants/institutional-roles.constant';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { DepartmentsService } from '../../departments/services/departments.service';
+import { RoleEntity } from '../../roles/entities/role.entity';
 import { RolesRepository } from '../../roles/repositories/roles.repository';
 import { TeachingAssignment } from '../../teaching-assignments/entities/teaching-assignment.entity';
 import { CreateGuideTeacherDto } from '../dto/create-guide-teacher.dto';
@@ -20,6 +22,7 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateGuideTeacherDto } from '../dto/update-guide-teacher.dto';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import { TeacherProfile } from '../entities/teacher-profile.entity';
 import { User } from '../entities/user.entity';
 import { toUserPublicView, UserPublicView } from '../mappers/user-public.mapper';
 import { UsersRepository } from '../repositories/users.repository';
@@ -33,8 +36,11 @@ export class UsersService {
     private readonly rolesRepository: RolesRepository,
     private readonly auditLogService: AuditLogService,
     private readonly accountVerificationService: AccountVerificationService,
+    private readonly departmentsService: DepartmentsService,
     @InjectRepository(TeachingAssignment)
     private readonly teachingAssignments: Repository<TeachingAssignment>,
+    @InjectRepository(TeacherProfile)
+    private readonly teacherProfiles: Repository<TeacherProfile>,
   ) {}
 
   async findAll(): Promise<UserPublicView[]> {
@@ -144,6 +150,7 @@ export class UsersService {
 
     const saved = await this.repository.save(user);
     await this.repository.replaceRoles(saved.id, roles);
+    await this.syncTeacherProfile(saved.id, roles, dto.departmentId);
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
 
@@ -213,9 +220,15 @@ export class UsersService {
 
     const saved = await this.repository.save(user);
 
+    let rolesForProfile = user.roles ?? [];
     if (dto.roleIds !== undefined) {
       const roles = await this.resolveRoles(dto.roleIds);
       await this.repository.replaceRoles(saved.id, roles);
+      rolesForProfile = roles;
+    }
+
+    if (dto.roleIds !== undefined || dto.departmentId !== undefined) {
+      await this.syncTeacherProfile(saved.id, rolesForProfile, dto.departmentId);
     }
 
     const persisted = (await this.repository.findById(saved.id)) ?? saved;
@@ -250,6 +263,7 @@ export class UsersService {
       email: dto.email,
       phone: dto.phone,
       roleIds: [teacherRole.id],
+      departmentId: dto.departmentId,
     });
   }
 
@@ -339,5 +353,47 @@ export class UsersService {
     }
 
     return roles.filter((role) => role !== null);
+  }
+
+  private hasTeacherRole(roles: Array<Pick<RoleEntity, 'name'>>): boolean {
+    return roles.some((role) => role.name === INSTITUTIONAL_ROLE_TEACHER);
+  }
+
+  private async syncTeacherProfile(
+    userId: number,
+    roles: Array<Pick<RoleEntity, 'name'>>,
+    departmentId?: number | null,
+  ): Promise<void> {
+    const isTeacher = this.hasTeacherRole(roles);
+    const existing = await this.teacherProfiles.findOne({ where: { userId } });
+
+    if (!isTeacher) {
+      if (existing) {
+        await this.teacherProfiles.delete({ userId });
+      }
+      return;
+    }
+
+    const resolvedDepartmentId = departmentId ?? existing?.departmentId;
+    if (!resolvedDepartmentId) {
+      throw new BadRequestException(
+        'El departamento es obligatorio para usuarios con rol Docente.',
+      );
+    }
+
+    await this.departmentsService.getByIdOrFail(resolvedDepartmentId);
+
+    if (existing) {
+      existing.departmentId = resolvedDepartmentId;
+      await this.teacherProfiles.save(existing);
+      return;
+    }
+
+    await this.teacherProfiles.save(
+      this.teacherProfiles.create({
+        userId,
+        departmentId: resolvedDepartmentId,
+      }),
+    );
   }
 }

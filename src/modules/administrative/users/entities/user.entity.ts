@@ -3,11 +3,13 @@ import {
   CreateDateColumn,
   Entity,
   OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
 import { RoleEntity } from '../../roles/entities/role.entity';
+import { TeacherProfile } from './teacher-profile.entity';
 import { UserRoleEntity } from './user-role.entity';
 
 @Entity({ name: 'users' })
@@ -100,6 +102,10 @@ export class User {
     cascade: true,
   })
   userRoles?: UserRoleEntity[];
+
+  /** Solo aplica a usuarios con rol Docente. */
+  @OneToOne(() => TeacherProfile, (profile) => profile.user)
+  teacherProfile?: TeacherProfile | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

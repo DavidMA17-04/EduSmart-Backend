@@ -16,6 +16,8 @@ export interface UserPublicView {
   status: User['status'];
   mustChangePassword: boolean;
   roles: Array<{ id: number; name: string; status: RoleEntity['status'] }>;
+  departmentId: number | null;
+  department: { id: number; code: string; name: string } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +63,14 @@ export function toUserPublicView(user: User): UserPublicView {
       name: role.name,
       status: role.status,
     })),
+    departmentId: user.teacherProfile?.departmentId ?? null,
+    department: user.teacherProfile?.department
+      ? {
+          id: user.teacherProfile.department.id,
+          code: user.teacherProfile.department.code,
+          name: user.teacherProfile.department.name,
+        }
+      : null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

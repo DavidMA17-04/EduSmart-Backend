@@ -6,10 +6,12 @@ import { AcademicPeriodsModule } from '../academic-periods/academic-periods.modu
 import { PermissionsModule } from '../permissions/permissions.module';
 import { RolesModule } from '../roles/roles.module';
 import { SpecialtiesModule } from '../specialties/specialties.module';
+import { DepartmentsModule } from '../departments/departments.module';
 import { TeachingAssignment } from '../teaching-assignments/entities/teaching-assignment.entity';
 import { UsersController } from './controllers/users.controller';
 import { AccountVerification } from './entities/account-verification.entity';
 import { AuditLog } from './entities/audit-log.entity';
+import { TeacherProfile } from './entities/teacher-profile.entity';
 import { User } from './entities/user.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
 import { AccountVerificationsRepository } from './repositories/account-verifications.repository';
@@ -28,12 +30,14 @@ import { UsersService } from './services/users.service';
       AuditLog,
       TeachingAssignment,
       AccountVerification,
+      TeacherProfile,
     ]),
     MailModule,
     RolesModule,
     PermissionsModule,
     AcademicPeriodsModule,
     SpecialtiesModule,
+    DepartmentsModule,
   ],
   controllers: [UsersController],
   providers: [

@@ -87,4 +87,14 @@ export class CreateUserDto {
   @Type(() => Number)
   @IsInt({ each: true })
   roleIds!: number[];
+
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      'Departamento académico. Obligatorio cuando el usuario tiene rol Docente.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  departmentId?: number;
 }

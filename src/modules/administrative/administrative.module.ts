@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DepartmentsModule } from './departments/departments.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -15,6 +16,7 @@ import { AdministrativeReportsModule } from './reports/administrative-reports.mo
 
 @Module({
   imports: [
+    DepartmentsModule,
     UsersModule,
     RolesModule,
     PermissionsModule,
@@ -30,6 +32,7 @@ import { AdministrativeReportsModule } from './reports/administrative-reports.mo
     AdministrativeReportsModule,
   ],
   exports: [
+    DepartmentsModule,
     UsersModule,
     RolesModule,
     PermissionsModule,

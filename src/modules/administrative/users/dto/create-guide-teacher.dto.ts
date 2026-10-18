@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -49,4 +51,12 @@ export class CreateGuideTeacherDto {
   @IsString()
   @MaxLength(30)
   phone?: string;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Departamento académico del docente',
+  })
+  @Type(() => Number)
+  @IsInt()
+  departmentId!: number;
 }
