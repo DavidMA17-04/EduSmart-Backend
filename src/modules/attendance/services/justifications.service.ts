@@ -5,10 +5,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { extname, join } from 'path';
-import { In, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
+import { extname, join, resolve, sep } from 'path';
+import { DataSource, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm';
 import { AcademicOfferingKind } from '../../../common/enums/academic-offering-kind.enum';
 import { AttendanceJustificationStatus } from '../../../common/enums/attendance-justification-status.enum';
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
@@ -26,6 +26,8 @@ import { AbsenceJustification } from '../entities/absence-justification.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { GuardianStudentLink } from '../entities/guardian-student-link.entity';
 import { JustificationEvidence } from '../entities/justification-evidence.entity';
+import { AuditLog } from '../../administrative/users/entities/audit-log.entity';
+import { isInstitutionWideReviewer } from '../utils/attendance-actor.util';
 import { formatUserFullName } from '../utils/attendance-labels.util';
 
 const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;
@@ -77,6 +79,12 @@ export type JustifiableAbsenceView = {
   studentFullName: string;
 };
 
+export type JustificationEvidenceFile = {
+  absolutePath: string;
+  fileName: string;
+  mimeType: string;
+};
+
 @Injectable()
 export class JustificationsService {
   private readonly uploadDir = join(process.cwd(), 'uploads', 'justifications');
@@ -90,6 +98,8 @@ export class JustificationsService {
     private readonly attendance: Repository<Attendance>,
     @InjectRepository(GuardianStudentLink)
     private readonly guardianLinks: Repository<GuardianStudentLink>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {
     this.ensureUploadDir();
   }
@@ -150,18 +160,31 @@ export class JustificationsService {
       });
     }
 
-    const row = this.justifications.create({
-      attendanceId: mark.id,
-      reason: dto.reason.trim(),
-      status: JustificationStatus.PENDING,
-      createdByUserId: actor.id,
+    const savedId = await this.dataSource.transaction(async (manager) => {
+      const justificationRepo = manager.getRepository(AbsenceJustification);
+      const saved = await justificationRepo.save(
+        justificationRepo.create({
+          attendanceId: mark.id,
+          reason: dto.reason.trim(),
+          status: JustificationStatus.PENDING,
+          createdByUserId: actor.id,
+        }),
+      );
+
+      const previousJustificationStatus = mark.justificationStatus;
+      mark.justificationStatus = AttendanceJustificationStatus.PENDING;
+      await manager.getRepository(Attendance).save(mark);
+
+      await this.audit(manager, actor, 'JUSTIFICATION_CREATED', saved.id, null, {
+        attendanceId: mark.id,
+        studentUserId: mark.studentUserId,
+        status: JustificationStatus.PENDING,
+        previousJustificationStatus,
+      });
+      return saved.id;
     });
-    const saved = await this.justifications.save(row);
 
-    mark.justificationStatus = AttendanceJustificationStatus.PENDING;
-    await this.attendance.save(mark);
-
-    return this.toView(await this.loadJustificationOrFail(saved.id));
+    return this.toView(await this.loadJustificationOrFail(savedId));
   }
 
   async uploadEvidence(
@@ -208,16 +231,73 @@ export class JustificationsService {
     }
 
     const relativePath = `justifications/${filename}`;
-    const evidence = this.evidences.create({
-      justificationId: justification.id,
-      fileName: file.originalname || filename,
-      storagePath: relativePath,
-      mimeType: file.mimetype,
-      fileSizeBytes: file.buffer.length,
-      uploadedByUserId: actor.id,
+    try {
+      const saved = await this.dataSource.transaction(async (manager) => {
+        const evidenceRepo = manager.getRepository(JustificationEvidence);
+        const row = await evidenceRepo.save(
+          evidenceRepo.create({
+            justificationId: justification.id,
+            fileName: file.originalname || filename,
+            storagePath: relativePath,
+            mimeType: file.mimetype,
+            fileSizeBytes: file.buffer.length,
+            uploadedByUserId: actor.id,
+          }),
+        );
+        await this.audit(manager, actor, 'JUSTIFICATION_EVIDENCE_UPLOADED', justification.id, null, {
+          evidenceId: row.id,
+          fileName: row.fileName,
+          mimeType: row.mimeType,
+          fileSizeBytes: row.fileSizeBytes,
+        });
+        return row;
+      });
+      return this.toEvidenceView(saved);
+    } catch (error) {
+      if (existsSync(absolutePath)) unlinkSync(absolutePath);
+      throw error;
+    }
+  }
+
+  /**
+   * Archivo de evidencia para descarga autenticada. Aplica la misma
+   * visibilidad que el listado; fuera de alcance responde 404.
+   */
+  async getEvidenceFile(
+    justificationId: number,
+    evidenceId: number,
+    actor: AuthenticatedUser,
+  ): Promise<JustificationEvidenceFile> {
+    const notFound = () =>
+      new NotFoundException({
+        code: 'EVIDENCE_NOT_FOUND',
+        message: 'Evidencia no encontrada',
+      });
+
+    const justification = await this.justifications.findOne({
+      where: { id: justificationId },
+      relations: {
+        evidences: true,
+        attendance: { session: { teachingAssignment: true } },
+      },
     });
-    const saved = await this.evidences.save(evidence);
-    return this.toEvidenceView(saved);
+    if (!justification || !(await this.canSeeJustification(actor, justification))) {
+      throw notFound();
+    }
+
+    const evidence = (justification.evidences ?? []).find((e) => e.id === evidenceId);
+    if (!evidence) throw notFound();
+
+    const storageRoot = resolve(this.uploadDir, '..');
+    const absolutePath = resolve(storageRoot, evidence.storagePath);
+    if (!absolutePath.startsWith(this.uploadDir + sep) || !existsSync(absolutePath)) {
+      throw notFound();
+    }
+    return {
+      absolutePath,
+      fileName: evidence.fileName,
+      mimeType: evidence.mimeType,
+    };
   }
 
   async getJustifications(
@@ -269,11 +349,7 @@ export class JustificationsService {
       );
     }
 
-    const canReview = this.hasPermission(actor, PERMISSIONS.ATTENDANCE_REVIEW);
-    const canViewAll = this.hasPermission(actor, PERMISSIONS.ATTENDANCE_READ) && canReview;
-    if (!canViewAll && !canReview) {
-      qb.andWhere('a.id_users_student = :actorId', { actorId: actor.id });
-    }
+    await this.applyJustificationScope(qb, actor);
 
     const [rows, total] = await qb
       .skip((page - 1) * pageSize)
@@ -349,6 +425,16 @@ export class JustificationsService {
   ): Promise<JustificationListItemView> {
     const justification = await this.loadJustificationOrFail(justificationId);
 
+    if (
+      !isInstitutionWideReviewer(actor) &&
+      justification.attendance?.session?.teachingAssignment?.userId !== actor.id
+    ) {
+      throw new ForbiddenException({
+        code: 'JUSTIFICATION_REVIEW_NOT_ALLOWED',
+        message: 'Solo puede dictaminar justificaciones de sus propias asignaciones docentes',
+      });
+    }
+
     if (justification.status !== JustificationStatus.PENDING) {
       throw new BadRequestException({
         code: 'JUSTIFICATION_NOT_PENDING',
@@ -356,41 +442,108 @@ export class JustificationsService {
       });
     }
 
-    if (dto.status === JustificationReviewDecision.REJECTED) {
-      const notes = dto.decisionNotes?.trim();
-      if (!notes) {
-        throw new BadRequestException({
-          code: 'DECISION_NOTES_REQUIRED',
-          message: 'Las notas de decisión son obligatorias al rechazar',
-        });
-      }
-      justification.status = JustificationStatus.REJECTED;
+    const approve = dto.status !== JustificationReviewDecision.REJECTED;
+    const notes = dto.decisionNotes?.trim() || null;
+    if (!approve && !notes) {
+      throw new BadRequestException({
+        code: 'DECISION_NOTES_REQUIRED',
+        message: 'Las notas de decisión son obligatorias al rechazar',
+      });
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      const attendanceRepo = manager.getRepository(Attendance);
+      const mark = await attendanceRepo.findOneByOrFail({ id: justification.attendanceId });
+      const before = {
+        justificationStatus: justification.status,
+        attendanceStatus: mark.status,
+        attendanceJustificationStatus: mark.justificationStatus,
+      };
+
+      justification.status = approve ? JustificationStatus.APPROVED : JustificationStatus.REJECTED;
       justification.decisionNotes = notes;
       justification.reviewedByUserId = actor.id;
       justification.reviewedAt = new Date();
-      await this.justifications.save(justification);
+      await manager.getRepository(AbsenceJustification).save(justification);
 
-      const mark = await this.attendance.findOneByOrFail({
-        id: justification.attendanceId,
-      });
-      mark.justificationStatus = AttendanceJustificationStatus.REJECTED;
-      // Keep AttendanceStatus.ABSENT unchanged.
-      await this.attendance.save(mark);
-    } else {
-      justification.status = JustificationStatus.APPROVED;
-      justification.decisionNotes = dto.decisionNotes?.trim() || null;
-      justification.reviewedByUserId = actor.id;
-      justification.reviewedAt = new Date();
-      await this.justifications.save(justification);
+      mark.status = approve ? AttendanceStatus.JUSTIFIED : AttendanceStatus.ABSENT;
+      mark.justificationStatus = approve
+        ? AttendanceJustificationStatus.JUSTIFIED
+        : AttendanceJustificationStatus.REJECTED;
+      mark.updatedByUserId = actor.id;
+      await attendanceRepo.save(mark);
 
-      const mark = await this.attendance.findOneByOrFail({
-        id: justification.attendanceId,
-      });
-      mark.justificationStatus = AttendanceJustificationStatus.JUSTIFIED;
-      await this.attendance.save(mark);
-    }
+      await this.audit(
+        manager,
+        actor,
+        approve ? 'JUSTIFICATION_APPROVED' : 'JUSTIFICATION_REJECTED',
+        justification.id,
+        before,
+        {
+          justificationStatus: justification.status,
+          attendanceId: mark.id,
+          attendanceStatus: mark.status,
+          attendanceJustificationStatus: mark.justificationStatus,
+          decisionNotes: notes,
+        },
+      );
+    });
 
     return this.toView(await this.loadJustificationOrFail(justificationId));
+  }
+
+  /**
+   * Visibilidad por actor: Admin todo; otro revisor solo sesiones
+   * de sus asignaciones docentes; el resto, propias y de representados.
+   */
+  private async applyJustificationScope(
+    qb: SelectQueryBuilder<AbsenceJustification>,
+    actor: AuthenticatedUser,
+  ): Promise<void> {
+    if (isInstitutionWideReviewer(actor)) return;
+    if (this.hasPermission(actor, PERMISSIONS.ATTENDANCE_REVIEW)) {
+      qb.andWhere('ta.id_users = :scopeTeacherId', { scopeTeacherId: actor.id });
+      return;
+    }
+    const represented = await this.getRepresentedStudentIds(actor.id);
+    qb.andWhere('a.id_users_student IN (:...scopeStudentIds)', {
+      scopeStudentIds: [actor.id, ...represented],
+    });
+  }
+
+  private async canSeeJustification(
+    actor: AuthenticatedUser,
+    justification: AbsenceJustification,
+  ): Promise<boolean> {
+    if (isInstitutionWideReviewer(actor)) return true;
+    const attendance = justification.attendance;
+    if (!attendance) return false;
+    if (this.hasPermission(actor, PERMISSIONS.ATTENDANCE_REVIEW)) {
+      return attendance.session?.teachingAssignment?.userId === actor.id;
+    }
+    if (attendance.studentUserId === actor.id) return true;
+    return this.isMyRepresented(actor.id, attendance.studentUserId);
+  }
+
+  private async audit(
+    manager: EntityManager,
+    actor: AuthenticatedUser,
+    action: string,
+    justificationId: number,
+    before: Record<string, unknown> | null,
+    after: Record<string, unknown>,
+  ): Promise<void> {
+    const repo = manager.getRepository(AuditLog);
+    await repo.save(
+      repo.create({
+        actorId: actor.id,
+        action,
+        entity: 'AbsenceJustification',
+        entityId: String(justificationId),
+        before,
+        after,
+      }),
+    );
   }
 
   private async assertCanAttachEvidence(
@@ -505,7 +658,7 @@ export class JustificationsService {
       fileName: e.fileName,
       mimeType: e.mimeType,
       fileSizeBytes: e.fileSizeBytes,
-      url: `/uploads/${e.storagePath.replace(/\\/g, '/')}`,
+      url: `/attendance/justifications/${e.justificationId}/evidence/${e.id}`,
       uploadedByUserId: e.uploadedByUserId,
       createdAt: e.createdAt,
     };

@@ -223,9 +223,16 @@ export class AttendanceRecordsService {
             justificationStatus: existing.justificationStatus,
             updatedByUserId: existing.updatedByUserId ?? null,
           };
-          existing.status = applied.status;
-          if (applied.justificationStatus !== undefined) {
-            existing.justificationStatus = applied.justificationStatus;
+          const keepApprovedJustification =
+            existing.justificationStatus === AttendanceJustificationStatus.JUSTIFIED &&
+            applied.status === AttendanceStatus.ABSENT;
+          if (keepApprovedJustification) {
+            existing.status = AttendanceStatus.JUSTIFIED;
+          } else {
+            existing.status = applied.status;
+            if (applied.justificationStatus !== undefined) {
+              existing.justificationStatus = applied.justificationStatus;
+            }
           }
           existing.updatedByUserId = actor.id;
           const updated = await attendanceRepo.save(existing);

@@ -135,6 +135,52 @@ export class GroupEnrollmentsService {
     });
   }
 
+  /**
+   * Matricula estudiantes recién creados dentro de una transacción ajena
+   * (importación masiva). Bloquea el grupo y valida el cupo del lote
+   * completo; si no alcanza, lanza 409 y el llamador revierte todo.
+   */
+  async enrollNewStudentsInTransaction(
+    manager: EntityManager,
+    input: { groupId: number; academicPeriodId: number; userIds: number[]; startsOn: string },
+  ): Promise<GroupEnrollment[]> {
+    if (input.userIds.length === 0) return [];
+    const group = await manager.findOne(GroupEntity, {
+      where: { id: input.groupId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!group) throw new NotFoundException(`Group ${input.groupId} not found`);
+
+    const activeCount = await manager.getRepository(GroupEnrollment).count({
+      where: { groupId: group.id, status: GroupEnrollmentStatus.ACTIVE },
+    });
+    const capacity = group.maxCapacity ?? 30;
+    if (activeCount + input.userIds.length > capacity) {
+      throw new ConflictException({
+        code: 'GROUP_CAPACITY_EXCEEDED',
+        message: `El cupo de la sección "${group.name}" no alcanza: ${activeCount}/${capacity} ocupados y se intentan matricular ${input.userIds.length}.`,
+        groupId: group.id,
+        groupName: group.name,
+      });
+    }
+
+    const repo = manager.getRepository(GroupEnrollment);
+    const saved = await repo.save(
+      input.userIds.map((userId) =>
+        repo.create({
+          userId,
+          groupId: group.id,
+          academicPeriodId: input.academicPeriodId,
+          startsOn: input.startsOn,
+          endsOn: null,
+          status: GroupEnrollmentStatus.ACTIVE,
+        }),
+      ),
+    );
+    await this.bumpGroupStudentCount(manager, group.id, input.userIds.length);
+    return saved;
+  }
+
   async findGroupAsOf(
     userId: number,
     asOfDate: string,

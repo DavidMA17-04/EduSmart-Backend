@@ -16,7 +16,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "db:repair-encoding": "node scripts/repair-utf8-data.mjs"
+    "db:repair-encoding": "node scripts/repair-utf8-data.mjs",
+    "db:seed:demo": "node scripts/seed-demo-dataset.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.1",

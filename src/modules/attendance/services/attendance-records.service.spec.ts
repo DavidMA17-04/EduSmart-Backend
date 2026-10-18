@@ -261,6 +261,51 @@ describe('AttendanceRecordsService Phase 1A', () => {
       expect(rows[0].status).toBe(AttendanceStatus.LATE);
     });
 
+    it('PBI-27: reguardar ABSENT no revierte una justificación aprobada', async () => {
+      attendanceRepo.find.mockResolvedValue([
+        {
+          id: 7,
+          studentUserId: 501,
+          status: AttendanceStatus.JUSTIFIED,
+          justificationStatus: 'JUSTIFIED',
+          registeredByUserId: 10,
+          updatedByUserId: null,
+        },
+      ]);
+      attendanceRepo.save.mockImplementation(async (row) => row);
+
+      const rows = await service.upsertRecords(
+        50,
+        { records: [{ studentUserId: 501, status: AttendanceStatus.ABSENT }] },
+        teacher,
+      );
+
+      expect(rows[0].status).toBe(AttendanceStatus.JUSTIFIED);
+      expect(rows[0].justificationStatus).toBe('JUSTIFIED');
+    });
+
+    it('PBI-27: PRESENT sí reemplaza una ausencia justificada', async () => {
+      attendanceRepo.find.mockResolvedValue([
+        {
+          id: 7,
+          studentUserId: 501,
+          status: AttendanceStatus.JUSTIFIED,
+          justificationStatus: 'JUSTIFIED',
+          registeredByUserId: 10,
+          updatedByUserId: null,
+        },
+      ]);
+      attendanceRepo.save.mockImplementation(async (row) => row);
+
+      const rows = await service.upsertRecords(
+        50,
+        { records: [{ studentUserId: 501, status: AttendanceStatus.PRESENT }] },
+        teacher,
+      );
+
+      expect(rows[0].status).toBe(AttendanceStatus.PRESENT);
+    });
+
     it('26. corrección CLOSED → reject', async () => {
       sessionRepo.findOne.mockResolvedValue({
         ...openSession,

@@ -8,9 +8,11 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { createReadStream } from 'fs';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
@@ -78,6 +80,22 @@ export class JustificationsController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.justificationsService.getJustifiableAbsences(query, actor);
+  }
+
+  @Get(':id/evidence/:evidenceId')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @ApiOperation({ summary: 'Descargar evidencia de justificación (autenticado)' })
+  async downloadEvidence(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('evidenceId', ParseIntPipe) evidenceId: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const file = await this.justificationsService.getEvidenceFile(id, evidenceId, actor);
+    const safeName = file.fileName.replace(/[^\x20-\x7E]|["\\]/g, '_');
+    return new StreamableFile(createReadStream(file.absolutePath), {
+      type: file.mimeType,
+      disposition: `inline; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+    });
   }
 
   @Get()

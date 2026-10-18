@@ -13,6 +13,13 @@ export function isStudentActor(actor: AuthenticatedUser): boolean {
   );
 }
 
+/** Solo el Administrador revisa justificaciones de toda la institución. */
+export function isInstitutionWideReviewer(actor: AuthenticatedUser): boolean {
+  return (actor.roles ?? []).some((role) =>
+    roleMatches(String(role), Role.ADMIN, 'Administrador'),
+  );
+}
+
 export function hasAttendanceHistoryAccess(actor: AuthenticatedUser): boolean {
   if ((actor.roles ?? []).includes(Role.ADMIN)) return true;
   const permissions = actor.permissions ?? [];
