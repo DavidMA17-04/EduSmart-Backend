@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MailModule } from '../../../integrations/mail/mail.module';
+import { GroupEnrollmentsModule } from '../group-enrollments/group-enrollments.module';
 import { RolesModule } from '../roles/roles.module';
 import { User } from '../users/entities/user.entity';
 import { UserRoleEntity } from '../users/entities/user-role.entity';
@@ -17,6 +18,7 @@ import { BulkImportService } from './services/bulk-import.service';
     UsersModule,
     RolesModule,
     MailModule,
+    GroupEnrollmentsModule,
   ],
   controllers: [BulkImportController],
   providers: [BulkImportService, ImportBatchesRepository],

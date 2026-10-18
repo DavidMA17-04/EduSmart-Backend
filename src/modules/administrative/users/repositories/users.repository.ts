@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { INSTITUTIONAL_ROLE_TEACHER } from '../../../../common/constants/institutional-roles.constant';
 import { RoleStatus } from '../../../../common/enums/role-status.enum';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
@@ -154,6 +154,21 @@ export class UsersRepository {
   async findByEmail(email: string, excludeId?: number): Promise<User | null> {
     return this.repository.findOne({
       where: excludeId ? { email, id: Not(excludeId) } : { email },
+    });
+  }
+
+  /** Usuarios que ya usan alguna de las cédulas o correos (una sola consulta). */
+  async findByNationalIdsOrEmails(
+    nationalIds: string[],
+    emails: string[],
+  ): Promise<Array<Pick<User, 'national_id' | 'email'>>> {
+    if (nationalIds.length === 0 && emails.length === 0) return [];
+    const where: Array<Record<string, unknown>> = [];
+    if (nationalIds.length > 0) where.push({ national_id: In(nationalIds) });
+    if (emails.length > 0) where.push({ email: In(emails) });
+    return this.repository.find({
+      select: { id: true, national_id: true, email: true },
+      where,
     });
   }
 

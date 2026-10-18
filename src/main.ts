@@ -4,9 +4,11 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { isJustificationUploadPath } from './common/utils/protected-uploads.util';
 
 async function bootstrap() {
   // Desactivar body parser por defecto (~100kb) para aplicar límites 50mb
@@ -22,11 +24,15 @@ async function bootstrap() {
   if (!existsSync(uploadsRoot)) {
     mkdirSync(uploadsRoot, { recursive: true });
   }
-  // Evidencias PBI-27: servidas como estáticos públicos con nombres no
-  // adivinables (`{justificationId}-{timestampMs}-{nombre}`).
-  // Decisión documentada (pbi-27-cierre): el frontend las enlaza con <a href>
-  // directo, incompatible con Bearer header; endurecer con endpoint
-  // autenticado queda como trabajo futuro sin cambiar storage.
+  // Evidencias PBI-27 contienen datos sensibles: solo se entregan por
+  // GET /api/v1/attendance/justifications/:id/evidence/:evidenceId.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (isJustificationUploadPath(req.path)) {
+      res.status(404).end();
+      return;
+    }
+    next();
+  });
   app.useStaticAssets(uploadsRoot, { prefix: '/uploads/' });
 
   app.setGlobalPrefix('api/v1');
