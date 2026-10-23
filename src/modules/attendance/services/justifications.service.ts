@@ -14,6 +14,7 @@ import { AttendanceJustificationStatus } from '../../../common/enums/attendance-
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
 import { JustificationStatus } from '../../../common/enums/justification-status.enum';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
+import { Role } from '../../../common/enums/role.enum';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { CreateJustificationDto } from '../dto/create-justification.dto';
 import { JustifiableAbsencesQueryDto } from '../dto/justifiable-absences-query.dto';
@@ -304,6 +305,7 @@ export class JustificationsService {
     filters: ListJustificationsQueryDto,
     actor: AuthenticatedUser,
   ): Promise<JustificationListPageView> {
+    this.assertCanReadJustifications(actor);
     const page = filters.page ?? 1;
     const pageSize = Math.min(
       filters.pageSize ?? JUSTIFICATIONS_DEFAULT_PAGE_SIZE,
@@ -373,6 +375,7 @@ export class JustificationsService {
     filters: JustifiableAbsencesQueryDto,
     actor: AuthenticatedUser,
   ): Promise<JustifiableAbsenceView[]> {
+    this.assertCanReadJustifications(actor);
     const canReview = this.hasPermission(actor, PERMISSIONS.ATTENDANCE_REVIEW);
     let studentIds: number[];
     if (canReview && filters.studentUserId) {
@@ -682,6 +685,22 @@ export class JustificationsService {
 
   private hasPermission(actor: AuthenticatedUser, code: string): boolean {
     return (actor.permissions ?? []).includes(code);
+  }
+
+  /** OR rule (view | justify | review): the guard only supports AND. */
+  private assertCanReadJustifications(actor: AuthenticatedUser): void {
+    if ((actor.roles ?? []).includes(Role.ADMIN)) return;
+    const allowed = [
+      PERMISSIONS.ATTENDANCE_READ,
+      PERMISSIONS.ATTENDANCE_JUSTIFY,
+      PERMISSIONS.ATTENDANCE_REVIEW,
+    ].some((code) => this.hasPermission(actor, code));
+    if (!allowed) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Missing permission to read justifications',
+      });
+    }
   }
 
   private ensureUploadDir(): void {

@@ -8,4 +8,8 @@ export enum PermissionAction {
   VIEW_OWN = 'VIEW_OWN',
   JUSTIFY = 'JUSTIFY',
   REVIEW = 'REVIEW',
+  RESOLVE = 'RESOLVE',
+  APPEAL = 'APPEAL',
+  PRECAUTIONARY = 'PRECAUTIONARY',
+  RESPOND = 'RESPOND',
 }

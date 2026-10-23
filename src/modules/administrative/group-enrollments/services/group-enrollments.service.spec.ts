@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { GroupEnrollmentStatus } from '../../../../common/enums/group-enrollment-status.enum';
 import { GroupEnrollmentsService } from './group-enrollments.service';
 
@@ -29,6 +29,10 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
     createQueryBuilder: jest.fn(),
   };
 
+  const groups = {
+    findOne: jest.fn(),
+  };
+
   let service: GroupEnrollmentsService;
   let lockCalls: unknown[];
 
@@ -47,7 +51,7 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
     lockCalls = [];
     service = new GroupEnrollmentsService(
       repository as never,
-      {} as never,
+      groups as never,
       {} as never,
       dataSource as never,
     );
@@ -259,5 +263,74 @@ describe('GroupEnrollmentsService Phase 0.1', () => {
     };
     repository.createQueryBuilder.mockReturnValue(qb);
     await expect(service.findGroupAsOf(7, '2026-03-15')).resolves.toEqual(enrollment);
+  });
+
+  function mockRosterQb(rows: unknown[]) {
+    const qb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(rows),
+    };
+    repository.createQueryBuilder.mockReturnValue(qb);
+    return qb;
+  }
+
+  it('listByGroup empty -> []', async () => {
+    groups.findOne.mockResolvedValue({ id: 20 });
+    mockRosterQb([]);
+    await expect(service.listByGroup(20)).resolves.toEqual([]);
+  });
+
+  it('listByGroup maps student summary', async () => {
+    groups.findOne.mockResolvedValue({ id: 20 });
+    const qb = mockRosterQb([
+      {
+        id: 1,
+        userId: 7,
+        groupId: 20,
+        academicPeriodId: 3,
+        startsOn: '2026-02-01',
+        endsOn: null,
+        status: GroupEnrollmentStatus.ACTIVE,
+        user: {
+          id: 7,
+          name: 'Ana',
+          first_lastname: 'Pérez',
+          second_lastname: null,
+          national_id: '1-234',
+          email: 'ana@test.ed.cr',
+        },
+      },
+    ]);
+    await expect(service.listByGroup(20, GroupEnrollmentStatus.ACTIVE)).resolves.toEqual([
+      {
+        id: 1,
+        userId: 7,
+        groupId: 20,
+        academicPeriodId: 3,
+        startsOn: '2026-02-01',
+        endsOn: null,
+        status: GroupEnrollmentStatus.ACTIVE,
+        user: {
+          id: 7,
+          name: 'Ana',
+          firstLastname: 'Pérez',
+          secondLastname: null,
+          nationalId: '1-234',
+          email: 'ana@test.ed.cr',
+        },
+      },
+    ]);
+    expect(qb.andWhere).toHaveBeenCalledWith('e.status = :status', {
+      status: GroupEnrollmentStatus.ACTIVE,
+    });
+  });
+
+  it('listByGroup missing group -> 404', async () => {
+    groups.findOne.mockResolvedValue(null);
+    await expect(service.listByGroup(999)).rejects.toBeInstanceOf(NotFoundException);
   });
 });

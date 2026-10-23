@@ -73,7 +73,6 @@ export class JustificationsController {
   }
 
   @Get('justifiable-absences')
-  @Permissions(PERMISSIONS.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Ausencias candidatas a justificación (WF-39)' })
   listJustifiableAbsences(
     @Query() query: JustifiableAbsencesQueryDto,
@@ -99,7 +98,6 @@ export class JustificationsController {
   }
 
   @Get()
-  @Permissions(PERMISSIONS.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Listar justificaciones con filtros' })
   list(@Query() query: ListJustificationsQueryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.justificationsService.getJustifications(query, actor);

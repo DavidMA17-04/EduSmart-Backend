@@ -14,8 +14,9 @@ import { ApiBearerAuth, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Min } from 'class-validator';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
-import { Permissions } from '../../../common/decorators/permissions.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { Permissions } from '../../../common/decorators/permissions.decorator';
+import { SkipResponseWrap } from '../../../common/decorators/skip-response-wrap.decorator';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { AttendanceHistoryFilterDto } from '../dto/attendance-history-filter.dto';
 import { AttendanceAnalyticsFilterDto } from '../dto/attendance-analytics-filter.dto';
@@ -37,6 +38,12 @@ class AttendanceScheduleContextQueryDto {
   @IsInt()
   @Min(1)
   periodId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  groupId?: number;
 }
 
 @ApiTags('attendance')
@@ -74,6 +81,7 @@ export class AttendanceController {
   }
 
   @Get('history/export/pdf')
+  @SkipResponseWrap()
   @Header('Content-Type', 'application/pdf')
   @Header(
     'Content-Disposition',
@@ -92,6 +100,7 @@ export class AttendanceController {
   }
 
   @Get('history/export/excel')
+  @SkipResponseWrap()
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -134,6 +143,7 @@ export class AttendanceController {
 
   @Get('reports/export/excel')
   @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -158,6 +168,7 @@ export class AttendanceController {
 
   @Get('reports/export/pdf')
   @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
   @Header('Content-Type', 'application/pdf')
   @Header(
     'Content-Disposition',
@@ -198,6 +209,7 @@ export class AttendanceController {
   ) {
     return this.sessions.getScheduleContext(actor, {
       periodId: query.periodId,
+      groupId: query.groupId,
     });
   }
 
@@ -295,6 +307,7 @@ export class AttendanceController {
 
   @Get('sessions/:sessionId/export/pdf')
   @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
   @Header('Content-Type', 'application/pdf')
   @Header(
     'Content-Disposition',
@@ -314,6 +327,7 @@ export class AttendanceController {
 
   @Get('sessions/:sessionId/export/excel')
   @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

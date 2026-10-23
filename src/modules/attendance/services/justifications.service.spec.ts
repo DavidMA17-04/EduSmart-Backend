@@ -497,4 +497,34 @@ describe('JustificationsService state machine', () => {
       });
     });
   });
+
+  it('list / justifiable-absences without view|justify|review → 403', async () => {
+    const noAccess = { ...studentActor, permissions: [PERMISSIONS.ATTENDANCE_EDIT] };
+    await expect(service.getJustifications({}, noAccess)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(service.getJustifiableAbsences({}, noAccess)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('justifiable-absences allowed with only attendance.justify (student without view)', async () => {
+    const qb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    (attendanceRepo as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder = jest
+      .fn()
+      .mockReturnValue(qb);
+    const justifyOnly = { ...studentActor, permissions: [PERMISSIONS.ATTENDANCE_JUSTIFY] };
+    await expect(service.getJustifiableAbsences({}, justifyOnly)).resolves.toEqual([]);
+    expect(qb.andWhere).toHaveBeenCalledWith('a.id_users_student IN (:...studentIds)', {
+      studentIds: [5],
+    });
+  });
 });

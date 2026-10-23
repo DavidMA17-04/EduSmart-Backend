@@ -356,8 +356,25 @@ describe('AttendanceSessionsService from-schedule / schedule-context (F)', () =>
       anchorEntryId: 1,
       entryIds: [1, 2],
       withinStartWindow: true,
+      offeringName: 'Matemáticas',
+      groupId: 20,
       attendanceSession: { id: 9, status: AttendanceSessionStatus.OPEN },
       calendarException: null,
+    });
+  });
+
+  it('schedule-context filters by groupId', async () => {
+    const qb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    scheduleEntries.createQueryBuilder.mockReturnValue(qb);
+    await service.getScheduleContext(teacher, { groupId: 20 }, mondayDuring);
+    expect(qb.andWhere).toHaveBeenCalledWith('ta.id_groups = :groupId', {
+      groupId: 20,
     });
   });
 

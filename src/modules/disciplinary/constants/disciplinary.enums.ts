@@ -1,0 +1,86 @@
+export enum DisciplinaryTrack {
+  DIRECT = 'DIRECT',
+  DUE_PROCESS = 'DUE_PROCESS',
+}
+
+export enum DisciplinaryCaseStatus {
+  REPORTED = 'REPORTED',
+  INVESTIGATING = 'INVESTIGATING',
+  COMMUNICATED = 'COMMUNICATED',
+  PENDING_RESOLUTION = 'PENDING_RESOLUTION',
+  RESOLVED = 'RESOLVED',
+  IN_APPEAL = 'IN_APPEAL',
+  FIRM = 'FIRM',
+  DISMISSED = 'DISMISSED',
+  ANNULLED = 'ANNULLED',
+  NOTIFIED = 'NOTIFIED',
+}
+
+export enum ResolutionOutcome {
+  DISMISS = 'DISMISS',
+  MODIFY = 'MODIFY',
+  UPHOLD = 'UPHOLD',
+}
+
+export enum EvidenceContext {
+  REPORT = 'REPORT',
+  INVESTIGATION = 'INVESTIGATION',
+  DEFENSE = 'DEFENSE',
+  APPEAL = 'APPEAL',
+  DELIVERY = 'DELIVERY',
+  FOLLOW_UP = 'FOLLOW_UP',
+}
+
+export enum EventVisibility {
+  PUBLIC = 'PUBLIC',
+  RESERVED = 'RESERVED',
+}
+
+export enum CommunicationKind {
+  DIRECT_REPRIMAND = 'DIRECT_REPRIMAND',
+  FORMAL_CHARGE = 'FORMAL_CHARGE',
+  RESOLUTION = 'RESOLUTION',
+  APPEAL_RESOLUTION = 'APPEAL_RESOLUTION',
+  PRECAUTIONARY = 'PRECAUTIONARY',
+}
+
+export enum DeliveryMedium {
+  NOTEBOOK = 'NOTEBOOK',
+  IN_PERSON = 'IN_PERSON',
+}
+
+export enum NotificationEmailStatus {
+  SENT = 'SENT',
+  FAILED = 'FAILED',
+  SKIPPED = 'SKIPPED',
+}
+
+export enum DefenseChannel {
+  PORTAL = 'PORTAL',
+  WRITTEN = 'WRITTEN',
+}
+
+export enum AppealKind {
+  REVOCATION = 'REVOCATION',
+  APPEAL = 'APPEAL',
+}
+
+export enum AppealOutcome {
+  UPHOLD = 'UPHOLD',
+  REVOKE = 'REVOKE',
+  MODIFY = 'MODIFY',
+}
+
+export enum FollowUpKind {
+  STUDENT_INTERVIEW = 'STUDENT_INTERVIEW',
+  GUARDIAN_MEETING = 'GUARDIAN_MEETING',
+  COMMITMENT = 'COMMITMENT',
+  CORRECTIVE_ACTION = 'CORRECTIVE_ACTION',
+  OBSERVATION = 'OBSERVATION',
+}
+
+export enum FollowUpOutcome {
+  PENDING = 'PENDING',
+  MET = 'MET',
+  UNMET = 'UNMET',
+}
