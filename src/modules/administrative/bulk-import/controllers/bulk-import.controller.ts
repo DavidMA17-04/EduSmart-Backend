@@ -20,7 +20,8 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { BulkImportDto } from '../dto/bulk-import.dto';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../../auth/interfaces/authenticated-user.interface';
 import {
   ConfirmBulkImportDto,
   ConfirmBulkImportResponseDto,
@@ -99,14 +100,19 @@ export class BulkImportController {
     description: 'Usuarios importados exitosamente',
     type: ConfirmBulkImportResponseDto,
   })
-  async confirmImport(@Body() dto: ConfirmBulkImportDto): Promise<ConfirmBulkImportResponseDto> {
-    return this.service.confirmImport(dto);
-  }
-
-  @Post('bulk-import')
-  @ApiOperation({ summary: 'Carga masiva (stub: motor Excel pendiente)' })
-  importData(@Body() dto: BulkImportDto) {
-    return this.service.importData(dto);
+  @ApiResponse({
+    status: 400,
+    description: 'Algún registro no supera la revalidación del servidor (detalle en rows[])',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Cédula o correo duplicado, o cupo de sección excedido (detalle en rows[])',
+  })
+  async confirmImport(
+    @Body() dto: ConfirmBulkImportDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ConfirmBulkImportResponseDto> {
+    return this.service.confirmImport(dto, actor);
   }
 
   @Post('bulk-import/results')

@@ -34,6 +34,12 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
   'students.export': 'Exportar estudiantes',
   'students.configure': 'Configurar estudiantes',
   'disciplinary.view': 'Ver amonestaciones',
+  'disciplinary.view_own': 'Ver los expedientes propios',
+  'disciplinary.review': 'Emitir criterio de Orientación',
+  'disciplinary.resolve': 'Conducir y resolver expedientes',
+  'disciplinary.appeal': 'Resolver apelaciones',
+  'disciplinary.precautionary': 'Ordenar retiro precautorio',
+  'disciplinary.respond': 'Responder como encargado',
   'disciplinary.create': 'Crear amonestaciones',
   'disciplinary.edit': 'Editar amonestaciones',
   'disciplinary.delete': 'Eliminar amonestaciones',
@@ -74,4 +80,7 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
 export const INSTITUTIONAL_ROLE_DESCRIPTIONS: Record<string, string> = {
   Administrador: 'Acceso completo al módulo administrativo',
   Docente: 'Personal docente. Puede asignarse como docente guía de una sección.',
+  Orientador: 'Personal de orientación. Emite criterio técnico no vinculante.',
+  Director: 'Dirección institucional. Resuelve apelaciones y ordena el retiro precautorio.',
+  Encargado: 'Encargado legal. Consulta los expedientes de sus representados y responde.',
 };

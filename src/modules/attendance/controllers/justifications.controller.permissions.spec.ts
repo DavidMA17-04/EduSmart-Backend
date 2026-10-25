@@ -1,5 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { PERMISSIONS_KEY } from '../../../common/constants/metadata.constant';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { JustificationsController } from '../controllers/justifications.controller';
@@ -26,10 +27,10 @@ describe('PBI-27 JustificationsController permissions', () => {
     expect(guard.canActivate(ctxFor(controller.create, [PERMISSIONS.ATTENDANCE_READ]))).toBe(false);
   });
 
-  it('list → attendance.view', () => {
-    expect(guard.canActivate(ctxFor(controller.list, [PERMISSIONS.ATTENDANCE_READ]))).toBe(true);
+  it('list → sin decorador (regla OR view|justify|review en el servicio)', () => {
+    expect(reflector.get(PERMISSIONS_KEY, controller.list)).toBeUndefined();
     expect(guard.canActivate(ctxFor(controller.list, [PERMISSIONS.ATTENDANCE_JUSTIFY]))).toBe(
-      false,
+      true,
     );
   });
 
@@ -46,14 +47,7 @@ describe('PBI-27 JustificationsController permissions', () => {
     ).toBe(true);
   });
 
-  it('justifiable-absences → attendance.view', () => {
-    expect(
-      guard.canActivate(ctxFor(controller.listJustifiableAbsences, [PERMISSIONS.ATTENDANCE_READ])),
-    ).toBe(true);
-    expect(
-      guard.canActivate(
-        ctxFor(controller.listJustifiableAbsences, [PERMISSIONS.ATTENDANCE_JUSTIFY]),
-      ),
-    ).toBe(false);
+  it('justifiable-absences → sin decorador (regla OR en el servicio)', () => {
+    expect(reflector.get(PERMISSIONS_KEY, controller.listJustifiableAbsences)).toBeUndefined();
   });
 });

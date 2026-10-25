@@ -6,18 +6,12 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
-
-export class BulkImportDto {
-  @ApiPropertyOptional({ description: 'Identificador del tipo de carga masiva' })
-  @IsOptional()
-  @IsString()
-  type?: string;
-}
 
 export enum UserRoleEnum {
   ESTUDIANTE = 'ESTUDIANTE',
@@ -27,6 +21,20 @@ export enum UserRoleEnum {
 }
 
 export type RowValidationStatus = 'VALID' | 'WARNING' | 'ERROR';
+
+export class ResolvedGroupDto {
+  @ApiProperty({ example: 12 })
+  groupId!: number;
+
+  @ApiProperty({ example: '10-1' })
+  groupName!: string;
+
+  @ApiProperty({ example: 3 })
+  academicPeriodId!: number;
+
+  @ApiProperty({ example: 'Curso lectivo 2026' })
+  academicPeriodName!: string;
+}
 
 export class ImportedUserRowDto {
   @ApiPropertyOptional({ example: 1 })
@@ -88,6 +96,16 @@ export class ImportedUserRowDto {
   @IsOptional()
   @IsEnum(UserStatus)
   user_status?: UserStatus;
+
+  @ApiPropertyOptional({
+    type: ResolvedGroupDto,
+    nullable: true,
+    description:
+      'Grupo resuelto desde la sección (solo informativo; la confirmación lo recalcula en el servidor)',
+  })
+  @IsOptional()
+  @IsObject()
+  resolvedGroup?: ResolvedGroupDto | null;
 
   @ApiPropertyOptional({ type: [String], example: ['Sin observaciones'] })
   @IsOptional()
@@ -208,10 +226,39 @@ export class ConfirmBulkImportDto {
   users?: ImportedUserRowDto[];
 }
 
+export class NotEnrolledRowDto {
+  @ApiProperty({ example: 4 })
+  row!: number;
+
+  @ApiProperty({ example: 'ana@ctphojancha.ed.cr' })
+  email!: string;
+
+  @ApiProperty({ example: 'Sección "11-Z" no encontrada en un curso lectivo activo.' })
+  reason!: string;
+}
+
 export class ConfirmBulkImportResponseDto {
   @ApiProperty({ example: 218 })
   importedCount!: number;
 
+  @ApiProperty({ example: 210, description: 'Estudiantes matriculados en su sección' })
+  enrolledCount!: number;
+
+  @ApiProperty({ type: [NotEnrolledRowDto] })
+  notEnrolled!: NotEnrolledRowDto[];
+
   @ApiProperty({ example: 'Se han importado 218 usuarios exitosamente.' })
   message!: string;
+}
+
+/** Detalle por fila cuando la confirmación es rechazada (400/409). */
+export class BulkImportRejectedRowDto {
+  @ApiProperty({ example: 4 })
+  row!: number;
+
+  @ApiProperty({ type: [String], example: ['email'] })
+  invalidFields!: string[];
+
+  @ApiProperty({ type: [String], example: ['El correo ya se encuentra registrado.'] })
+  errorMessages!: string[];
 }

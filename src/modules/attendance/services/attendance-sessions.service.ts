@@ -30,6 +30,7 @@ import { CreateAttendanceSessionDto } from '../dto/create-attendance-session.dto
 import { CreateAttendanceSessionFromScheduleDto } from '../dto/create-attendance-session-from-schedule.dto';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { offeringKindLabel } from '../utils/attendance-labels.util';
+import { isAttendanceScheduleGatesRelaxed } from '../utils/attendance-schedule-gates.util';
 import { toScheduleOccurrenceInput } from '../utils/schedule-occurrence-input.util';
 import {
   AttendanceCalendarExceptionsService,
@@ -78,6 +79,10 @@ export type AttendanceScheduleOccurrenceContext = {
   anchorEntryId: number;
   entryIds: number[];
   teachingAssignmentId: number;
+  groupId: number;
+  groupName: string;
+  offeringName: string;
+  labelKind: string;
   startTime: string;
   endTime: string;
   withinStartWindow: boolean;
@@ -369,7 +374,7 @@ export class AttendanceSessionsService {
       actor,
     );
 
-    if (clock.dayOfWeek !== run.dayOfWeek) {
+    if (clock.dayOfWeek !== run.dayOfWeek && !isAttendanceScheduleGatesRelaxed()) {
       throw new BadRequestException({
         code: 'ATTENDANCE_SCHEDULE_WRONG_DAY',
         message: 'Schedule occurrence dayOfWeek does not match today in America/Costa_Rica',
@@ -384,7 +389,10 @@ export class AttendanceSessionsService {
       return existing;
     }
 
-    if (!isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time)) {
+    if (
+      !isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time) &&
+      !isAttendanceScheduleGatesRelaxed()
+    ) {
       throw new BadRequestException({
         code: 'ATTENDANCE_OUTSIDE_SCHEDULE_WINDOW',
         message:
@@ -446,7 +454,7 @@ export class AttendanceSessionsService {
 
   async getScheduleContext(
     actor: AuthenticatedUser,
-    filters: { periodId?: number } = {},
+    filters: { periodId?: number; groupId?: number } = {},
     now: Date = new Date(),
   ): Promise<AttendanceScheduleContextView> {
     const clock = localClockInTimeZone(now);
@@ -463,6 +471,8 @@ export class AttendanceSessionsService {
       .createQueryBuilder('entry')
       .innerJoinAndSelect('entry.timeSlot', 'timeSlot')
       .innerJoinAndSelect('entry.teachingAssignment', 'ta')
+      .leftJoinAndSelect('ta.subject', 'subject')
+      .leftJoinAndSelect('ta.specialty', 'specialty')
       .leftJoinAndSelect('ta.group', 'grp')
       .leftJoinAndSelect('grp.section', 'sec')
       .where('entry.day_of_week = :dayOfWeek', { dayOfWeek: clock.dayOfWeek });
@@ -474,6 +484,9 @@ export class AttendanceSessionsService {
       qb.andWhere('ta.id_academic_periods = :periodId', {
         periodId: filters.periodId,
       });
+    }
+    if (filters.groupId != null) {
+      qb.andWhere('ta.id_groups = :groupId', { groupId: filters.groupId });
     }
 
     const rows = await qb.getMany();
@@ -520,13 +533,24 @@ export class AttendanceSessionsService {
         calendarException = exceptionCache.get(cacheKey) ?? null;
       }
 
+      const offeringName =
+        ta?.offeringKind === AcademicOfferingKind.SUBJECT
+          ? (ta.subject?.name ?? 'Clase')
+          : (ta?.specialty?.name ?? 'Clase');
+
       occurrences.push({
         anchorEntryId: run.anchorEntryId,
         entryIds: run.entryIds,
         teachingAssignmentId: run.teachingAssignmentId,
+        groupId: ta?.groupId ?? 0,
+        groupName: ta?.group?.name ?? '',
+        offeringName,
+        labelKind: ta?.offeringKind ? offeringKindLabel(ta.offeringKind) : '—',
         startTime: run.startTime,
         endTime: run.endTime,
-        withinStartWindow: isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time),
+        withinStartWindow:
+          isWithinScheduleStartWindow(run.startTime, run.endTime, clock.time) ||
+          isAttendanceScheduleGatesRelaxed(),
         attendanceSession: session ? { id: session.id, status: session.status } : null,
         calendarException,
       });

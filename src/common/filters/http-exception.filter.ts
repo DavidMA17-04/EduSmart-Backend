@@ -22,6 +22,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message?: string | string[];
         error?: string;
         reason?: string;
+        code?: string;
+        field?: string;
       };
       if (Array.isArray(payload.message)) {
         message = payload.message.join(', ');
@@ -34,6 +36,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       if (typeof payload.reason === 'string' && payload.reason.trim() && details === undefined) {
         details = { reason: payload.reason.trim() };
+      }
+
+      if (typeof payload.field === 'string' || typeof payload.code === 'string') {
+        const extra = {
+          ...(typeof payload.code === 'string' ? { code: payload.code } : {}),
+          ...(typeof payload.field === 'string' ? { field: payload.field } : {}),
+        };
+        details =
+          details && typeof details === 'object' && !Array.isArray(details)
+            ? { ...details, ...extra }
+            : { ...(Array.isArray(details) ? { messages: details } : {}), ...extra };
       }
     } else if (exception instanceof Error) {
       message = exception.message;

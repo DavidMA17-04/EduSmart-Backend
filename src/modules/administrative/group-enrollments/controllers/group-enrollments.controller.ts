@@ -4,6 +4,7 @@ import { Permissions } from '../../../../common/decorators/permissions.decorator
 import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
 import { CreateGroupEnrollmentDto } from '../dto/create-group-enrollment.dto';
 import { GroupEnrollmentAsOfQueryDto } from '../dto/group-enrollment-as-of-query.dto';
+import { ListGroupEnrollmentsQueryDto } from '../dto/list-group-enrollments-query.dto';
 import { TransferGroupEnrollmentDto } from '../dto/transfer-group-enrollment.dto';
 import { GroupEnrollmentsService } from '../services/group-enrollments.service';
 
@@ -12,6 +13,13 @@ import { GroupEnrollmentsService } from '../services/group-enrollments.service';
 @Controller('group-enrollments')
 export class GroupEnrollmentsController {
   constructor(private readonly service: GroupEnrollmentsService) {}
+
+  @Get()
+  @Permissions(PERMISSIONS.STUDENTS_READ)
+  @ApiOperation({ summary: 'Listar matrículas de un grupo (sección UI)' })
+  list(@Query() query: ListGroupEnrollmentsQueryDto) {
+    return this.service.listByGroup(query.groupId, query.status);
+  }
 
   @Post()
   @Permissions(PERMISSIONS.STUDENTS_CREATE)

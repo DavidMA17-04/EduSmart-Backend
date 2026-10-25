@@ -13,6 +13,7 @@ import { UserStatus } from '../../../../common/enums/user-status.enum';
 import { GroupEntity } from '../../sections/entities/group.entity';
 import { User } from '../../users/entities/user.entity';
 import { CreateGroupEnrollmentDto } from '../dto/create-group-enrollment.dto';
+import { GroupEnrollmentListItemDto } from '../dto/group-enrollment-list-item.dto';
 import { TransferGroupEnrollmentDto } from '../dto/transfer-group-enrollment.dto';
 import { GroupEnrollment } from '../entities/group-enrollment.entity';
 
@@ -133,6 +134,84 @@ export class GroupEnrollmentsService {
 
       return { closed, opened };
     });
+  }
+
+  /**
+   * Matricula estudiantes recién creados dentro de una transacción ajena
+   * (importación masiva). Bloquea el grupo y valida el cupo del lote
+   * completo; si no alcanza, lanza 409 y el llamador revierte todo.
+   */
+  async enrollNewStudentsInTransaction(
+    manager: EntityManager,
+    input: { groupId: number; academicPeriodId: number; userIds: number[]; startsOn: string },
+  ): Promise<GroupEnrollment[]> {
+    if (input.userIds.length === 0) return [];
+    const group = await manager.findOne(GroupEntity, {
+      where: { id: input.groupId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!group) throw new NotFoundException(`Group ${input.groupId} not found`);
+
+    const activeCount = await manager.getRepository(GroupEnrollment).count({
+      where: { groupId: group.id, status: GroupEnrollmentStatus.ACTIVE },
+    });
+    const capacity = group.maxCapacity ?? 30;
+    if (activeCount + input.userIds.length > capacity) {
+      throw new ConflictException({
+        code: 'GROUP_CAPACITY_EXCEEDED',
+        message: `El cupo de la sección "${group.name}" no alcanza: ${activeCount}/${capacity} ocupados y se intentan matricular ${input.userIds.length}.`,
+        groupId: group.id,
+        groupName: group.name,
+      });
+    }
+
+    const repo = manager.getRepository(GroupEnrollment);
+    const saved = await repo.save(
+      input.userIds.map((userId) =>
+        repo.create({
+          userId,
+          groupId: group.id,
+          academicPeriodId: input.academicPeriodId,
+          startsOn: input.startsOn,
+          endsOn: null,
+          status: GroupEnrollmentStatus.ACTIVE,
+        }),
+      ),
+    );
+    await this.bumpGroupStudentCount(manager, group.id, input.userIds.length);
+    return saved;
+  }
+
+  /**
+   * Roster of enrollments for a group (UI sección), with student summary.
+   */
+  async listByGroup(
+    groupId: number,
+    status?: GroupEnrollmentStatus,
+  ): Promise<GroupEnrollmentListItemDto[]> {
+    if (!Number.isInteger(groupId) || groupId < 1) {
+      throw new BadRequestException('groupId must be a positive integer');
+    }
+
+    const group = await this.groups.findOne({ where: { id: groupId } });
+    if (!group) throw new NotFoundException(`Group ${groupId} not found`);
+
+    const qb = this.repository
+      .createQueryBuilder('e')
+      .innerJoinAndSelect('e.user', 'u')
+      .where('e.id_groups = :groupId', { groupId });
+
+    if (status) {
+      qb.andWhere('e.status = :status', { status });
+    }
+
+    const rows = await qb
+      .orderBy('u.first_lastname', 'ASC')
+      .addOrderBy('u.name', 'ASC')
+      .addOrderBy('e.starts_on', 'DESC')
+      .getMany();
+
+    return rows.map((row) => this.toListItem(row));
   }
 
   async findGroupAsOf(
@@ -305,5 +384,26 @@ export class GroupEnrollmentsService {
           'Enrollment date range overlaps an existing enrollment for this student and period',
       });
     }
+  }
+
+  private toListItem(row: GroupEnrollment): GroupEnrollmentListItemDto {
+    const u = row.user;
+    return {
+      id: row.id,
+      userId: row.userId,
+      groupId: row.groupId,
+      academicPeriodId: row.academicPeriodId,
+      startsOn: row.startsOn,
+      endsOn: row.endsOn ?? null,
+      status: row.status,
+      user: {
+        id: u.id,
+        name: u.name,
+        firstLastname: u.first_lastname,
+        secondLastname: u.second_lastname ?? null,
+        nationalId: u.national_id,
+        email: u.email,
+      },
+    };
   }
 }

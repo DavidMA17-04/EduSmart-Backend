@@ -90,7 +90,7 @@ describe('Phase 0.1 controller permissions metadata', () => {
     ).toBe(false);
   });
 
-  it('GroupEnrollments create/transfer/as-of use students.*', () => {
+  it('GroupEnrollments create/transfer/as-of/list use students.*', () => {
     const controller = new GroupEnrollmentsController({} as never);
     expect(
       guard.canActivate(
@@ -109,6 +109,13 @@ describe('Phase 0.1 controller permissions metadata', () => {
     expect(
       guard.canActivate(
         ctxFor(controller, controller.findAsOf, {
+          permissions: [PERMISSIONS.STUDENTS_READ],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        ctxFor(controller, controller.list, {
           permissions: [PERMISSIONS.STUDENTS_READ],
         }),
       ),

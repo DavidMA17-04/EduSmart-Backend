@@ -8,9 +8,11 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { createReadStream } from 'fs';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
@@ -71,7 +73,6 @@ export class JustificationsController {
   }
 
   @Get('justifiable-absences')
-  @Permissions(PERMISSIONS.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Ausencias candidatas a justificación (WF-39)' })
   listJustifiableAbsences(
     @Query() query: JustifiableAbsencesQueryDto,
@@ -80,8 +81,23 @@ export class JustificationsController {
     return this.justificationsService.getJustifiableAbsences(query, actor);
   }
 
-  @Get()
+  @Get(':id/evidence/:evidenceId')
   @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @ApiOperation({ summary: 'Descargar evidencia de justificación (autenticado)' })
+  async downloadEvidence(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('evidenceId', ParseIntPipe) evidenceId: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const file = await this.justificationsService.getEvidenceFile(id, evidenceId, actor);
+    const safeName = file.fileName.replace(/[^\x20-\x7E]|["\\]/g, '_');
+    return new StreamableFile(createReadStream(file.absolutePath), {
+      type: file.mimeType,
+      disposition: `inline; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+    });
+  }
+
+  @Get()
   @ApiOperation({ summary: 'Listar justificaciones con filtros' })
   list(@Query() query: ListJustificationsQueryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.justificationsService.getJustifications(query, actor);

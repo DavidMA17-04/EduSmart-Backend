@@ -3,7 +3,12 @@ import { AttendanceJustificationStatus } from '../../../common/enums/attendance-
 import { AttendanceStatus } from '../../../common/enums/attendance-status.enum';
 import { JustificationStatus } from '../../../common/enums/justification-status.enum';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
+import { Role } from '../../../common/enums/role.enum';
+import { AuditLog } from '../../administrative/users/entities/audit-log.entity';
 import { JustificationReviewDecision } from '../dto/review-justification.dto';
+import { AbsenceJustification } from '../entities/absence-justification.entity';
+import { Attendance } from '../entities/attendance.entity';
+import { JustificationEvidence } from '../entities/justification-evidence.entity';
 import { JustificationsService } from './justifications.service';
 
 describe('JustificationsService state machine', () => {
@@ -25,7 +30,23 @@ describe('JustificationsService state machine', () => {
   };
   const guardianLinksRepo = {
     count: jest.fn(),
-    find: jest.fn(async () => []),
+    find: jest.fn(async (): Promise<Array<{ studentUserId: number }>> => []),
+  };
+  const auditRepo = {
+    create: jest.fn((x) => x),
+    save: jest.fn(async (x) => x),
+  };
+  const manager = {
+    getRepository: jest.fn((entity: unknown) => {
+      if (entity === AbsenceJustification) return justificationRepo;
+      if (entity === JustificationEvidence) return evidenceRepo;
+      if (entity === Attendance) return attendanceRepo;
+      if (entity === AuditLog) return auditRepo;
+      throw new Error('unexpected repository');
+    }),
+  };
+  const dataSource = {
+    transaction: jest.fn(async (cb: (m: typeof manager) => unknown) => cb(manager)),
   };
 
   const service = new JustificationsService(
@@ -33,6 +54,7 @@ describe('JustificationsService state machine', () => {
     evidenceRepo as never,
     attendanceRepo as never,
     guardianLinksRepo as never,
+    dataSource as never,
   );
 
   const studentActor = {
@@ -45,8 +67,16 @@ describe('JustificationsService state machine', () => {
 
   const reviewer = {
     id: 9,
-    email: 't@test.com',
-    roles: [],
+    email: 'admin@test.com',
+    roles: [Role.ADMIN],
+    permissions: [PERMISSIONS.ATTENDANCE_REVIEW, PERMISSIONS.ATTENDANCE_READ],
+    mustChangePassword: false,
+  };
+
+  const teacher = {
+    id: 30,
+    email: 'docente@test.com',
+    roles: [Role.TEACHER],
     permissions: [PERMISSIONS.ATTENDANCE_REVIEW, PERMISSIONS.ATTENDANCE_READ],
     mustChangePassword: false,
   };
@@ -75,6 +105,7 @@ describe('JustificationsService state machine', () => {
     }));
     guardianLinksRepo.count.mockReset().mockResolvedValue(0);
     guardianLinksRepo.find.mockReset().mockResolvedValue([]);
+    auditRepo.save.mockReset().mockImplementation(async (x) => x);
   });
 
   it('createJustification rejects non-ABSENT', async () => {
@@ -113,7 +144,7 @@ describe('JustificationsService state machine', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('review APPROVED sets attendance.justification_status JUSTIFIED', async () => {
+  it('review APPROVED sets attendance status and justification_status JUSTIFIED', async () => {
     const pending = {
       id: 3,
       attendanceId: 7,
@@ -161,9 +192,90 @@ describe('JustificationsService state machine', () => {
     expect(attendanceRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         justificationStatus: AttendanceJustificationStatus.JUSTIFIED,
-        status: AttendanceStatus.ABSENT,
+        status: AttendanceStatus.JUSTIFIED,
       }),
     );
+    expect(auditRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'JUSTIFICATION_APPROVED',
+        actorId: 9,
+        entityId: '3',
+        before: expect.objectContaining({ attendanceStatus: AttendanceStatus.ABSENT }),
+        after: expect.objectContaining({ attendanceStatus: AttendanceStatus.JUSTIFIED }),
+      }),
+    );
+  });
+
+  function pendingForTeacher(teacherUserId: number) {
+    return {
+      id: 4,
+      attendanceId: 8,
+      status: JustificationStatus.PENDING,
+      reason: 'motivo largo suficiente',
+      evidences: [],
+      attendance: {
+        id: 8,
+        studentUserId: 5,
+        student: { name: 'A', first_lastname: 'B', national_id: '1' },
+        session: {
+          sessionDate: '2026-09-01',
+          teachingAssignment: {
+            userId: teacherUserId,
+            groupId: 1,
+            group: { name: '10-1' },
+            offeringKind: null,
+          },
+        },
+      },
+    };
+  }
+
+  it('review REJECTED with notes keeps ABSENT and sets REJECTED', async () => {
+    justificationRepo.findOne.mockImplementation(async () => pendingForTeacher(30));
+    attendanceRepo.findOneByOrFail.mockResolvedValue({
+      id: 8,
+      status: AttendanceStatus.ABSENT,
+      justificationStatus: AttendanceJustificationStatus.PENDING,
+    });
+
+    await service.reviewJustification(
+      4,
+      { status: JustificationReviewDecision.REJECTED, decisionNotes: 'Sin respaldo' },
+      teacher,
+    );
+
+    expect(attendanceRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: AttendanceStatus.ABSENT,
+        justificationStatus: AttendanceJustificationStatus.REJECTED,
+      }),
+    );
+    expect(auditRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'JUSTIFICATION_REJECTED', actorId: 30 }),
+    );
+  });
+
+  it('teacher reviewing outside own teaching assignment → 403', async () => {
+    justificationRepo.findOne.mockResolvedValue(pendingForTeacher(31));
+
+    await expect(
+      service.reviewJustification(4, { status: JustificationReviewDecision.APPROVED }, teacher),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'JUSTIFICATION_REVIEW_NOT_ALLOWED' }),
+    });
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('counselor is not an institution-wide reviewer → 403 outside own assignments', async () => {
+    justificationRepo.findOne.mockResolvedValue(pendingForTeacher(31));
+    const counselor = { ...teacher, id: 40, roles: [Role.COUNSELOR] };
+
+    await expect(
+      service.reviewJustification(4, { status: JustificationReviewDecision.APPROVED }, counselor),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'JUSTIFICATION_REVIEW_NOT_ALLOWED' }),
+    });
+    expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 
   it('review REJECTED without notes → BadRequest', async () => {
@@ -302,6 +414,117 @@ describe('JustificationsService state machine', () => {
       ),
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'JUSTIFICATION_NOT_ALLOWED' }),
+    });
+  });
+
+  it('createJustification runs in a transaction and audits JUSTIFICATION_CREATED', async () => {
+    attendanceRepo.findOne.mockResolvedValue(absentMark(5));
+    justificationRepo.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(loadedJustification(11, 5));
+
+    await service.createJustification(
+      { attendanceId: 11, reason: 'Motivo suficientemente largo' },
+      studentActor,
+    );
+
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(attendanceRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ justificationStatus: AttendanceJustificationStatus.PENDING }),
+    );
+    expect(auditRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'JUSTIFICATION_CREATED', actorId: 5 }),
+    );
+  });
+
+  describe('getJustifications scope', () => {
+    function mockQueryBuilder() {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        innerJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn(async () => [[], 0]),
+      };
+      justificationRepo.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    }
+
+    it('admin sees everything', async () => {
+      const qb = mockQueryBuilder();
+      await service.getJustifications({}, reviewer);
+      expect(qb.andWhere).not.toHaveBeenCalled();
+    });
+
+    it('teacher reviewer is limited to own teaching assignments', async () => {
+      const qb = mockQueryBuilder();
+      await service.getJustifications({}, teacher);
+      expect(qb.andWhere).toHaveBeenCalledWith('ta.id_users = :scopeTeacherId', {
+        scopeTeacherId: 30,
+      });
+    });
+
+    it('guardian sees own and represented students', async () => {
+      const qb = mockQueryBuilder();
+      guardianLinksRepo.find.mockResolvedValue([{ studentUserId: 21 }, { studentUserId: 22 }]);
+      await service.getJustifications({}, guardianActor);
+      expect(qb.andWhere).toHaveBeenCalledWith('a.id_users_student IN (:...scopeStudentIds)', {
+        scopeStudentIds: [7, 21, 22],
+      });
+    });
+  });
+
+  describe('getEvidenceFile', () => {
+    it('returns 404 when the actor cannot see the justification', async () => {
+      justificationRepo.findOne.mockResolvedValue({
+        ...loadedJustification(11, 99),
+        evidences: [{ id: 50, storagePath: 'justifications/x.pdf' }],
+      });
+      await expect(service.getEvidenceFile(1, 50, studentActor)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'EVIDENCE_NOT_FOUND' }),
+      });
+    });
+
+    it('returns 404 for storage paths outside the justifications folder', async () => {
+      justificationRepo.findOne.mockResolvedValue({
+        ...loadedJustification(11, 5),
+        evidences: [{ id: 50, storagePath: '../package.json', fileName: 'x', mimeType: 'x' }],
+      });
+      await expect(service.getEvidenceFile(1, 50, studentActor)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'EVIDENCE_NOT_FOUND' }),
+      });
+    });
+  });
+
+  it('list / justifiable-absences without view|justify|review → 403', async () => {
+    const noAccess = { ...studentActor, permissions: [PERMISSIONS.ATTENDANCE_EDIT] };
+    await expect(service.getJustifications({}, noAccess)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(service.getJustifiableAbsences({}, noAccess)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('justifiable-absences allowed with only attendance.justify (student without view)', async () => {
+    const qb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    (attendanceRepo as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder = jest
+      .fn()
+      .mockReturnValue(qb);
+    const justifyOnly = { ...studentActor, permissions: [PERMISSIONS.ATTENDANCE_JUSTIFY] };
+    await expect(service.getJustifiableAbsences({}, justifyOnly)).resolves.toEqual([]);
+    expect(qb.andWhere).toHaveBeenCalledWith('a.id_users_student IN (:...studentIds)', {
+      studentIds: [5],
     });
   });
 });

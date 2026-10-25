@@ -2,17 +2,22 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import {
   INSTITUTIONAL_ROLE_ADMIN,
   INSTITUTIONAL_ROLE_TEACHER,
 } from '../../../../common/constants/institutional-roles.constant';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { MailService } from '../../../../integrations/mail/mail.service';
+import { tryLoadInstitutionLogoAttachment } from '../../../../integrations/mail/optional-logo.attachment';
+import { buildWelcomeCredentialsMail } from '../../../../integrations/mail/templates/welcome-credentials.mail';
 import { DepartmentsService } from '../../departments/services/departments.service';
 import { RoleEntity } from '../../roles/entities/role.entity';
 import { RolesRepository } from '../../roles/repositories/roles.repository';
@@ -31,6 +36,8 @@ import { AuditLogService } from './audit-log.service';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly repository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
@@ -41,6 +48,8 @@ export class UsersService {
     private readonly teachingAssignments: Repository<TeachingAssignment>,
     @InjectRepository(TeacherProfile)
     private readonly teacherProfiles: Repository<TeacherProfile>,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(): Promise<UserPublicView[]> {
@@ -130,10 +139,8 @@ export class UsersService {
     const firstLastName = dto.first_lastname.trim();
     const secondLastName = dto.second_lastname?.trim() || null;
 
-    const password = dto.password?.trim();
-    const passwordHash = password
-      ? await bcrypt.hash(password, 10)
-      : await bcrypt.hash(randomUUID(), 10);
+    const password = dto.password?.trim() || randomBytes(8).toString('base64url');
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = this.repository.create({
       national_id: nationalId,
@@ -166,9 +173,47 @@ export class UsersService {
     // PBI-16: PENDING accounts get a verification code (mail failure is non-fatal).
     if (persisted.status === UserStatus.PENDING) {
       await this.accountVerificationService.issueAndSend(persisted.id, actorId ?? null);
+    } else if (persisted.status === UserStatus.ACTIVE) {
+      await this.sendWelcomeCredentials(persisted, password);
     }
 
     return view;
+  }
+
+  /** Mail failure is non-fatal: the user is already persisted. */
+  private async sendWelcomeCredentials(user: User, temporaryPassword: string): Promise<void> {
+    if (!user.email) {
+      return;
+    }
+    const appUrl =
+      this.configService.get<string>('APP_PUBLIC_URL')?.replace(/\/$/, '') ||
+      'http://localhost:5173';
+    const fullName = [user.name, user.first_lastname, user.second_lastname]
+      .filter(Boolean)
+      .join(' ');
+    try {
+      const logo = tryLoadInstitutionLogoAttachment();
+      const mail = buildWelcomeCredentialsMail({
+        email: user.email,
+        fullName,
+        temporaryPassword,
+        loginUrl: `${appUrl}/login`,
+        includeLogo: Boolean(logo),
+      });
+      await this.mailService.sendMail({
+        to: user.email,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+        ...(logo ? { attachments: [logo] } : {}),
+      });
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo enviar correo de credenciales a ${user.email} (usuario ya creado): ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      );
+    }
   }
 
   async update(id: number, dto: UpdateUserDto, actorId?: number): Promise<UserPublicView> {
@@ -282,6 +327,7 @@ export class UsersService {
         second_lastname: dto.second_lastname,
         email: dto.email,
         phone: dto.phone,
+        departmentId: dto.departmentId,
       },
       actorId,
     );

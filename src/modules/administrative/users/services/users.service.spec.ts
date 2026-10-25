@@ -14,6 +14,14 @@ describe('UsersService.create verification side effects', () => {
   let rolesRepository: { findById: jest.Mock };
   let auditLogService: { record: jest.Mock };
   let accountVerificationService: { issueAndSend: jest.Mock };
+  let mailService: { sendMail: jest.Mock };
+  let departmentsService: { getByIdOrFail: jest.Mock };
+  let teacherProfiles: {
+    findOne: jest.Mock;
+    delete: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+  };
   let service: UsersService;
 
   const basePersisted = {
@@ -48,13 +56,27 @@ describe('UsersService.create verification side effects', () => {
     accountVerificationService = {
       issueAndSend: jest.fn().mockResolvedValue(undefined),
     };
+    mailService = { sendMail: jest.fn().mockResolvedValue(undefined) };
+    departmentsService = {
+      getByIdOrFail: jest.fn().mockResolvedValue({ id: 1, code: 'CIENCIAS', name: 'Ciencias' }),
+    };
+    teacherProfiles = {
+      findOne: jest.fn().mockResolvedValue(null),
+      delete: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn(async (row) => row),
+      create: jest.fn((row) => row),
+    };
 
     service = new UsersService(
       repository as never,
       rolesRepository as never,
       auditLogService as never,
       accountVerificationService as never,
+      departmentsService as never,
       {} as never,
+      teacherProfiles as never,
+      mailService as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
     );
   });
 
@@ -72,6 +94,7 @@ describe('UsersService.create verification side effects', () => {
       email: 'maria.pending@ctphojancha.ed.cr',
       status: UserStatus.PENDING,
       roleIds: [1],
+      departmentId: 1,
       password: 'Temporal1!',
     };
 
@@ -101,6 +124,7 @@ describe('UsersService.create verification side effects', () => {
       email: 'maria.active@ctphojancha.ed.cr',
       status: UserStatus.ACTIVE,
       roleIds: [1],
+      departmentId: 1,
       password: 'Temporal1!',
     };
 
@@ -108,5 +132,59 @@ describe('UsersService.create verification side effects', () => {
 
     expect(view.status).toBe(UserStatus.ACTIVE);
     expect(accountVerificationService.issueAndSend).not.toHaveBeenCalled();
+    expect(mailService.sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'maria.active@ctphojancha.ed.cr',
+        text: expect.stringContaining('Temporal1!'),
+      }),
+    );
+  });
+
+  it('create ACTIVE without password emails a generated temporary password', async () => {
+    repository.findById.mockResolvedValue({
+      ...basePersisted,
+      status: UserStatus.ACTIVE,
+      email: 'maria.active@ctphojancha.ed.cr',
+    });
+
+    await service.create(
+      {
+        nationalId: '109870543',
+        name: 'María',
+        first_lastname: 'Vargas',
+        email: 'maria.active@ctphojancha.ed.cr',
+        status: UserStatus.ACTIVE,
+        roleIds: [1],
+        departmentId: 1,
+      },
+      7,
+    );
+
+    expect(mailService.sendMail).toHaveBeenCalledTimes(1);
+    expect(mailService.sendMail.mock.calls[0][0].text).toMatch(/[A-Za-z0-9_-]{11}/);
+  });
+
+  it('create ACTIVE still succeeds when mail fails', async () => {
+    repository.findById.mockResolvedValue({
+      ...basePersisted,
+      status: UserStatus.ACTIVE,
+    });
+    mailService.sendMail.mockRejectedValue(new Error('SMTP down'));
+
+    const view = await service.create(
+      {
+        nationalId: '109870543',
+        name: 'María',
+        first_lastname: 'Vargas',
+        email: 'maria.pending@ctphojancha.ed.cr',
+        status: UserStatus.ACTIVE,
+        roleIds: [1],
+        departmentId: 1,
+        password: 'Temporal1!',
+      },
+      7,
+    );
+
+    expect(view.status).toBe(UserStatus.ACTIVE);
   });
 });
