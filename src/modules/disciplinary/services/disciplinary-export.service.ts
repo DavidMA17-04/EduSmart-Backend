@@ -11,9 +11,12 @@ import { formatDateTimeCostaRica } from '../../administrative/reports/helpers/re
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { DisciplinaryCaseStatus } from '../constants/disciplinary.enums';
 import { getSeverityRule, InfractionSeverity } from '../constants/infraction-severity.constant';
+import { ListDisciplinaryAppealsQueryDto } from '../dto/list-disciplinary-appeals-query.dto';
 import { ListDisciplinaryCasesQueryDto } from '../dto/list-disciplinary-cases-query.dto';
 import { StudentHistoryQueryDto } from '../dto/student-history-query.dto';
+import { appealDeadlineReportLabel, appealKindReportLabel, appealOutcomeReportLabel } from './appeal-reports';
 import { deductionOf } from './conduct-grade';
+import { DisciplinaryAppealListItem, DisciplinaryAppealQueryService } from './disciplinary-appeal-query.service';
 import { DisciplinaryCasesService } from './disciplinary-cases.service';
 import { statusLabel } from './disciplinary-workflow';
 
@@ -47,6 +50,30 @@ const HISTORY_EXCEL: ExcelColumn[] = [
   { header: 'Gravedad', width: 14 },
   { header: 'Rebajo', width: 28 },
   { header: 'Nota de conducta', width: 18, align: 'center' },
+];
+
+const APPEALS_TITLE = 'Reporte de recursos disciplinarios';
+
+const APPEALS_EXCEL: ExcelColumn[] = [
+  { header: 'Expediente', width: 18 },
+  { header: 'Recurso', width: 32 },
+  { header: 'Estudiante', width: 32 },
+  { header: 'Estado', width: 20 },
+  { header: 'Resultado', width: 22 },
+  { header: 'Presentado', width: 14 },
+  { header: 'Resuelto', width: 14 },
+  { header: 'Plazo', width: 14 },
+];
+
+const APPEALS_PDF: PdfTableColumn[] = [
+  { header: 'Expediente', widthRatio: 0.14 },
+  { header: 'Recurso', widthRatio: 0.18 },
+  { header: 'Estudiante', widthRatio: 0.18 },
+  { header: 'Estado', widthRatio: 0.12 },
+  { header: 'Resultado', widthRatio: 0.12 },
+  { header: 'Presentado', widthRatio: 0.09 },
+  { header: 'Resuelto', widthRatio: 0.09 },
+  { header: 'Plazo', widthRatio: 0.08 },
 ];
 
 const HISTORY_PDF: PdfTableColumn[] = [
@@ -98,7 +125,10 @@ interface CaseExport {
 
 @Injectable()
 export class DisciplinaryExportService {
-  constructor(private readonly cases: DisciplinaryCasesService) {}
+  constructor(
+    private readonly cases: DisciplinaryCasesService,
+    private readonly appeals: DisciplinaryAppealQueryService,
+  ) {}
 
   async exportCasesExcel(actor: AuthenticatedUser, query: ListDisciplinaryCasesQueryDto): Promise<Buffer> {
     const rows = await this.allCases(actor, query);
@@ -132,6 +162,16 @@ export class DisciplinaryExportService {
       HISTORY_PDF,
       rows,
     );
+  }
+
+  async exportAppealsExcel(actor: AuthenticatedUser, query: ListDisciplinaryAppealsQueryDto): Promise<Buffer> {
+    const rows = await this.appeals.listAll(actor, query);
+    return this.excel(APPEALS_TITLE, 'Recursos', this.appealFilterLine(query), APPEALS_EXCEL, rows.map((row) => this.appealCells(row)));
+  }
+
+  async exportAppealsPdf(actor: AuthenticatedUser, query: ListDisciplinaryAppealsQueryDto): Promise<Buffer> {
+    const rows = await this.appeals.listAll(actor, query);
+    return this.tablePdf('landscape', APPEALS_TITLE, this.appealFilterLine(query), APPEALS_PDF, rows.map((row) => this.appealCells(row).map(String)));
   }
 
   async exportCasePdf(actor: AuthenticatedUser, caseId: number): Promise<Buffer> {
@@ -235,6 +275,30 @@ export class DisciplinaryExportService {
       day(row.occurredAt),
       day(row.dueOn),
     ];
+  }
+
+  private appealCells(row: DisciplinaryAppealListItem): Array<string | number> {
+    return [
+      row.caseNumber,
+      appealKindReportLabel(row.kind, row.isSubsidiary),
+      row.studentFullName,
+      statusLabel(row.caseStatus),
+      appealOutcomeReportLabel(row.outcome),
+      day(row.filedAt),
+      day(row.resolvedAt),
+      day(row.dueOn),
+    ];
+  }
+
+  private appealFilterLine(query: ListDisciplinaryAppealsQueryDto): string {
+    const parts = [
+      query.kind ? `Recurso: ${appealKindReportLabel(query.kind)}` : 'Recurso: todos',
+      query.outcome ? `Resultado: ${appealOutcomeReportLabel(query.outcome)}` : 'Resultado: todos',
+      query.deadline ? `Plazo: ${appealDeadlineReportLabel(query.deadline)}` : 'Plazo: todos',
+      query.studentUserId ? `Estudiante: ${query.studentUserId}` : 'Estudiante: todos',
+      query.caseId ? `Expediente: ${query.caseId}` : 'Expediente: todos',
+    ];
+    return parts.join(' | ');
   }
 
   private filterLine(query: ListDisciplinaryCasesQueryDto): string {

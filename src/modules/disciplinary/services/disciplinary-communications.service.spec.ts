@@ -41,6 +41,33 @@ describe('emisión de comunicación', () => {
     expect(mail.sendMail).not.toHaveBeenCalled();
   });
 
+  it('sin encargado vinculado no crea notificaciones ni las marca leídas', async () => {
+    const saved: Array<{ entity: string; row: Record<string, unknown> }> = [];
+    const manager = {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: (entity: { name: string }) => ({
+        create: (row: Record<string, unknown>) => row,
+        save: jest.fn(async (row: Record<string, unknown>) => {
+          const stored = { id: saved.length + 1, ...row };
+          saved.push({ entity: entity.name, row: stored });
+          return stored;
+        }),
+      }),
+    };
+    const service = new DisciplinaryCommunicationsService({ sendMail: jest.fn() } as never, { update: jest.fn() } as never);
+    const issued = await service.issue(manager as never, {
+      caseId: 8,
+      kind: CommunicationKind.APPEAL_RESOLUTION,
+      body: 'Resolución del recurso del expediente AM-2026-0008.',
+      issuerUserId: 7,
+      studentUserId: 10,
+      subject: 'Resolución de recurso AM-2026-0008',
+    });
+    expect(issued.notified).toBe(false);
+    expect(issued.pending).toEqual([]);
+    expect(saved.filter((row) => row.entity === 'DisciplinaryNotificationEntity')).toHaveLength(0);
+  });
+
   it('si el SMTP no está configurado deja la notificación en SKIPPED', async () => {
     const { SmtpNotConfiguredError } = await import('../../../integrations/mail/mail.service');
     const notifications = { update: jest.fn() };

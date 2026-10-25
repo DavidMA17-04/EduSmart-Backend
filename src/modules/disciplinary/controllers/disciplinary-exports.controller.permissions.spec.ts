@@ -25,6 +25,8 @@ describe('DisciplinaryExportsController permissions', () => {
       controller.exportHistoryExcel,
       controller.exportHistoryPdf,
       controller.exportCasePdf,
+      controller.exportAppealsExcel,
+      controller.exportAppealsPdf,
     ];
     expect(
       Object.getOwnPropertyNames(DisciplinaryExportsController.prototype).filter((name) => name !== 'constructor').sort(),

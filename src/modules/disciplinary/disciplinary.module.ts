@@ -31,6 +31,7 @@ import { InfractionTypeEntity } from './entities/infraction-type.entity';
 import { NonWorkingDayEntity } from './entities/non-working-day.entity';
 import { DisciplinaryAccessService } from './services/disciplinary-access.service';
 import { DisciplinaryAlertsService } from './services/disciplinary-alerts.service';
+import { DisciplinaryAppealQueryService } from './services/disciplinary-appeal-query.service';
 import { DisciplinaryAppealsService } from './services/disciplinary-appeals.service';
 import { DisciplinaryCalendarService } from './services/disciplinary-calendar.service';
 import { DisciplinaryCasesService } from './services/disciplinary-cases.service';
@@ -94,6 +95,7 @@ import { InfractionTypesService } from './services/infraction-types.service';
     InfractionTypesExportService,
     DisciplinaryAccessService,
     DisciplinaryAppealsService,
+    DisciplinaryAppealQueryService,
     DisciplinaryAlertsService,
     DisciplinaryDashboardService,
     DisciplinaryWorkflowService,

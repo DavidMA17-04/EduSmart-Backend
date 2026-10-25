@@ -2,19 +2,24 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AuditLog } from '../../administrative/users/entities/audit-log.entity';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
 import { InfractionSeverity } from '../constants/infraction-severity.constant';
-import { AppealKind, AppealOutcome, DisciplinaryCaseStatus, DisciplinaryTrack } from '../constants/disciplinary.enums';
+import { AppealKind, AppealOutcome, CommunicationKind, DisciplinaryCaseStatus, DisciplinaryTrack } from '../constants/disciplinary.enums';
 import { DisciplinaryAppealEntity } from '../entities/disciplinary-appeal.entity';
 import { DisciplinaryCaseEventEntity } from '../entities/disciplinary-case-event.entity';
 import { DisciplinaryCaseEntity } from '../entities/disciplinary-case.entity';
+import { institutionalToday, isBusinessDay } from '../utils/business-days';
 import { DisciplinaryAppealsService } from './disciplinary-appeals.service';
 import { DisciplinaryWorkflowService } from './disciplinary-workflow.service';
+
+const TODAY = institutionalToday();
+const ON_TIME_START = subtractBusinessDays(TODAY, 1);
+const LATE_START = subtractBusinessDays(TODAY, 4);
 
 const TEXT = 'Se interpone el recurso porque la medida no valora el descargo presentado.';
 const REASONING = 'Se valora el escrito y la prueba del expediente para resolver el recurso.';
 
 describe('recursos de revocatoria y apelación', () => {
   it('el encargado interpone la revocatoria el segundo día hábil y el expediente queda en recurso', async () => {
-    const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
+    const harness = createHarness({ linked: true, stepStartedOn: ON_TIME_START });
     const result = await harness.service.fileRevocation(guardian(), 3, { body: TEXT });
     expect(result).toMatchObject({
       status: DisciplinaryCaseStatus.IN_APPEAL,
@@ -26,20 +31,20 @@ describe('recursos de revocatoria y apelación', () => {
   });
 
   it('rechaza la revocatoria extemporánea y a quien no puede interponerla', async () => {
-    const late = createHarness({ linked: true, stepStartedOn: '2026-10-13' });
+    const late = createHarness({ linked: true, stepStartedOn: LATE_START });
     await expect(late.service.fileRevocation(guardian(), 3, { body: TEXT })).rejects.toMatchObject({
       response: { code: 'APPEAL_DEADLINE' },
     });
     expect(late.row.status).toBe(DisciplinaryCaseStatus.RESOLVED);
 
-    const foreign = createHarness({ linked: false, stepStartedOn: '2026-10-15' });
+    const foreign = createHarness({ linked: false, stepStartedOn: ON_TIME_START });
     await expect(foreign.service.fileRevocation(guardian(), 3, { body: TEXT })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
   it('quien dictó el acto acoge la revocatoria y el expediente queda desestimado', async () => {
-    const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
+    const harness = createHarness({ linked: true, stepStartedOn: ON_TIME_START });
     const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT });
     await expect(
       harness.service.resolveRevocation(stranger(), 3, filed.id, {
@@ -53,11 +58,14 @@ describe('recursos de revocatoria y apelación', () => {
     });
     expect(result).toMatchObject({ status: DisciplinaryCaseStatus.DISMISSED, deduction: 0 });
     expect(harness.row.status).toBe(DisciplinaryCaseStatus.DISMISSED);
-    expect(harness.issue).toHaveBeenCalled();
+    expect(harness.issue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ kind: CommunicationKind.APPEAL_RESOLUTION }),
+    );
   });
 
   it('al rechazar la revocatoria con apelación en subsidio la eleva a Dirección por 8 días', async () => {
-    const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
+    const harness = createHarness({ linked: true, stepStartedOn: ON_TIME_START });
     const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT, subsidiary: true });
     const result = await harness.service.resolveRevocation(guide(), 3, filed.id, {
       outcome: AppealOutcome.UPHOLD,
@@ -72,7 +80,7 @@ describe('recursos de revocatoria y apelación', () => {
   });
 
   it('Dirección acoge parcialmente, baja el rebajo a 10 y deja el expediente firme', async () => {
-    const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
+    const harness = createHarness({ linked: true, stepStartedOn: ON_TIME_START });
     const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT, subsidiary: true });
     await harness.service.resolveRevocation(guide(), 3, filed.id, {
       outcome: AppealOutcome.UPHOLD,
@@ -100,8 +108,20 @@ describe('recursos de revocatoria y apelación', () => {
     expect(harness.row.severity).toBe(InfractionSeverity.MINOR);
   });
 
+  it('rechaza Acoge parcialmente en revocatoria y deja el recurso pendiente', async () => {
+    const harness = createHarness({ linked: true, stepStartedOn: ON_TIME_START });
+    const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT });
+    await expect(
+      harness.service.resolveRevocation(guide(), 3, filed.id, {
+        outcome: AppealOutcome.MODIFY,
+        reasoning: REASONING,
+      }),
+    ).rejects.toMatchObject({ response: { code: 'APPEAL_OUTCOME' } });
+    expect(harness.appeals.find((item) => item.id === filed.id)?.outcome ?? null).toBeNull();
+  });
+
   it('si la revocatoria se rechaza sin subsidio, la apelación posterior cabe y la extemporánea no', async () => {
-    const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
+    const harness = createHarness({ linked: true, stepStartedOn: ON_TIME_START });
     const filed = await harness.service.fileRevocation(guide(), 3, { body: TEXT });
     await harness.service.resolveRevocation(guide(), 3, filed.id, {
       outcome: AppealOutcome.UPHOLD,
@@ -110,9 +130,9 @@ describe('recursos de revocatoria y apelación', () => {
     const appeal = await harness.service.fileAppeal(guardian(), 3, { body: TEXT });
     expect(appeal.stepBusinessDays).toBe(8);
 
-    harness.row.stepStartedOn = '2026-10-13';
+    harness.row.stepStartedOn = LATE_START;
     harness.row.stepBusinessDays = 3;
-    const late = createHarness({ linked: true, stepStartedOn: '2026-10-13', status: DisciplinaryCaseStatus.IN_APPEAL });
+    const late = createHarness({ linked: true, stepStartedOn: LATE_START, status: DisciplinaryCaseStatus.IN_APPEAL });
     late.appeals.push({
       id: 1,
       caseId: 3,
@@ -208,4 +228,15 @@ function createHarness(input: { linked: boolean; stepStartedOn: string; status?:
     { issue, dispatch: jest.fn() } as never,
   );
   return { row, appeals, events, issue, service };
+}
+
+function subtractBusinessDays(startIso: string, days: number): string {
+  const [year, month, day] = startIso.split('-').map(Number);
+  const cursor = new Date(Date.UTC(year, month - 1, day));
+  let remaining = days;
+  while (remaining > 0) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    if (isBusinessDay(cursor.toISOString().slice(0, 10))) remaining -= 1;
+  }
+  return cursor.toISOString().slice(0, 10);
 }

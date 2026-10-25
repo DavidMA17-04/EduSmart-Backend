@@ -126,14 +126,68 @@ describe('exportación disciplinaria', () => {
     await expect(exports.exportCasePdf(actor as never, 3)).rejects.toBeInstanceOf(ForbiddenException);
     expect(findOne).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }), 3);
   });
+
+  it('el Excel de recursos identifica AM-, tipo, estado y fechas, sin criterio ni testigos', async () => {
+    const listAll = jest.fn().mockResolvedValue([
+      {
+        caseNumber: 'AM-2026-0003',
+        kind: 'REVOCATION',
+        isSubsidiary: false,
+        studentFullName: 'Estudiante DiscQA',
+        caseStatus: 'IN_APPEAL',
+        outcome: null,
+        filedAt: '2026-10-25T15:00:00.000Z',
+        resolvedAt: null,
+        dueOn: '2026-10-28',
+      },
+    ]);
+    const buffer = await service({}, { listAll }).exportAppealsExcel(orientador(), { kind: 'REVOCATION' as never });
+    expect(listAll).toHaveBeenCalledWith(expect.objectContaining({ id: 9 }), expect.objectContaining({ kind: 'REVOCATION' }));
+    const values = await sheetValues(buffer);
+    expect(values).toEqual(expect.arrayContaining(['Expediente', 'Recurso', 'Estudiante', 'Estado', 'Resultado', 'Presentado', 'Resuelto', 'Plazo']));
+    expect(values).toContain('AM-2026-0003');
+    expect(values).toContain('Revocatoria');
+    expect(values).toContain('Pendiente');
+    expect(values.join(' ')).not.toMatch(/testigo|criterio/i);
+  });
+
+  it('el PDF de recursos vacío no inventa filas y un actor sin alcance no obtiene archivo', async () => {
+    const empty = await service({}, { listAll: jest.fn().mockResolvedValue([]) }).exportAppealsPdf(orientador(), {});
+    expect(empty.subarray(0, 4).toString()).toBe('%PDF');
+    expect(empty.toString('latin1')).toMatch(/\/Type \/Page/);
+    const withRow = await service({}, {
+      listAll: jest.fn().mockResolvedValue([
+        {
+          caseNumber: 'AM-2026-0003',
+          kind: 'REVOCATION',
+          isSubsidiary: false,
+          studentFullName: 'Estudiante DiscQA',
+          caseStatus: 'IN_APPEAL',
+          outcome: null,
+          filedAt: '2026-10-25T15:00:00.000Z',
+          resolvedAt: null,
+          dueOn: '2026-10-28',
+        },
+      ]),
+    }).exportAppealsPdf(orientador(), { kind: 'REVOCATION' as never });
+    expect(withRow.subarray(0, 4).toString()).toBe('%PDF');
+    expect(withRow.length).toBeGreaterThan(empty.length);
+    expect((withRow.toString('latin1').match(/\/Type \/Page(?!s)/g) ?? []).length).toBeGreaterThanOrEqual(1);
+    await expect(
+      service({}, { listAll: jest.fn().mockRejectedValue(new ForbiddenException('No tiene acceso')) }).exportAppealsExcel(
+        orientador(),
+        {},
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });
 
 function orientador() {
   return { id: 9, roles: ['Orientador'], permissions: [PERMISSIONS.DISCIPLINARY_EXPORT, PERMISSIONS.DISCIPLINARY_READ] } as never;
 }
 
-function service(methods: Record<string, unknown>) {
-  return new DisciplinaryExportService(methods as never);
+function service(methods: Record<string, unknown>, appeals: Record<string, unknown> = {}) {
+  return new DisciplinaryExportService(methods as never, appeals as never);
 }
 
 function listed(caseNumber: string, studentFullName: string) {

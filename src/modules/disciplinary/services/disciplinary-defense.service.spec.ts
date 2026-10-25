@@ -8,14 +8,18 @@ import { DisciplinaryCaseEventEntity } from '../entities/disciplinary-case-event
 import { DisciplinaryCaseEntity } from '../entities/disciplinary-case.entity';
 import { DisciplinaryDefenseEntity } from '../entities/disciplinary-defense.entity';
 import { DisciplinaryEvidenceEntity } from '../entities/disciplinary-evidence.entity';
+import { institutionalToday, isBusinessDay } from '../utils/business-days';
 import { DisciplinaryDefenseService } from './disciplinary-defense.service';
 import { DisciplinaryWorkflowService } from './disciplinary-workflow.service';
 
 const TEXT = 'El estudiante no participó en los hechos que se le atribuyen.';
+const TODAY = institutionalToday();
+const ON_TIME_START = subtractBusinessDays(TODAY, 1);
+const LATE_START = subtractBusinessDays(TODAY, 10);
 
 describe('descargo', () => {
   it('el encargado lo presenta en plazo, adjunta pruebas y deja el expediente pendiente de resolución', async () => {
-    const harness = createHarness({ linked: true, stepStartedOn: '2026-10-16', stepBusinessDays: 3 });
+    const harness = createHarness({ linked: true, stepStartedOn: ON_TIME_START, stepBusinessDays: 3 });
     const directory = mkdtempSync(join(tmpdir(), 'disciplinary-defense-'));
     (harness.service as unknown as { storageRoot: string }).storageRoot = directory;
     try {
@@ -40,27 +44,27 @@ describe('descargo', () => {
   });
 
   it('rechaza más de 3 adjuntos, el plazo vencido y a un encargado no vinculado', async () => {
-    const open = createHarness({ linked: true, stepStartedOn: '2026-10-16', stepBusinessDays: 3 });
+    const open = createHarness({ linked: true, stepStartedOn: ON_TIME_START, stepBusinessDays: 3 });
     await expect(
       open.service.fileFromPortal(guardian(), 3, { body: TEXT }, [pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf'), pdf('d.pdf')]),
     ).rejects.toMatchObject({ response: { code: 'DEFENSE_FILES' } });
     expect(open.row.status).toBe(DisciplinaryCaseStatus.COMMUNICATED);
 
-    const late = createHarness({ linked: true, stepStartedOn: '2026-10-01', stepBusinessDays: 3 });
+    const late = createHarness({ linked: true, stepStartedOn: LATE_START, stepBusinessDays: 3 });
     await expect(late.service.fileFromPortal(guardian(), 3, { body: TEXT })).rejects.toMatchObject({
       response: { code: 'DEFENSE_DEADLINE' },
     });
     expect(late.row.status).toBe(DisciplinaryCaseStatus.COMMUNICATED);
     expect(late.defenses).toHaveLength(0);
 
-    const foreign = createHarness({ linked: false, stepStartedOn: '2026-10-16', stepBusinessDays: 3 });
+    const foreign = createHarness({ linked: false, stepStartedOn: ON_TIME_START, stepBusinessDays: 3 });
     await expect(foreign.service.fileFromPortal(guardian(), 3, { body: TEXT })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
   });
 
   it('el responsable registra el descargo escrito con el documento', async () => {
-    const harness = createHarness({ linked: false, stepStartedOn: '2026-10-16', stepBusinessDays: 3 });
+    const harness = createHarness({ linked: false, stepStartedOn: ON_TIME_START, stepBusinessDays: 3 });
     const directory = mkdtempSync(join(tmpdir(), 'disciplinary-defense-'));
     (harness.service as unknown as { storageRoot: string }).storageRoot = directory;
     try {
@@ -82,7 +86,7 @@ describe('descargo', () => {
   it('no acepta el descargo si el expediente no está comunicado', async () => {
     const harness = createHarness({
       linked: true,
-      stepStartedOn: '2026-10-16',
+      stepStartedOn: ON_TIME_START,
       stepBusinessDays: 3,
       status: DisciplinaryCaseStatus.INVESTIGATING,
     });
@@ -174,4 +178,15 @@ function createHarness(input: {
     events,
     service: new DisciplinaryDefenseService(dataSource as never, new DisciplinaryWorkflowService()),
   };
+}
+
+function subtractBusinessDays(startIso: string, days: number): string {
+  const [year, month, day] = startIso.split('-').map(Number);
+  const cursor = new Date(Date.UTC(year, month - 1, day));
+  let remaining = days;
+  while (remaining > 0) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    if (isBusinessDay(cursor.toISOString().slice(0, 10))) remaining -= 1;
+  }
+  return cursor.toISOString().slice(0, 10);
 }

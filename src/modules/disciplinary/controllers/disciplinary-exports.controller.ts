@@ -5,6 +5,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Permissions } from '../../../common/decorators/permissions.decorator';
 import { SkipResponseWrap } from '../../../common/decorators/skip-response-wrap.decorator';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
+import { ListDisciplinaryAppealsQueryDto } from '../dto/list-disciplinary-appeals-query.dto';
 import { ListDisciplinaryCasesQueryDto } from '../dto/list-disciplinary-cases-query.dto';
 import { StudentHistoryQueryDto } from '../dto/student-history-query.dto';
 import { DisciplinaryExportService } from '../services/disciplinary-export.service';
@@ -73,6 +74,34 @@ export class DisciplinaryExportsController {
   ): Promise<StreamableFile> {
     const buffer = await this.exports.exportHistoryPdf(actor, studentId, query);
     return file(buffer, 'application/pdf', `historial-${studentId}.pdf`);
+  }
+
+  @Get('appeals/export/excel')
+  @Permissions(PERMISSIONS.DISCIPLINARY_EXPORT)
+  @SkipResponseWrap()
+  @Header('Content-Type', XLSX_MIME)
+  @ApiProduces(XLSX_MIME)
+  @ApiOperation({ summary: 'Exportar recursos disciplinarios a Excel, con los filtros y el alcance del actor' })
+  async exportAppealsExcel(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query() query: ListDisciplinaryAppealsQueryDto,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportAppealsExcel(actor, query);
+    return file(buffer, XLSX_MIME, 'recursos.xlsx');
+  }
+
+  @Get('appeals/export/pdf')
+  @Permissions(PERMISSIONS.DISCIPLINARY_EXPORT)
+  @SkipResponseWrap()
+  @Header('Content-Type', 'application/pdf')
+  @ApiProduces('application/pdf')
+  @ApiOperation({ summary: 'Exportar recursos disciplinarios a PDF, con los filtros y el alcance del actor' })
+  async exportAppealsPdf(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query() query: ListDisciplinaryAppealsQueryDto,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportAppealsPdf(actor, query);
+    return file(buffer, 'application/pdf', 'recursos.pdf');
   }
 
   @Get('cases/:id/export/pdf')
