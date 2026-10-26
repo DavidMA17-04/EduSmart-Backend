@@ -77,7 +77,14 @@ describe('consulta del tablero', () => {
       { code: 'YEAR_WITHOUT_HOLIDAYS', message: 'El año en curso no tiene días no hábiles' },
     ]).get(guide(), {}, '2026-10-19');
     expect(board.alerts).toEqual([
-      { code: 'RECIDIVISM', message: 'Reincidencia', caseId: 1, studentUserId: 10, groupId: 8 },
+      {
+        code: 'RECIDIVISM',
+        message: 'Reincidencia',
+        caseId: 1,
+        studentUserId: 10,
+        groupId: 8,
+        fullName: 'Luis Mora',
+      },
     ]);
   });
 });

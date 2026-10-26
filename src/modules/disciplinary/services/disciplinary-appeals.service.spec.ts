@@ -11,11 +11,13 @@ import { DisciplinaryWorkflowService } from './disciplinary-workflow.service';
 
 const TEXT = 'Se interpone el recurso porque la medida no valora el descargo presentado.';
 const REASONING = 'Se valora el escrito y la prueba del expediente para resolver el recurso.';
+const WITHIN_DEADLINE = '2026-10-17';
+const AFTER_DEADLINE = '2026-10-22';
 
 describe('recursos de revocatoria y apelación', () => {
   it('el encargado interpone la revocatoria el segundo día hábil y el expediente queda en recurso', async () => {
     const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
-    const result = await harness.service.fileRevocation(guardian(), 3, { body: TEXT });
+    const result = await harness.service.fileRevocation(guardian(), 3, { body: TEXT }, WITHIN_DEADLINE);
     expect(result).toMatchObject({
       status: DisciplinaryCaseStatus.IN_APPEAL,
       kind: 'REVOCATION',
@@ -27,7 +29,9 @@ describe('recursos de revocatoria y apelación', () => {
 
   it('rechaza la revocatoria extemporánea y a quien no puede interponerla', async () => {
     const late = createHarness({ linked: true, stepStartedOn: '2026-10-13' });
-    await expect(late.service.fileRevocation(guardian(), 3, { body: TEXT })).rejects.toMatchObject({
+    await expect(
+      late.service.fileRevocation(guardian(), 3, { body: TEXT }, AFTER_DEADLINE),
+    ).rejects.toMatchObject({
       response: { code: 'APPEAL_DEADLINE' },
     });
     expect(late.row.status).toBe(DisciplinaryCaseStatus.RESOLVED);
@@ -40,7 +44,7 @@ describe('recursos de revocatoria y apelación', () => {
 
   it('quien dictó el acto acoge la revocatoria y el expediente queda desestimado', async () => {
     const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
-    const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT });
+    const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT }, WITHIN_DEADLINE);
     await expect(
       harness.service.resolveRevocation(stranger(), 3, filed.id, {
         outcome: AppealOutcome.REVOKE,
@@ -58,7 +62,12 @@ describe('recursos de revocatoria y apelación', () => {
 
   it('al rechazar la revocatoria con apelación en subsidio la eleva a Dirección por 8 días', async () => {
     const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
-    const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT, subsidiary: true });
+    const filed = await harness.service.fileRevocation(
+      guardian(),
+      3,
+      { body: TEXT, subsidiary: true },
+      WITHIN_DEADLINE,
+    );
     const result = await harness.service.resolveRevocation(guide(), 3, filed.id, {
       outcome: AppealOutcome.UPHOLD,
       reasoning: REASONING,
@@ -73,7 +82,12 @@ describe('recursos de revocatoria y apelación', () => {
 
   it('Dirección acoge parcialmente, baja el rebajo a 10 y deja el expediente firme', async () => {
     const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
-    const filed = await harness.service.fileRevocation(guardian(), 3, { body: TEXT, subsidiary: true });
+    const filed = await harness.service.fileRevocation(
+      guardian(),
+      3,
+      { body: TEXT, subsidiary: true },
+      WITHIN_DEADLINE,
+    );
     await harness.service.resolveRevocation(guide(), 3, filed.id, {
       outcome: AppealOutcome.UPHOLD,
       reasoning: REASONING,
@@ -102,12 +116,12 @@ describe('recursos de revocatoria y apelación', () => {
 
   it('si la revocatoria se rechaza sin subsidio, la apelación posterior cabe y la extemporánea no', async () => {
     const harness = createHarness({ linked: true, stepStartedOn: '2026-10-15' });
-    const filed = await harness.service.fileRevocation(guide(), 3, { body: TEXT });
+    const filed = await harness.service.fileRevocation(guide(), 3, { body: TEXT }, WITHIN_DEADLINE);
     await harness.service.resolveRevocation(guide(), 3, filed.id, {
       outcome: AppealOutcome.UPHOLD,
       reasoning: REASONING,
     });
-    const appeal = await harness.service.fileAppeal(guardian(), 3, { body: TEXT });
+    const appeal = await harness.service.fileAppeal(guardian(), 3, { body: TEXT }, WITHIN_DEADLINE);
     expect(appeal.stepBusinessDays).toBe(8);
 
     harness.row.stepStartedOn = '2026-10-13';
@@ -120,7 +134,9 @@ describe('recursos de revocatoria y apelación', () => {
       isSubsidiary: false,
       outcome: AppealOutcome.UPHOLD,
     } as DisciplinaryAppealEntity);
-    await expect(late.service.fileAppeal(guardian(), 3, { body: TEXT })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      late.service.fileAppeal(guardian(), 3, { body: TEXT }, AFTER_DEADLINE),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 

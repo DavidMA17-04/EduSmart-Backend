@@ -100,12 +100,19 @@ describe('alcance disciplinario por actor', () => {
       roleNames: ['Encargado'],
       linkedStudentIds: [10],
     });
+    const student = actor({
+      userId: 10,
+      permissions: [PERMISSIONS.DISCIPLINARY_VIEW_OWN],
+      roleNames: ['Estudiante'],
+    });
     const events = [
       { id: 1, visibility: EventVisibility.PUBLIC },
       { id: 2, visibility: EventVisibility.RESERVED },
     ];
     expect(visibleWitnesses(guardian, facts, 'Ana y Luis')).toBeNull();
+    expect(visibleWitnesses(student, facts, 'Ana y Luis')).toBeNull();
     expect(visibleEvents(guardian, facts, events).map((event) => event.id)).toEqual([1]);
+    expect(visibleEvents(student, facts, events).map((event) => event.id)).toEqual([1]);
   });
 
   it('el responsable, Orientación y Dirección ven lo reservado', () => {
@@ -116,7 +123,14 @@ describe('alcance disciplinario por actor', () => {
       permissions: [PERMISSIONS.DISCIPLINARY_READ],
       roleNames: ['Orientador'],
     });
+    const director = actor({
+      userId: 2,
+      permissions: [PERMISSIONS.DISCIPLINARY_READ],
+      roleNames: ['Director'],
+    });
     expect(visibleEvents(responsible, facts, events)).toHaveLength(1);
     expect(visibleWitnesses(counselor, facts, 'Ana y Luis')).toBe('Ana y Luis');
+    expect(visibleWitnesses(director, facts, 'Ana y Luis')).toBe('Ana y Luis');
+    expect(visibleEvents(director, facts, events)).toHaveLength(1);
   });
 });

@@ -206,6 +206,31 @@ export class AbsenteeismService {
     }));
   }
 
+  async listUnreadForInbox(actor: AuthenticatedUser, limit = 20) {
+    this.assertStaffAccess(actor);
+    const scope = await this.resolveScopedStudentIds(actor);
+    if (scope.length === 0) return [];
+
+    const rows = await this.notifications
+      .createQueryBuilder('n')
+      .innerJoinAndSelect('n.alert', 'alert')
+      .innerJoinAndSelect('alert.student', 'student')
+      .where('alert.id_users_student IN (:...scope)', { scope })
+      .andWhere('n.read_at IS NULL')
+      .orderBy('n.sent_at', 'DESC')
+      .take(limit)
+      .getMany();
+
+    return rows.map((n) => ({
+      id: n.id,
+      title: n.title,
+      body: n.body,
+      studentFullName: formatUserFullName(n.alert.student),
+      sentAt: n.sentAt.toISOString(),
+      readAt: n.readAt ? n.readAt.toISOString() : null,
+    }));
+  }
+
   async markNotificationRead(actor: AuthenticatedUser, notificationId: number) {
     this.assertStaffAccess(actor);
     const row = await this.notifications.findOne({

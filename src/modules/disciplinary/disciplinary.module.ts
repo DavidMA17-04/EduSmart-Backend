@@ -107,6 +107,7 @@ import { InfractionTypesService } from './services/infraction-types.service';
     DisciplinaryAccessService,
     DisciplinaryWorkflowService,
     DisciplinaryDeadlineService,
+    DisciplinaryNotificationsService,
   ],
 })
 export class DisciplinaryModule {}
