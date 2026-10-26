@@ -39,14 +39,19 @@ export class DisciplinaryAppealsService {
     private readonly communications: DisciplinaryCommunicationsService,
   ) {}
 
-  async fileRevocation(actorUser: AuthenticatedUser, caseId: number, dto: FileRevocationDto) {
+  async fileRevocation(
+    actorUser: AuthenticatedUser,
+    caseId: number,
+    dto: FileRevocationDto,
+    today: string = institutionalToday(),
+  ) {
     const row = await this.requireCase(caseId);
     await this.assertMayFile(actorUser, row);
     const text = this.requireText(dto.body);
     const subsidiary = Boolean(dto.subsidiary);
     return this.dataSource.transaction(async (manager) => {
       this.assertRevocationWindow(row);
-      await this.assertOnTime(manager, row);
+      await this.assertOnTime(manager, row, today);
       const appeals = manager.getRepository(DisciplinaryAppealEntity);
       if ((await appeals.count({ where: { caseId, kind: AppealKind.REVOCATION } })) > 0) {
         throw new BadRequestException({
@@ -64,7 +69,6 @@ export class DisciplinaryAppealsService {
           filedByUserId: actorUser.id,
         }),
       );
-      const today = institutionalToday();
       await this.workflow.apply(manager, {
         caseId,
         track: row.track,
@@ -95,7 +99,12 @@ export class DisciplinaryAppealsService {
     });
   }
 
-  async fileAppeal(actorUser: AuthenticatedUser, caseId: number, dto: FileAppealDto) {
+  async fileAppeal(
+    actorUser: AuthenticatedUser,
+    caseId: number,
+    dto: FileAppealDto,
+    today: string = institutionalToday(),
+  ) {
     const row = await this.requireCase(caseId);
     await this.assertMayFile(actorUser, row);
     const text = this.requireText(dto.body);
@@ -127,7 +136,7 @@ export class DisciplinaryAppealsService {
           message: 'Este expediente ya tiene un recurso de apelación',
         });
       }
-      await this.assertOnTime(manager, row);
+      await this.assertOnTime(manager, row, today);
       const saved = await appeals.save(
         appeals.create({
           caseId,
@@ -138,7 +147,6 @@ export class DisciplinaryAppealsService {
           filedByUserId: actorUser.id,
         }),
       );
-      const today = institutionalToday();
       await manager.update(DisciplinaryCaseEntity, caseId, {
         stepStartedOn: today,
         stepBusinessDays: APPEAL_RESOLUTION_BUSINESS_DAYS,
@@ -354,7 +362,7 @@ export class DisciplinaryAppealsService {
     }
   }
 
-  private async assertOnTime(manager: EntityManager, row: DisciplinaryCaseEntity): Promise<void> {
+  private async assertOnTime(manager: EntityManager, row: DisciplinaryCaseEntity, today: string): Promise<void> {
     if (row.stepBusinessDays <= 0) {
       throw new BadRequestException({
         code: 'APPEAL_DEADLINE',
@@ -364,7 +372,7 @@ export class DisciplinaryAppealsService {
     const holidays = (await manager.query('SELECT day FROM non_working_days')) as Array<{ day: string | Date }>;
     const nonWorkingDays = new Set(holidays.map((holiday) => String(holiday.day).slice(0, 10)));
     const dueOn = addBusinessDays(String(row.stepStartedOn).slice(0, 10), row.stepBusinessDays, nonWorkingDays);
-    if (institutionalToday() > dueOn) {
+    if (today > dueOn) {
       throw new BadRequestException({
         code: 'APPEAL_DEADLINE',
         message: 'El recurso es extemporáneo',

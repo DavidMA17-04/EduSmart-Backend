@@ -47,6 +47,7 @@ export class DisciplinaryDefenseService {
     caseId: number,
     dto: FileDefenseDto,
     files: Express.Multer.File[] = [],
+    today: string = institutionalToday(),
   ) {
     const row = await this.requireCase(caseId);
     const linked = await this.dataSource.query(
@@ -65,7 +66,7 @@ export class DisciplinaryDefenseService {
         message: 'El descargo admite como máximo 3 adjuntos',
       });
     }
-    return this.file(row, actorUser.id, DefenseChannel.PORTAL, dto.body, files);
+    return this.file(row, actorUser.id, DefenseChannel.PORTAL, dto.body, files, today);
   }
 
   async fileWritten(
@@ -73,6 +74,7 @@ export class DisciplinaryDefenseService {
     caseId: number,
     dto: FileDefenseDto,
     file?: Express.Multer.File,
+    today: string = institutionalToday(),
   ) {
     const row = await this.requireCase(caseId);
     const actor = this.conductorFrom(actorUser);
@@ -86,7 +88,7 @@ export class DisciplinaryDefenseService {
         field: 'file',
       });
     }
-    return this.file(row, actor.userId, DefenseChannel.WRITTEN, dto.body, [file]);
+    return this.file(row, actor.userId, DefenseChannel.WRITTEN, dto.body, [file], today);
   }
 
   private async file(
@@ -95,6 +97,7 @@ export class DisciplinaryDefenseService {
     channel: DefenseChannel,
     body: string,
     files: Express.Multer.File[],
+    today: string,
   ) {
     const text = body.trim();
     if (text.length < 10) {
@@ -108,7 +111,7 @@ export class DisciplinaryDefenseService {
     const stored: string[] = [];
     try {
       return await this.dataSource.transaction(async (manager) => {
-        await this.assertOpen(manager, row);
+        await this.assertOpen(manager, row, today);
         const defenses = manager.getRepository(DisciplinaryDefenseEntity);
         const saved = await defenses.save(
           defenses.create({
@@ -123,7 +126,6 @@ export class DisciplinaryDefenseService {
         for (const file of files) {
           evidenceIds.push(await this.storeFile(manager, row.id, file, presenterUserId, stored));
         }
-        const today = institutionalToday();
         await this.workflow.apply(manager, {
           caseId: row.id,
           track: row.track,
@@ -169,7 +171,7 @@ export class DisciplinaryDefenseService {
     }
   }
 
-  private async assertOpen(manager: EntityManager, row: DisciplinaryCaseEntity): Promise<void> {
+  private async assertOpen(manager: EntityManager, row: DisciplinaryCaseEntity, today: string): Promise<void> {
     if (row.track !== DisciplinaryTrack.DUE_PROCESS || row.status !== DisciplinaryCaseStatus.COMMUNICATED) {
       throw new BadRequestException({
         code: 'DEFENSE_STAGE',
@@ -193,7 +195,7 @@ export class DisciplinaryDefenseService {
       });
     }
     const dueOn = addBusinessDays(started, row.stepBusinessDays, nonWorkingDays);
-    if (institutionalToday() > dueOn) {
+    if (today > dueOn) {
       throw new BadRequestException({
         code: 'DEFENSE_DEADLINE',
         message: 'El plazo de descargo venció',

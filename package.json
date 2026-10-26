@@ -16,6 +16,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:s4-e2e": "node scripts/s4-disciplinary-e2e-suite.mjs",
     "db:repair-encoding": "node scripts/repair-utf8-data.mjs",
     "db:seed:demo": "node scripts/seed-demo-dataset.mjs"
   },
