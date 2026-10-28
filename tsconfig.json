@@ -25,5 +25,5 @@
     }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/modules/disciplinary/services/disciplinary.service.ts"]
+  "exclude": ["node_modules", "dist"]
 }

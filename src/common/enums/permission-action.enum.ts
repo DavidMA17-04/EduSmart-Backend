@@ -12,4 +12,7 @@ export enum PermissionAction {
   APPEAL = 'APPEAL',
   PRECAUTIONARY = 'PRECAUTIONARY',
   RESPOND = 'RESPOND',
+  PUBLISH = 'PUBLISH',
+  MANAGE = 'MANAGE',
+  STATS = 'STATS',
 }

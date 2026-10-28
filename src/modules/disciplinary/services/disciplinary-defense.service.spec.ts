@@ -16,6 +16,8 @@ const TEXT = 'El estudiante no participó en los hechos que se le atribuyen.';
 const TODAY = institutionalToday();
 const ON_TIME_START = subtractBusinessDays(TODAY, 1);
 const LATE_START = subtractBusinessDays(TODAY, 10);
+const WITHIN_DEADLINE = TODAY;
+const AFTER_DEADLINE = TODAY;
 
 describe('descargo', () => {
   it('el encargado lo presenta en plazo, adjunta pruebas y deja el expediente pendiente de resolución', async () => {
@@ -23,10 +25,13 @@ describe('descargo', () => {
     const directory = mkdtempSync(join(tmpdir(), 'disciplinary-defense-'));
     (harness.service as unknown as { storageRoot: string }).storageRoot = directory;
     try {
-      const result = await harness.service.fileFromPortal(guardian(), 3, { body: TEXT }, [
-        pdf('descargo.pdf'),
-        pdf('prueba.png', 'image/png'),
-      ]);
+      const result = await harness.service.fileFromPortal(
+        guardian(),
+        3,
+        { body: TEXT },
+        [pdf('descargo.pdf'), pdf('prueba.png', 'image/png')],
+        WITHIN_DEADLINE,
+      );
       expect(result).toMatchObject({
         status: DisciplinaryCaseStatus.PENDING_RESOLUTION,
         channel: 'PORTAL',
@@ -51,7 +56,9 @@ describe('descargo', () => {
     expect(open.row.status).toBe(DisciplinaryCaseStatus.COMMUNICATED);
 
     const late = createHarness({ linked: true, stepStartedOn: LATE_START, stepBusinessDays: 3 });
-    await expect(late.service.fileFromPortal(guardian(), 3, { body: TEXT })).rejects.toMatchObject({
+    await expect(
+      late.service.fileFromPortal(guardian(), 3, { body: TEXT }, [], AFTER_DEADLINE),
+    ).rejects.toMatchObject({
       response: { code: 'DEFENSE_DEADLINE' },
     });
     expect(late.row.status).toBe(DisciplinaryCaseStatus.COMMUNICATED);
@@ -71,7 +78,13 @@ describe('descargo', () => {
       await expect(harness.service.fileWritten(guide(), 3, { body: TEXT })).rejects.toMatchObject({
         response: { code: 'DEFENSE_DOCUMENT' },
       });
-      const result = await harness.service.fileWritten(guide(), 3, { body: TEXT }, pdf('escrito.pdf'));
+      const result = await harness.service.fileWritten(
+        guide(),
+        3,
+        { body: TEXT },
+        pdf('escrito.pdf'),
+        WITHIN_DEADLINE,
+      );
       expect(result.channel).toBe('WRITTEN');
       expect(harness.row.status).toBe(DisciplinaryCaseStatus.PENDING_RESOLUTION);
       expect(harness.evidences).toHaveLength(1);

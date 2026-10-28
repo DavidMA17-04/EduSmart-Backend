@@ -211,9 +211,9 @@ async function main() {
       const fingerprint = `${userId}:${groupId}:${offeringKind || ''}:${subjectId || 0}:${specId || 0}:${periodId}`;
       await insertIgnore(connection, `
         INSERT INTO teaching_assignments 
-        (id_users, id_groups, id_academic_periods, is_guide_teacher, offering_kind, id_subjects, id_specialties, assignment_fingerprint, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-      `, [userId, groupId, periodId, isGuide ? 1 : 0, offeringKind, subjectId, specId, fingerprint]);
+        (id_users, id_groups, id_academic_periods, is_guide_teacher, offering_kind, id_subjects, id_specialties, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [userId, groupId, periodId, isGuide ? 1 : 0, offeringKind, subjectId, specId]);
       
       const [ta] = await connection.query(`SELECT id_teaching_assignments AS id FROM teaching_assignments WHERE assignment_fingerprint=?`, [fingerprint]);
       if (!ta || ta.length === 0) {
@@ -264,22 +264,22 @@ async function main() {
     if (slots.length >= 2) {
       // 2 lecciones para taMath101
       await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, room, created_at, updated_at)
-        VALUES (?, ?, 'MONDAY', 'A-101', NOW(), NOW())
+        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
+        VALUES (?, ?, 1, NOW(), NOW())
       `, [taMath101, slots[0].id]);
       await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, room, created_at, updated_at)
-        VALUES (?, ?, 'TUESDAY', 'A-101', NOW(), NOW())
+        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
+        VALUES (?, ?, 2, NOW(), NOW())
       `, [taMath101, slots[1].id]);
       
       // 2 lecciones para taProg11
       await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, room, created_at, updated_at)
-        VALUES (?, ?, 'WEDNESDAY', 'LAB-1', NOW(), NOW())
+        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
+        VALUES (?, ?, 3, NOW(), NOW())
       `, [taProg11, slots[0].id]);
       await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, room, created_at, updated_at)
-        VALUES (?, ?, 'THURSDAY', 'LAB-1', NOW(), NOW())
+        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
+        VALUES (?, ?, 4, NOW(), NOW())
       `, [taProg11, slots[1].id]);
     }
     

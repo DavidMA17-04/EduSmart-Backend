@@ -59,6 +59,9 @@ describe('bandeja del encargado', () => {
     expect(second.readIp).toBe('10.0.0.8');
     expect(second.readUserAgent).toBe('EduSmart');
     expect(second.readAt).toBe(first.readAt);
+    const updates = query.mock.calls.filter((call) => String(call[0]).includes('UPDATE'));
+    expect(updates).toHaveLength(1);
+    expect(String(updates[0]?.[0])).toContain('read_at IS NULL');
   });
 
   it('no confirma la notificación de otro encargado', async () => {

@@ -17,6 +17,7 @@ const ACTORS = [
   { key: 'director', nationalId: '809000003', name: 'Director', last: 'DiscQA', role: 'Director' },
   { key: 'encargado', nationalId: '809000004', name: 'Encargado', last: 'DiscQA', role: 'Encargado' },
   { key: 'estudiante', nationalId: '809000005', name: 'Estudiante', last: 'DiscQA', role: 'Estudiante' },
+  { key: 'docente_ajeno', nationalId: '809000006', name: 'Docente ajeno', last: 'DiscQA', role: 'Docente' },
 ];
 
 async function main() {
@@ -64,10 +65,10 @@ async function main() {
       `SELECT COUNT(*) AS total FROM teaching_assignments WHERE id_users = ? AND id_groups = ? AND is_guide_teacher = 1`,
       [ids.docente, groupId],
     );
-    if (Number(linked[0].total) !== 1 || Number(guides[0].total) < 1) {
+    if (Number(linked[0].total) < 1 || Number(guides[0].total) < 1) {
       throw new Error('El vínculo o la guía no quedó registrado');
     }
-    console.log('OK actores: docente, orientador, director, encargado, estudiante');
+    console.log('OK actores: docente, orientador, director, encargado, estudiante, docente ajeno');
     console.log('OK vínculo encargado-estudiante y docente guía de la sección');
   } finally {
     await conn.end();
@@ -85,6 +86,11 @@ async function ensureUser(conn, actor, role, passwordHash) {
       [actor.nationalId, actor.name, actor.last, `${actor.key}.discqa@edusmart.test`, passwordHash],
     );
     id = created.insertId;
+  } else {
+    await conn.query(
+      `UPDATE users SET password_hash = ?, must_change_password = 0, status = 'ACTIVE', updated_at = NOW() WHERE id_users = ?`,
+      [passwordHash, id],
+    );
   }
   await conn.query(`INSERT IGNORE INTO user_roles (id_users, id_roles, assigned_at) VALUES (?, ?, NOW())`, [id, role]);
   return id;
@@ -129,11 +135,12 @@ async function ensureGuide(conn, teacherId, groupId, periodId, subjectId) {
     [teacherId, groupId, subjectId],
   );
   if (!found.length) {
+    const fingerprint = `${teacherId}:${groupId}:SUBJECT:${subjectId}:0:${periodId}`;
     await conn.query(
       `INSERT INTO teaching_assignments
-        (id_users, id_groups, id_academic_periods, is_guide_teacher, offering_kind, id_subjects, id_specialties, created_at, updated_at)
-       VALUES (?, ?, ?, 1, 'SUBJECT', ?, NULL, NOW(), NOW())`,
-      [teacherId, groupId, periodId, subjectId],
+        (id_users, id_groups, id_academic_periods, is_guide_teacher, offering_kind, id_subjects, id_specialties, assignment_fingerprint, created_at, updated_at)
+       VALUES (?, ?, ?, 1, 'SUBJECT', ?, NULL, ?, NOW(), NOW())`,
+      [teacherId, groupId, periodId, subjectId, fingerprint],
     );
     return;
   }
