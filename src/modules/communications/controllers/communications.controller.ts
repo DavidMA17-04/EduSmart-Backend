@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CommunicationsService } from '../services/communications.service';
 import { CommunicationTargetingService } from '../services/communication-targeting.service';
@@ -6,9 +16,11 @@ import { ReadingConfirmationService } from '../services/reading-confirmation.ser
 import { CreateCommunicationDto } from '../dto/create-communication.dto';
 import { UpdateCommunicationDto } from '../dto/update-communication.dto';
 import { CommunicationFilterDto } from '../dto/communication-filter.dto';
-import { CommunicationTargetDto } from '../dto/communication-target.dto';
+import { AudienceEstimateDto, CommunicationTargetDto } from '../dto/communication-target.dto';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { Permissions } from '../../../common/decorators/permissions.decorator';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
+import { PERMISSIONS } from '../../../common/constants/permissions.constant';
 
 @ApiTags('Communications')
 @ApiBearerAuth()
@@ -20,33 +32,135 @@ export class CommunicationsController {
     private readonly readingConfirmationService: ReadingConfirmationService,
   ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Crear comunicado (stub)' })
-  create(@Body() dto: CreateCommunicationDto) {
-    return this.communicationsService.create(dto);
+  @Get('feed')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_READ)
+  @ApiOperation({ summary: 'Obtener muro/feed de comunicados para el usuario actual' })
+  getFeed(
+    @Query() filter: CommunicationFilterDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.findFeed(filter, user);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Listar comunicados (stub)' })
-  findAll(@Query() filter: CommunicationFilterDto) {
-    return this.communicationsService.findAll(filter);
+  @Get('admin')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Listar comunicados para administración (borradores, publicados, archivados)' })
+  getAdminList(
+    @Query() filter: CommunicationFilterDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.findAdminList(filter, user);
+  }
+
+  @Get('target-options')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Obtener opciones de roles y secciones para selector de audiencia' })
+  getTargetOptions() {
+    return this.communicationsService.getTargetOptions();
+  }
+
+  @Post('audience-estimate')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Estimar cuántos usuarios activos alcanza una segmentación' })
+  estimateAudience(@Body() dto: AudienceEstimateDto) {
+    return this.communicationsService.estimateAudience(dto.recipients);
+  }
+
+  @Post()
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Crear comunicado' })
+  create(
+    @Body() dto: CreateCommunicationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.create(dto, user.id);
+  }
+
+  @Get(':id')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_READ)
+  @ApiOperation({ summary: 'Obtener detalle de comunicado' })
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.findOne(id, user);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Actualizar comunicado (stub)' })
-  update(@Param('id') id: string, @Body() dto: UpdateCommunicationDto) {
-    return this.communicationsService.update(id, dto);
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Actualizar comunicado' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCommunicationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.update(id, dto, user);
+  }
+
+  @Post(':id/publish')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_PUBLISH)
+  @ApiOperation({ summary: 'Publicar comunicado' })
+  publish(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.publish(id, user);
+  }
+
+  @Post(':id/archive')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Archivar comunicado' })
+  archive(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.archive(id, user);
+  }
+
+  @Delete(':id')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Eliminar comunicado' })
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.communicationsService.remove(id, user);
   }
 
   @Post(':id/targets')
-  @ApiOperation({ summary: 'Definir destinatarios (stub)' })
-  setTargets(@Param('id') id: string, @Body() targets: CommunicationTargetDto[]) {
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Definir destinatarios de un comunicado' })
+  setTargets(
+    @Param('id') id: string,
+    @Body() targets: CommunicationTargetDto[],
+  ) {
     return this.targetingService.setTargets(id, targets);
   }
 
   @Post(':id/read')
-  @ApiOperation({ summary: 'Confirmar lectura (stub)' })
-  confirmRead(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+  @Permissions(PERMISSIONS.COMMUNICATIONS_READ)
+  @ApiOperation({ summary: 'Marcar comunicado como leído' })
+  markRead(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.readingConfirmationService.markAsRead(id, user.id);
+  }
+
+  @Post(':id/acknowledge')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_READ)
+  @ApiOperation({ summary: 'Confirmar lectura / Acuse de recibo de comunicado' })
+  confirmAcknowledgment(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     return this.readingConfirmationService.confirmRead(id, user.id);
+  }
+
+  @Get(':id/stats')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Obtener estadísticas detalladas de lectura del comunicado' })
+  getStats(@Param('id') id: string) {
+    return this.readingConfirmationService.getStats(id);
   }
 }
