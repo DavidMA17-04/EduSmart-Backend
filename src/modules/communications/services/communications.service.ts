@@ -22,14 +22,7 @@ import {
   CommunicationStatus,
 } from '../entities/communication.entity';
 import { RecipientType } from '../entities/communication-recipient.entity';
-import { institutionalRoleMatches } from '../../../common/utils/institutional-role-match.util';
-
-function hasManagePermission(user: AuthenticatedUser): boolean {
-  return (
-    user.permissions.includes('communications.manage') ||
-    institutionalRoleMatches(user.roles, ['ADMIN', 'Director'])
-  );
-}
+import { canManageCommunications, canPublishCommunications } from '../utils/communication-access.util';
 
 /** Normaliza destinatarios: descarta vacíos y exige targetId fuera de ALL. */
 function normalizeRecipients(
@@ -118,14 +111,14 @@ export class CommunicationsService {
   }
 
   async findAdminList(filter: CommunicationFilterDto, user: AuthenticatedUser) {
-    const authorLimit = hasManagePermission(user) ? undefined : user.id;
+    const authorLimit = canManageCommunications(user) ? undefined : user.id;
     return this.repository.findAdminList(filter, authorLimit);
   }
 
   async getStats(id: string, user: AuthenticatedUser) {
     const comm = await this.repository.findById(id);
     if (!comm) throw new NotFoundException('Comunicado no encontrado');
-    if (comm.authorId !== user.id && !hasManagePermission(user)) {
+    if (comm.authorId !== user.id && !canManageCommunications(user)) {
       throw new ForbiddenException('No tienes permiso para consultar estas métricas');
     }
     return this.readingService.getStats(id);
@@ -142,7 +135,7 @@ export class CommunicationsService {
     }
 
     if (comm.status !== CommunicationStatus.PUBLISHED) {
-      const canSeeUnpublished = comm.authorId === user.id || hasManagePermission(user);
+      const canSeeUnpublished = comm.authorId === user.id || canManageCommunications(user);
       if (!canSeeUnpublished) {
         throw new NotFoundException('Comunicado no encontrado');
       }
@@ -156,7 +149,7 @@ export class CommunicationsService {
       };
     }
 
-    const read = await this.readingService.markAsRead(id, user.id);
+    const read = await this.readingService.markAsRead(id, user);
     const [view] = await this.repository.attachGroupLabels([toCommunicationView(comm)]);
     return {
       ...view,
@@ -172,20 +165,16 @@ export class CommunicationsService {
     dto: UpdateCommunicationDto,
     user: AuthenticatedUser,
   ): Promise<CommunicationView> {
-    if (dto.status === CommunicationStatus.PUBLISHED && !user.permissions.includes('communications.publish') &&
-      !institutionalRoleMatches(user.roles, ['ADMIN'])) {
-      throw new ForbiddenException('No tienes permiso para publicar comunicados');
-    }
     const comm = await this.repository.findById(id);
     if (!comm) {
       throw new NotFoundException('Comunicado no encontrado');
     }
 
-    if (dto.status === CommunicationStatus.PUBLISHED && comm.status !== CommunicationStatus.PUBLISHED && !user.permissions.includes('communications.publish') &&
-      !institutionalRoleMatches(user.roles, ['ADMIN'])) {
+    if (dto.status === CommunicationStatus.PUBLISHED && comm.status !== CommunicationStatus.PUBLISHED &&
+      !canPublishCommunications(user)) {
       throw new ForbiddenException('No tienes permiso para publicar comunicados');
     }
-    if (comm.authorId !== user.id && !hasManagePermission(user)) {
+    if (comm.authorId !== user.id && !canManageCommunications(user)) {
       throw new ForbiddenException('No tienes permiso para modificar este comunicado');
     }
 
@@ -236,7 +225,7 @@ export class CommunicationsService {
       throw new NotFoundException('Comunicado no encontrado');
     }
 
-    if (comm.authorId !== user.id && !hasManagePermission(user)) {
+    if (comm.authorId !== user.id && !canManageCommunications(user)) {
       throw new ForbiddenException('No tienes permiso para eliminar este comunicado');
     }
 

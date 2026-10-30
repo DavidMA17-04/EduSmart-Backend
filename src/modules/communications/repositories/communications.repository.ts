@@ -146,15 +146,6 @@ export class CommunicationsRepository {
     return (await this.buildFeedBase(context).andWhere('c.id = :visibleId', { visibleId: id }).getCount()) > 0;
   }
 
-  async userCanManage(userId: number): Promise<boolean> {
-    const rows = await this.dataSource.query(`SELECT 1 FROM user_roles ur
-      INNER JOIN roles r ON r.id_roles=ur.id_roles AND r.status='ACTIVE'
-      INNER JOIN role_permissions rp ON rp.id_roles=r.id_roles
-      INNER JOIN permissions p ON p.id_permissions=rp.id_permissions
-      WHERE ur.id_users=? AND p.code='communications.manage' LIMIT 1`, [userId]);
-    return rows.length > 0;
-  }
-
   async replaceRecipients(
     communicationId: string,
     recipients: { recipientType: RecipientType; targetId?: string | null }[],
