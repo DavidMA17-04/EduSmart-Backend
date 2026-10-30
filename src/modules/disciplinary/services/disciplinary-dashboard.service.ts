@@ -12,6 +12,7 @@ import { DisciplinaryAlertsService } from './disciplinary-alerts.service';
 import { canViewAllCases, DisciplinaryActor } from './disciplinary-access.policy';
 import { DisciplinaryDeadlineService } from './disciplinary-deadline.service';
 import { institutionalToday } from '../utils/business-days';
+import { composeSectionLabel } from '../utils/section-label.util';
 
 export type { DisciplinaryDashboard } from './disciplinary-dashboard';
 
@@ -108,7 +109,7 @@ export class DisciplinaryDashboardService {
       studentUserId: Number(row.studentUserId),
       studentFullName: [row.name, row.firstLastname, row.secondLastname].filter(Boolean).join(' '),
       groupId: Number(row.groupId),
-      sectionLabel: gradeLevel != null && groupName ? `${gradeLevel}-${groupName}` : groupName,
+      sectionLabel: composeSectionLabel(gradeLevel, groupName) ?? '',
       month: occurred.slice(0, 7),
       stepStartedOn: String(row.stepStartedOn ?? '').slice(0, 10),
       stepBusinessDays: Number(row.stepBusinessDays ?? 0),

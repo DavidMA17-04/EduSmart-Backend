@@ -1,6 +1,17 @@
 import { RoleEntity } from '../../roles/entities/role.entity';
 import { User } from '../entities/user.entity';
 
+export interface OwnEnrollmentView {
+  groupId: number;
+  groupName: string | null;
+  sectionLabel: string | null;
+  specialtyName: string | null;
+  academicPeriodId: number;
+  academicPeriodName: string | null;
+  startsOn: string;
+  status: string;
+}
+
 export interface UserPublicView {
   id: number;
   id_users?: number;
@@ -18,8 +29,23 @@ export interface UserPublicView {
   roles: Array<{ id: number; name: string; status: RoleEntity['status'] }>;
   departmentId: number | null;
   department: { id: number; code: string; name: string } | null;
+  enrollment?: OwnEnrollmentView | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Same rule as disciplinary section labels, kept local to avoid coupling. */
+export function composeOwnSectionLabel(
+  gradeLevel: number | null | undefined,
+  groupName: string | null | undefined,
+): string | null {
+  const name = groupName?.trim() ?? '';
+  if (!name) return null;
+  if (gradeLevel == null) return name;
+  if (name.includes('-')) return name;
+  const prefix = `${gradeLevel}-`;
+  if (name === String(gradeLevel) || name.startsWith(prefix)) return name;
+  return `${prefix}${name}`;
 }
 
 function resolveFirstName(user: User): string | null {

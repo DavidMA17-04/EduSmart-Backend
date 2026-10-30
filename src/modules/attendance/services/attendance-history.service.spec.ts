@@ -34,6 +34,10 @@ describe('AttendanceHistoryService', () => {
     isAdminActor: jest.fn(),
   };
 
+  const guardianLinks = {
+    find: jest.fn(),
+  };
+
   let service: AttendanceHistoryService;
 
   const teacher = {
@@ -119,7 +123,91 @@ describe('AttendanceHistoryService', () => {
       attendance as never,
       timeSlots as never,
       sessionsService as never,
+      guardianLinks as never,
     );
+  });
+
+  describe('guardian scope', () => {
+    const guardian = {
+      id: 7,
+      email: 'g@test.com',
+      roles: ['Encargado' as Role],
+      permissions: ['attendance.view_own'],
+      mustChangePassword: false,
+    };
+    const link = (studentUserId: number, name: string) => ({
+      studentUserId,
+      student: { name, first_lastname: 'Prueba', second_lastname: null },
+    });
+
+    beforeEach(() => {
+      sessionsService.isAdminActor.mockReturnValue(false);
+    });
+
+    it('scopes a guardian to the linked students, not their own id', async () => {
+      guardianLinks.find.mockResolvedValue([link(4, 'Ana'), link(6, 'Luis')]);
+
+      const page = await service.search({ page: 1, limit: 10 }, guardian);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'a.id_users_student IN (:...representedIds)',
+        { representedIds: [4, 6] },
+      );
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        'a.id_users_student = :ownStudentId',
+        expect.anything(),
+      );
+      expect(page.represented?.map((s) => s.id)).toEqual([4, 6]);
+    });
+
+    it('applies the same scope to the summary', async () => {
+      guardianLinks.find.mockResolvedValue([link(4, 'Ana')]);
+
+      await service.summarize({}, guardian);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'a.id_users_student IN (:...representedIds)',
+        { representedIds: [4] },
+      );
+    });
+
+    it('returns an empty result with a represented list when there are no links', async () => {
+      guardianLinks.find.mockResolvedValue([]);
+      qb.getCount.mockResolvedValue(0);
+      qb.getMany.mockResolvedValue([]);
+
+      const page = await service.search({ page: 1, limit: 10 }, guardian);
+
+      expect(qb.andWhere).toHaveBeenCalledWith('1 = 0');
+      expect(page.total).toBe(0);
+      expect(page.represented).toEqual([]);
+    });
+
+    it('narrows to one linked student', async () => {
+      guardianLinks.find.mockResolvedValue([link(4, 'Ana'), link(6, 'Luis')]);
+
+      await service.search({ studentId: 6 }, guardian);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'a.id_users_student IN (:...representedIds)',
+        { representedIds: [6] },
+      );
+    });
+
+    it('rejects a student that is not linked', async () => {
+      guardianLinks.find.mockResolvedValue([link(4, 'Ana')]);
+
+      await expect(service.search({ studentId: 999 }, guardian)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('does not expose the represented list to students', async () => {
+      const page = await service.search({ page: 1, limit: 10 }, student);
+
+      expect(guardianLinks.find).not.toHaveBeenCalled();
+      expect(page.represented).toBeUndefined();
+    });
   });
 
   it('scopes non-admin teachers to their teaching assignments', async () => {

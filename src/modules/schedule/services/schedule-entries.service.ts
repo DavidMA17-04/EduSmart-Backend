@@ -133,12 +133,9 @@ export class ScheduleEntriesService {
   }
 
   /**
-   * Student "my schedule" — group resolved from GroupEnrollment only.
+   * Student "my schedule" — group as of today (enrollment starts_on/ends_on).
+   * Ignores client periodId so the student cannot browse other cycles.
    * Never accepts client groupId/teacherId/userId.
-   *
-   * Period policy (E1): one weekly matrix → if multiple non-overlapping
-   * enrollments exist for the same period (e.g. transfer), use latest
-   * starts_on DESC (same deterministic strategy as findGroupAsOf ordering).
    */
   async listOwnForStudent(
     actorUserId: number,
@@ -151,7 +148,7 @@ export class ScheduleEntriesService {
       });
     }
 
-    const groupId = await this.resolveStudentGroupId(actorUserId, filters.periodId);
+    const groupId = await this.resolveStudentGroupId(actorUserId, undefined);
     if (groupId == null) {
       return [];
     }
@@ -159,11 +156,6 @@ export class ScheduleEntriesService {
     const qb = this.createEntriesListQuery();
     qb.andWhere('ta.groupId = :studentGroupId', { studentGroupId: groupId });
 
-    if (filters.periodId != null) {
-      qb.andWhere('ta.academicPeriodId = :periodId', {
-        periodId: filters.periodId,
-      });
-    }
     if (filters.dayOfWeek != null) {
       qb.andWhere('entry.dayOfWeek = :dayOfWeek', {
         dayOfWeek: filters.dayOfWeek,
@@ -171,7 +163,13 @@ export class ScheduleEntriesService {
     }
 
     const rows = await qb.getMany();
-    return rows.map(toScheduleEntryView);
+    return rows
+      .filter(
+        (row) =>
+          row.teachingAssignment != null &&
+          isImpartableTeachingAssignment(row.teachingAssignment),
+      )
+      .map(toScheduleEntryView);
   }
 
   async getMySchedule(
@@ -181,7 +179,7 @@ export class ScheduleEntriesService {
     const kind = resolveMyScheduleActorKind(actor.roles ?? []);
     const entriesPromise =
       kind === 'student'
-        ? this.listOwnForStudent(actor.id, filters)
+        ? this.listOwnForStudent(actor.id, { dayOfWeek: filters.dayOfWeek })
         : kind === 'teacher'
           ? this.listOwn(actor.id, filters)
           : Promise.resolve([]);

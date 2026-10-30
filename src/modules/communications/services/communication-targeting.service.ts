@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CommunicationTargetDto } from '../dto/communication-target.dto';
 import { CommunicationsRepository } from '../repositories/communications.repository';
+import { institutionalRoleMatches } from '../../../common/utils/institutional-role-match.util';
 import { RecipientType } from '../entities/communication-recipient.entity';
 
 @Injectable()
@@ -17,32 +18,37 @@ export class CommunicationTargetingService {
     userId: number,
     roles: string[],
   ): Promise<{ roleNames: string[]; groupIds: number[] }> {
+    if (!roles.length) {
+      const rows: { name: string }[] = await this.dataSource.query(`SELECT r.name FROM roles r
+        INNER JOIN user_roles ur ON ur.id_roles=r.id_roles
+        WHERE ur.id_users=? AND r.status='ACTIVE'`, [userId]);
+      roles = rows.map(row => row.name);
+    }
     const roleNamesSet = new Set<string>();
 
     for (const r of roles) {
       roleNamesSet.add(r);
-      const lower = r.toLowerCase();
-      if (lower.includes('admin')) {
+      if (institutionalRoleMatches([r], ['ADMIN'])) {
         roleNamesSet.add('Administrador');
         roleNamesSet.add('ADMIN');
       }
-      if (lower.includes('docente') || lower.includes('teacher')) {
+      if (institutionalRoleMatches([r], ['TEACHER'])) {
         roleNamesSet.add('Docente');
         roleNamesSet.add('TEACHER');
       }
-      if (lower.includes('estudiante') || lower.includes('student')) {
+      if (institutionalRoleMatches([r], ['STUDENT'])) {
         roleNamesSet.add('Estudiante');
         roleNamesSet.add('STUDENT');
       }
-      if (lower.includes('encargado') || lower.includes('guardian') || lower.includes('padre')) {
+      if (institutionalRoleMatches([r], ['GUARDIAN'])) {
         roleNamesSet.add('Encargado');
         roleNamesSet.add('Padre de familia');
         roleNamesSet.add('GUARDIAN');
       }
-      if (lower.includes('director')) {
+      if (institutionalRoleMatches([r], ['Director'])) {
         roleNamesSet.add('Director');
       }
-      if (lower.includes('orientador')) {
+      if (institutionalRoleMatches([r], ['COUNSELOR'])) {
         roleNamesSet.add('Orientador');
       }
     }
@@ -52,7 +58,7 @@ export class CommunicationTargetingService {
     // 1. Grupos como estudiante
     try {
       const studentGroups: { id_groups: number }[] = await this.dataSource.query(
-        'SELECT id_groups FROM group_enrollments WHERE id_users = ?',
+        "SELECT id_groups FROM group_enrollments WHERE id_users = ? AND status = 'ACTIVE'",
         [userId],
       );
       for (const g of studentGroups) {
@@ -81,7 +87,7 @@ export class CommunicationTargetingService {
         `SELECT ge.id_groups
          FROM guardian_student_links gsl
          INNER JOIN group_enrollments ge ON ge.id_users = gsl.id_users_student
-         WHERE gsl.id_users_guardian = ?`,
+         WHERE gsl.id_users_guardian = ? AND ge.status = 'ACTIVE'`,
         [userId],
       );
       for (const g of guardianGroups) {

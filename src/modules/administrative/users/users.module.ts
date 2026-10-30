@@ -7,7 +7,11 @@ import { PermissionsModule } from '../permissions/permissions.module';
 import { RolesModule } from '../roles/roles.module';
 import { SpecialtiesModule } from '../specialties/specialties.module';
 import { DepartmentsModule } from '../departments/departments.module';
+import { GroupEnrollmentsModule } from '../group-enrollments/group-enrollments.module';
+import { GroupEnrollment } from '../group-enrollments/entities/group-enrollment.entity';
 import { TeachingAssignment } from '../teaching-assignments/entities/teaching-assignment.entity';
+import { GuardianStudentLink } from '../../attendance/entities/guardian-student-link.entity';
+import { GuardianLinksController } from './controllers/guardian-links.controller';
 import { UsersController } from './controllers/users.controller';
 import { AccountVerification } from './entities/account-verification.entity';
 import { AuditLog } from './entities/audit-log.entity';
@@ -20,6 +24,7 @@ import { UsersRepository } from './repositories/users.repository';
 import { AccountVerificationService } from './services/account-verification.service';
 import { AuditLogService } from './services/audit-log.service';
 import { UsersBootstrapService } from './services/users-bootstrap.service';
+import { GuardianStudentLinksService } from './services/guardian-student-links.service';
 import { UsersService } from './services/users.service';
 
 @Module({
@@ -29,8 +34,10 @@ import { UsersService } from './services/users.service';
       UserRoleEntity,
       AuditLog,
       TeachingAssignment,
+      GroupEnrollment,
       AccountVerification,
       TeacherProfile,
+      GuardianStudentLink,
     ]),
     MailModule,
     RolesModule,
@@ -38,10 +45,12 @@ import { UsersService } from './services/users.service';
     AcademicPeriodsModule,
     SpecialtiesModule,
     DepartmentsModule,
+    GroupEnrollmentsModule,
   ],
-  controllers: [UsersController],
+  controllers: [UsersController, GuardianLinksController],
   providers: [
     UsersService,
+    GuardianStudentLinksService,
     UsersBootstrapService,
     Utf8RepairService,
     UsersRepository,

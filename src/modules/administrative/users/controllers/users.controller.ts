@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -15,23 +17,32 @@ import { Permissions } from '../../../../common/decorators/permissions.decorator
 import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
 import { AuthenticatedUser } from '../../../auth/interfaces/authenticated-user.interface';
 import { CreateGuideTeacherDto } from '../dto/create-guide-teacher.dto';
+import { CreateGuardianLinkDto } from '../dto/create-guardian-link.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { ListUsersQueryDto } from '../dto/list-users-query.dto';
 import { UpdateGuideTeacherDto } from '../dto/update-guide-teacher.dto';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import { GuardianStudentLinksService } from '../services/guardian-student-links.service';
 import { UsersService } from '../services/users.service';
 
 @ApiTags('Administrative - Users')
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {
-  constructor(private readonly service: UsersService) {}
+  constructor(
+    private readonly service: UsersService,
+    private readonly guardianLinks: GuardianStudentLinksService,
+  ) {}
 
   @Get('me')
-  @ApiOperation({ summary: 'Consultar el perfil del usuario autenticado' })
+  @ApiOperation({
+    summary: 'Consultar la ficha propia del usuario autenticado',
+    description:
+      'Cualquier rol autenticado ve su información general. No exige administrator.view ni students.view.',
+  })
   me(@CurrentUser() user: AuthenticatedUser) {
-    return this.service.findOne(user.id);
+    return this.service.findOwnProfile(user.id);
   }
 
   @Patch('me')
@@ -103,11 +114,39 @@ export class UsersController {
     return this.service.findAll();
   }
 
+  @Get('me/guardian-links')
+  @ApiOperation({
+    summary: 'Listar los vínculos Encargado ↔ Estudiante de la sesión',
+    description:
+      'El autenticado ve sus representados o encargados. No exige administrator.view.',
+  })
+  listMyGuardianLinks(@CurrentUser() user: AuthenticatedUser) {
+    return this.guardianLinks.listForUser(user.id);
+  }
+
   @Get(':id/audit-logs')
   @Permissions(PERMISSIONS.ADMINISTRATOR_VIEW)
   @ApiOperation({ summary: 'Historial de auditoría del usuario (WF-18)' })
   findAuditLogs(@Param('id', ParseIntPipe) id: number) {
     return this.service.findAuditLogs(id);
+  }
+
+  @Get(':id/guardian-links')
+  @Permissions(PERMISSIONS.ADMINISTRATOR_VIEW)
+  @ApiOperation({ summary: 'Listar vínculos Encargado ↔ Estudiante del usuario' })
+  listGuardianLinks(@Param('id', ParseIntPipe) id: number) {
+    return this.guardianLinks.listForUser(id);
+  }
+
+  @Post(':id/guardian-links')
+  @Permissions(PERMISSIONS.ADMINISTRATOR_EDIT)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Crear vínculo Encargado ↔ Estudiante' })
+  createGuardianLink(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateGuardianLinkDto,
+  ) {
+    return this.guardianLinks.create(id, dto.counterpartUserId, dto.relationship);
   }
 
   @Get(':id')

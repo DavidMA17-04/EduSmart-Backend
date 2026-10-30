@@ -19,7 +19,7 @@ describe('CommunicationsService', () => {
     id: 10,
     email: 'docente@ctphojancha.ed.cr',
     roles: [Role.TEACHER],
-    permissions: ['communications.view', 'communications.create'],
+    permissions: ['communications.view', 'communications.create', 'communications.publish'],
     mustChangePassword: false,
   };
 
@@ -280,4 +280,15 @@ describe('CommunicationsService', () => {
       ).rejects.toThrow('vigencia');
     });
   });
+  it('create sin publish no permite publicar a través de update', async () => {
+    mockRepo.findById.mockResolvedValue({ authorId: mockUser.id, status: CommunicationStatus.DRAFT });
+    await expect(service.update('comm', { status: CommunicationStatus.PUBLISHED }, { ...mockUser, permissions: ['communications.create'] })).rejects.toThrow(ForbiddenException);
+    expect(mockRepo.save).not.toHaveBeenCalled();
+  });
+  it('métricas ajenas no quedan abiertas a otro autor', async () => {
+    mockRepo.findById.mockResolvedValue({ authorId: 99 });
+    await expect(service.getStats('comm', mockUser)).rejects.toThrow(ForbiddenException);
+    expect(mockReading.getStats).not.toHaveBeenCalled();
+  });
+
 });

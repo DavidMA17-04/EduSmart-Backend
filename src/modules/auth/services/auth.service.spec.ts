@@ -127,6 +127,76 @@ describe('AuthService', () => {
     expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();
   });
 
+  const studentTemplatePermissions = [
+    { code: 'attendance.view_own' },
+    { code: 'attendance.justify' },
+    { code: 'schedules.view_own' },
+    { code: 'communications.view' },
+    { code: 'appeals.create' },
+    { code: 'disciplinary.view_own' },
+  ];
+
+  const newStudent = {
+    id: 88,
+    email: 'solanoaaron853@gmail.com',
+    national_id: '118760543',
+    name: 'Aaron',
+    first_lastname: 'Solano',
+    second_lastname: 'Cordero',
+    status: UserStatus.ACTIVE,
+    passwordHash,
+    mustChangePassword: false,
+    roles: [{ name: 'Estudiante', permissions: studentTemplatePermissions }],
+  };
+
+  it('login de Estudiante no-seed hidrata view_own desde role_permissions y no students.view', async () => {
+    authRepository.findByIdentifier.mockResolvedValue({ ...newStudent });
+
+    const result = await service.login({
+      identifier: newStudent.national_id,
+      password: 'Admin1234',
+    });
+
+    expect(result.user.roles).toContain('Estudiante');
+    expect(result.user.permissions).toEqual(
+      expect.arrayContaining([
+        'attendance.view_own',
+        'schedules.view_own',
+        'disciplinary.view_own',
+      ]),
+    );
+    expect(result.user.permissions).not.toContain('students.view');
+    expect(tokenService.issueSessionTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        permissions: expect.arrayContaining(['attendance.view_own']),
+      }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('GET /auth/me refresca la misma plantilla para un alumno creado después del seed', async () => {
+    authRepository.findById.mockResolvedValue({ ...newStudent });
+
+    const profile = await service.getMe({
+      id: 88,
+      email: newStudent.email,
+      roles: [],
+      permissions: [],
+      mustChangePassword: false,
+    });
+
+    expect(profile.roles).toContain('Estudiante');
+    expect(profile.permissions).toEqual(
+      expect.arrayContaining([
+        'attendance.view_own',
+        'schedules.view_own',
+        'disciplinary.view_own',
+      ]),
+    );
+    expect(profile.permissions).not.toContain('students.view');
+  });
+
   it('changePassword requires the current password and revokes every session', async () => {
     authRepository.findById.mockResolvedValue({ ...activeUser });
 

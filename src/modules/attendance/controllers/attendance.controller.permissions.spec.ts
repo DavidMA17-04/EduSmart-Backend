@@ -1,7 +1,9 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
+import { ROLES_KEY } from '../../../common/constants/metadata.constant';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RolesGuard } from '../../../common/guards/roles.guard';
 import { AttendanceController } from '../controllers/attendance.controller';
 
 describe('Phase 1A.1 AttendanceController permissions', () => {
@@ -45,6 +47,32 @@ describe('Phase 1A.1 AttendanceController permissions', () => {
     expect(guard.canActivate(ctxFor(controller.createSession, [PERMISSIONS.ATTENDANCE_READ]))).toBe(
       false,
     );
+  });
+
+  it('createSession y from-schedule no tienen @Roles(ADMIN); Docente no es bloqueado por RolesGuard', () => {
+    const rolesGuard = new RolesGuard(reflector);
+    expect(
+      reflector.getAllAndOverride(ROLES_KEY, [
+        controller.createSession,
+        AttendanceController,
+      ]),
+    ).toBeUndefined();
+    expect(
+      reflector.getAllAndOverride(ROLES_KEY, [
+        controller.createSessionFromSchedule,
+        AttendanceController,
+      ]),
+    ).toBeUndefined();
+    expect(reflector.get(ROLES_KEY, AttendanceController)).toBeUndefined();
+    expect(
+      rolesGuard.canActivate({
+        getHandler: () => controller.createSession,
+        getClass: () => AttendanceController,
+        switchToHttp: () => ({
+          getRequest: () => ({ user: { roles: ['Docente'] } }),
+        }),
+      } as unknown as ExecutionContext),
+    ).toBe(true);
   });
 
   it('F. from-schedule → attendance.create', () => {
@@ -143,17 +171,6 @@ describe('Phase 1A.1 AttendanceController permissions', () => {
         ctxFor(controller.generateSessionToken, [PERMISSIONS.ATTENDANCE_READ]),
       ),
     ).toBe(false);
-  });
-
-  it('redeem-token requires no attendance permission (JWT + student check)', () => {
-    expect(
-      guard.canActivate(ctxFor(controller.redeemToken, [])),
-    ).toBe(true);
-    expect(
-      guard.canActivate(
-        ctxFor(controller.redeemToken, [PERMISSIONS.SCHEDULES_VIEW_OWN]),
-      ),
-    ).toBe(true);
   });
 
   it('export pdf/excel → attendance.view', () => {

@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { INSTITUTIONAL_ROLE_STUDENT } from '../../../../common/constants/institutional-roles.constant';
 import { GroupEnrollmentStatus } from '../../../../common/enums/group-enrollment-status.enum';
+import { GroupStatus } from '../../../../common/enums/group-status.enum';
 import { RoleStatus } from '../../../../common/enums/role-status.enum';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
 import { GroupEntity } from '../../sections/entities/group.entity';
@@ -28,6 +29,36 @@ export class GroupEnrollmentsService {
     private readonly users: Repository<User>,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Grupo para matrícula en el alta manual: 404 si no existe, 400 si no está activo.
+   */
+  async requireGroupForEnrollment(groupId: number): Promise<{
+    groupId: number;
+    groupName: string;
+    academicPeriodId: number;
+    periodStartDate: string;
+  }> {
+    if (!Number.isInteger(groupId) || groupId < 1) {
+      throw new BadRequestException('groupId must be a positive integer');
+    }
+    const group = await this.groups.findOne({
+      where: { id: groupId },
+      relations: { academicPeriod: true },
+    });
+    if (!group) {
+      throw new NotFoundException(`Group ${groupId} not found`);
+    }
+    if (group.status && group.status !== GroupStatus.ACTIVE) {
+      throw new BadRequestException(`La sección "${group.name}" no está activa.`);
+    }
+    return {
+      groupId: group.id,
+      groupName: group.name,
+      academicPeriodId: group.academicPeriodId,
+      periodStartDate: String(group.academicPeriod?.startDate ?? ''),
+    };
+  }
 
   /**
    * Create enrollment under a per-student pessimistic lock (users row FOR UPDATE).

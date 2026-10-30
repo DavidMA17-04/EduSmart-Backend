@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { Permissions } from '../../../../common/decorators/permissions.decorator';
 import { AuthenticatedUser } from '../../../auth/interfaces/authenticated-user.interface';
 import { actorSeesFullAcademicHistory } from '../../shared/academic-visibility.util';
 import { CreateAcademicYearDto } from '../dto/create-academic-year.dto';
@@ -14,6 +16,7 @@ export class AcademicYearsController {
   constructor(private readonly service: AcademicYearsService) {}
 
   @Post()
+  @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_CONFIGURE)
   @ApiOperation({ summary: 'Crear año lectivo' })
   create(@Body() dto: CreateAcademicYearDto) {
     return this.service.create(dto);
@@ -21,7 +24,7 @@ export class AcademicYearsController {
 
   @Get()
   @ApiOperation({
-    summary: 'Listar años lectivos (docente: solo activo; admin: historial completo)',
+    summary: 'Listar años lectivos (Admin/Director: historial; resto: año activo)',
   })
   async findAll(@CurrentUser() actor: AuthenticatedUser) {
     if (actorSeesFullAcademicHistory(actor?.roles ?? [])) {
@@ -38,18 +41,21 @@ export class AcademicYearsController {
   }
 
   @Patch(':id')
+  @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_CONFIGURE)
   @ApiOperation({ summary: 'Editar año lectivo' })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAcademicYearDto) {
     return this.service.update(id, dto);
   }
 
   @Patch(':id/activate')
+  @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_CONFIGURE)
   @ApiOperation({ summary: 'Activar año lectivo (único activo)' })
   activate(@Param('id', ParseIntPipe) id: number) {
     return this.service.activate(id);
   }
 
   @Patch(':id/close')
+  @Permissions(PERMISSIONS.ACADEMIC_STRUCTURE_CONFIGURE)
   @ApiOperation({ summary: 'Cerrar año lectivo' })
   close(@Param('id', ParseIntPipe) id: number) {
     return this.service.close(id);

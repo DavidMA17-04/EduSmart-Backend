@@ -29,6 +29,7 @@ import { buildConductHistory, ConductCaseInput } from './conduct-grade';
 import { DisciplinaryCommunicationsService } from './disciplinary-communications.service';
 import { DisciplinaryDeadlineService } from './disciplinary-deadline.service';
 import { DISCIPLINARY_CASE_AUDIT_ENTITY } from './disciplinary-workflow.service';
+import { composeSectionLabel } from '../utils/section-label.util';
 
 export interface DisciplinaryStudentHit {
   id: number;
@@ -427,7 +428,7 @@ export class DisciplinaryCasesService {
       groupName,
       sectionName: (row.sectionName as string | null) ?? null,
       gradeLevel,
-      sectionLabel: gradeLevel != null && groupName ? `${gradeLevel}-${groupName}` : groupName,
+      sectionLabel: composeSectionLabel(gradeLevel, groupName),
       academicPeriodId: Number(row.id_academic_periods),
       infractionType: { id: Number(row.id_disciplinary_infraction_types), name: row.infractionName },
       subjectId: row.id_subjects == null ? null : Number(row.id_subjects),
@@ -884,7 +885,7 @@ export class DisciplinaryCasesService {
       studentUserId: Number(row.studentUserId),
       studentFullName: [row.name, row.firstLastname, row.secondLastname].filter(Boolean).join(' '),
       groupId: Number(row.groupId),
-      sectionLabel: gradeLevel != null && groupName ? `${gradeLevel}-${groupName}` : groupName,
+      sectionLabel: composeSectionLabel(gradeLevel, groupName),
       academicPeriodId: Number(row.academicPeriodId),
       infractionName: row.infractionName,
       occurredAt: asIsoDateTime(row.occurredAt),
@@ -952,7 +953,7 @@ export class DisciplinaryCasesService {
       groupName,
       sectionName: (row.sectionName as string | null) ?? null,
       gradeLevel,
-      sectionLabel: gradeLevel != null && groupName ? `${gradeLevel}-${groupName}` : groupName,
+      sectionLabel: composeSectionLabel(gradeLevel, groupName),
     };
   }
 }

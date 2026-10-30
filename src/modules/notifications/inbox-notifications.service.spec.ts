@@ -2,7 +2,11 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { PERMISSIONS } from '../../common/constants/permissions.constant';
 import { JustificationStatus } from '../../common/enums/justification-status.enum';
 import { InboxNotificationsService } from './inbox-notifications.service';
-import { InboxSource } from './inbox.constants';
+import {
+  GUARDIAN_DISCIPLINARY_INBOX_HREF,
+  INBOX_HREF,
+  InboxSource,
+} from './inbox.constants';
 
 describe('bandeja unificada in-app', () => {
   it('el encargado solo ve disciplina de sus representados', async () => {
@@ -22,11 +26,35 @@ describe('bandeja unificada in-app', () => {
       expect.objectContaining({
         id: 1,
         source: InboxSource.DISCIPLINARY,
-        href: '/admin/discipline/notifications',
+        href: GUARDIAN_DISCIPLINARY_INBOX_HREF,
         title: 'Comunicación formal · Luis',
         readAt: null,
       }),
     ]);
+    expect(result.items[0].href).not.toBe('/admin/discipline/notifications');
+    expect(result.items[0].href).not.toBe(INBOX_HREF[InboxSource.DISCIPLINARY]);
+  });
+
+  it('Padre de familia y GUARDIAN también reciben href de /guardian, no de /admin', async () => {
+    const disciplinary = {
+      mine: jest.fn().mockResolvedValue({
+        unreadCount: 1,
+        items: [disciplinaryItem({ id: 1, studentName: 'Luis', readAt: null })],
+      }),
+    };
+    const parentResult = await build({ disciplinary }).mine({
+      id: 70,
+      roles: ['Padre de familia'],
+      permissions: [PERMISSIONS.DISCIPLINARY_RESPOND, PERMISSIONS.DISCIPLINARY_VIEW_OWN],
+    } as never);
+    const enumResult = await build({ disciplinary }).mine({
+      id: 70,
+      roles: ['GUARDIAN'],
+      permissions: [PERMISSIONS.DISCIPLINARY_RESPOND, PERMISSIONS.DISCIPLINARY_VIEW_OWN],
+    } as never);
+    expect(parentResult.items[0].href).toBe(GUARDIAN_DISCIPLINARY_INBOX_HREF);
+    expect(enumResult.items[0].href).toBe(GUARDIAN_DISCIPLINARY_INBOX_HREF);
+    expect(parentResult.items[0].href).not.toBe('/admin/discipline/notifications');
   });
 
   it('omite avisos disciplinarios ya leídos', async () => {
@@ -67,7 +95,7 @@ describe('bandeja unificada in-app', () => {
       expect.objectContaining({
         id: 9,
         source: InboxSource.ABSENTEEISM,
-        href: '/admin/attendance/alerts',
+        href: '/teacher/attendance/alerts',
       }),
     ]);
     expect(result.items.some((item) => item.source === InboxSource.JUSTIFICATION_PENDING)).toBe(
@@ -108,7 +136,7 @@ describe('bandeja unificada in-app', () => {
       expect.objectContaining({
         id: 44,
         source: InboxSource.JUSTIFICATION_PENDING,
-        href: '/admin/attendance/justifications',
+        href: '/counselor/attendance/justifications',
         readAt: null,
       }),
     );
@@ -140,6 +168,10 @@ describe('bandeja unificada in-app', () => {
     }).mine(counselor());
     expect(result.unreadCount).toBe(4);
     expect(result.items.map((item) => item.id)).toEqual([1, 2, 3, 4]);
+    expect(result.items[0].href).toBe('/counselor/discipline/notifications');
+    expect(result.items[1].href).toBe('/counselor/attendance/alerts');
+    expect(result.items[2].href).toBe('/counselor/attendance/alerts');
+    expect(result.items[3].href).toBe('/counselor/attendance/justifications');
   });
 
   it('estudiante o actor sin fuentes recibe 200 vacío', async () => {

@@ -1,5 +1,6 @@
 import {
   Body,
+  ForbiddenException,
   Controller,
   Delete,
   Get,
@@ -21,6 +22,8 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Permissions } from '../../../common/decorators/permissions.decorator';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
+import { CommunicationStatus } from '../entities/communication.entity';
+import { institutionalRoleMatches } from '../../../common/utils/institutional-role-match.util';
 
 @ApiTags('Communications')
 @ApiBearerAuth()
@@ -73,6 +76,10 @@ export class CommunicationsController {
     @Body() dto: CreateCommunicationDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
+    if (dto.status === CommunicationStatus.PUBLISHED && !user.permissions.includes(PERMISSIONS.COMMUNICATIONS_PUBLISH) &&
+      !institutionalRoleMatches(user.roles, ['ADMIN'])) {
+      throw new ForbiddenException('No tienes permiso para publicar comunicados');
+    }
     return this.communicationsService.create(dto, user.id);
   }
 
@@ -133,8 +140,9 @@ export class CommunicationsController {
   setTargets(
     @Param('id') id: string,
     @Body() targets: CommunicationTargetDto[],
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.targetingService.setTargets(id, targets);
+    return this.communicationsService.update(id, { recipients: targets }, user);
   }
 
   @Post(':id/read')
@@ -160,7 +168,7 @@ export class CommunicationsController {
   @Get(':id/stats')
   @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
   @ApiOperation({ summary: 'Obtener estadísticas detalladas de lectura del comunicado' })
-  getStats(@Param('id') id: string) {
-    return this.readingConfirmationService.getStats(id);
+  getStats(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.communicationsService.getStats(id, user);
   }
 }

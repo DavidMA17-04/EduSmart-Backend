@@ -11,6 +11,7 @@ import {
   IsString,
   Matches,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -97,4 +98,15 @@ export class CreateUserDto {
   @Type(() => Number)
   @IsInt()
   departmentId?: number;
+
+  @ApiPropertyOptional({
+    example: 12,
+    description:
+      'Sección (grupo) a matricular. Obligatorio cuando el usuario tiene rol Estudiante y estado ACTIVE.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  groupId?: number;
 }

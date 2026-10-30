@@ -102,6 +102,52 @@ describe('RolesService guardrails', () => {
     await expect(service.resetToDefaults(9)).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('restablecer Estudiante aplica view_own y no añade students.view', async () => {
+    const studentRole = { id: 3, name: 'Estudiante', permissions: [] };
+    repository.findById.mockResolvedValue(studentRole);
+    permissionsService.findByCodesOrFail.mockImplementation(async (codes: string[]) =>
+      codes.map((code, index) => ({ id: index + 1, code })),
+    );
+    repository.setPermissions.mockImplementation(async (_role, permissions) => ({
+      ...studentRole,
+      permissions,
+    }));
+
+    const result = await service.resetToDefaults(3);
+    const codes = result.permissions.map((item: { code: string }) => item.code);
+
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        PERMISSIONS.ATTENDANCE_VIEW_OWN,
+        PERMISSIONS.ATTENDANCE_JUSTIFY,
+        PERMISSIONS.SCHEDULES_VIEW_OWN,
+        PERMISSIONS.COMMUNICATIONS_READ,
+        PERMISSIONS.APPEALS_CREATE,
+        PERMISSIONS.DISCIPLINARY_VIEW_OWN,
+      ]),
+    );
+    expect(codes).not.toContain(PERMISSIONS.STUDENTS_READ);
+    expect(codes).not.toContain(PERMISSIONS.ATTENDANCE_READ);
+  });
+
+  it('restablecer Docente conserva students.view', async () => {
+    repository.findById.mockResolvedValue(teacherRole);
+    permissionsService.findByCodesOrFail.mockImplementation(async (codes: string[]) =>
+      codes.map((code, index) => ({ id: index + 1, code })),
+    );
+    repository.setPermissions.mockImplementation(async (_role, permissions) => ({
+      ...teacherRole,
+      permissions,
+    }));
+
+    const result = await service.resetToDefaults(2);
+    const codes = result.permissions.map((item: { code: string }) => item.code);
+
+    expect(codes).toContain(PERMISSIONS.STUDENTS_READ);
+    expect(codes).toContain(PERMISSIONS.ATTENDANCE_READ);
+    expect(codes).toContain(PERMISSIONS.SCHEDULES_VIEW_OWN);
+  });
+
   it('does not enforce protected set for non-admin roles', async () => {
     repository.findById.mockResolvedValue(teacherRole);
     permissionsService.findByIdsOrFail.mockResolvedValue([

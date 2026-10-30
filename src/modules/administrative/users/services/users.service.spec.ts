@@ -75,8 +75,11 @@ describe('UsersService.create verification side effects', () => {
       departmentsService as never,
       {} as never,
       teacherProfiles as never,
+      { createQueryBuilder: jest.fn() } as never,
       mailService as never,
       { get: jest.fn().mockReturnValue(undefined) } as never,
+      {} as never,
+      {} as never,
     );
   });
 

@@ -8,6 +8,8 @@ import {
   INSTITUTIONAL_ROLE_STUDENT,
   INSTITUTIONAL_ROLE_TEACHER,
 } from '../../../../common/constants/institutional-roles.constant';
+import { PERMISSION_DESCRIPTIONS } from '../../../../common/constants/permission-descriptions.constant';
+import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
 import { SpecialtyStatus } from '../../../../common/enums/specialty-status.enum';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
 import { AcademicPeriodStatus } from '../../academic-periods/enums/academic-period-status.enum';
@@ -47,6 +49,7 @@ export class UsersBootstrapService implements OnModuleInit {
 
     await this.ensureTeacherRole();
     await this.ensureStudentRole();
+    await this.ensureOwnSchedulePermission();
     await this.ensureAdminUser(adminRole.id);
     await this.ensureAcademicPeriod();
     await this.ensureSpecialty();
@@ -55,34 +58,15 @@ export class UsersBootstrapService implements OnModuleInit {
   private async ensurePermissions() {
     const existing = await this.permissionsRepository.findAll();
 
-    if (existing.length >= 66) {
-      return existing;
-    }
-
-    const existingKeys = new Set(existing.map((item) => `${item.module}.${item.action}`));
-
-    for (const module of Object.values(PermissionModule)) {
-      for (const action of Object.values(PermissionAction)) {
-        // Scoped actions (e.g. VIEW_OWN) are migration-managed, not invented here.
-        if (action === PermissionAction.VIEW_OWN) {
-          continue;
-        }
-
-        const key = `${module}.${action}`;
-
-        if (existingKeys.has(key)) {
-          continue;
-        }
-
-        await this.permissionsRepository.save(
-          this.permissionsRepository.create({
-            code: `${module.toLowerCase()}.${action.toLowerCase()}`,
-            module,
-            action,
-            description: `${action} ${module}`,
-          }),
-        );
-      }
+    const codes = new Set(existing.map((item) => item.code));
+    for (const code of new Set(Object.values(PERMISSIONS))) {
+      if (codes.has(code)) continue;
+      const dot = code.lastIndexOf('.');
+      const module = code.slice(0, dot).toUpperCase() as PermissionModule;
+      const action = code.slice(dot + 1).toUpperCase() as PermissionAction;
+      await this.permissionsRepository.save(this.permissionsRepository.create({
+        code, module, action, description: PERMISSION_DESCRIPTIONS[code] ?? code,
+      }));
     }
 
     return this.permissionsRepository.findAll();
@@ -92,8 +76,8 @@ export class UsersBootstrapService implements OnModuleInit {
     const existing = await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_ADMIN);
 
     if (existing) {
-      if (!(existing.permissions?.length >= 66)) {
-        await this.rolesRepository.setPermissionIds(existing.id, permissionIds);
+      if (permissionIds.some((id) => !(existing.rolePermissions ?? []).some((row) => row.permissionId === id))) {
+        await this.rolesRepository.setPermissionIds(existing.id, [...new Set([...(existing.rolePermissions ?? []).map((row) => row.permissionId), ...permissionIds])]);
       }
 
       return (await this.rolesRepository.findByName(INSTITUTIONAL_ROLE_ADMIN)) ?? existing;
@@ -151,6 +135,58 @@ export class UsersBootstrapService implements OnModuleInit {
         status: RoleStatus.ACTIVE,
       }),
     );
+  }
+
+  /**
+   * GET /schedule/my-schedule requires schedules.view_own. Catalog cartesian
+   * skips VIEW_OWN, so local DBs often keep only schedules.view on Estudiante.
+   */
+  private async ensureOwnSchedulePermission() {
+    const code = PERMISSIONS.SCHEDULES_VIEW_OWN;
+    let permission = await this.permissionsRepository.findByCode(code);
+    if (!permission) {
+      permission = await this.permissionsRepository.save(
+        this.permissionsRepository.create({
+          code,
+          module: PermissionModule.SCHEDULES,
+          action: PermissionAction.VIEW_OWN,
+          description: PERMISSION_DESCRIPTIONS[code] ?? 'Ver el propio horario',
+        }),
+      );
+    }
+
+    await this.grantPermissionToRoles(permission.id, [
+      INSTITUTIONAL_ROLE_TEACHER,
+      INSTITUTIONAL_ROLE_STUDENT,
+    ]);
+    await this.revokePermissionCodesFromRole(INSTITUTIONAL_ROLE_STUDENT, [
+      PERMISSIONS.SCHEDULES_VIEW,
+      PERMISSIONS.SCHEDULES_EDIT,
+    ]);
+  }
+
+  private async grantPermissionToRoles(permissionId: number, roleNames: string[]) {
+    for (const name of roleNames) {
+      const role = await this.rolesRepository.findByName(name);
+      if (!role) continue;
+      const ids = new Set(
+        (role.rolePermissions ?? []).map((row) => row.permissionId).filter(Boolean),
+      );
+      if (ids.has(permissionId)) continue;
+      ids.add(permissionId);
+      await this.rolesRepository.setPermissionIds(role.id, [...ids]);
+    }
+  }
+
+  private async revokePermissionCodesFromRole(roleName: string, codes: string[]) {
+    const role = await this.rolesRepository.findByName(roleName);
+    if (!role) return;
+    const deny = new Set(codes);
+    const kept = (role.rolePermissions ?? [])
+      .filter((row) => row.permission && !deny.has(row.permission.code))
+      .map((row) => row.permissionId);
+    if (kept.length === (role.rolePermissions ?? []).length) return;
+    await this.rolesRepository.setPermissionIds(role.id, kept);
   }
 
   private async ensureAdminUser(roleId: number) {

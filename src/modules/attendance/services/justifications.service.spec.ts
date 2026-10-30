@@ -508,6 +508,25 @@ describe('JustificationsService state machine', () => {
     );
   });
 
+  it('list allowed with only attendance.view_own (student without view)', async () => {
+    const qb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    justificationRepo.createQueryBuilder.mockReturnValue(qb);
+    const ownOnly = { ...studentActor, permissions: [PERMISSIONS.ATTENDANCE_VIEW_OWN] };
+    await expect(service.getJustifications({}, ownOnly)).resolves.toMatchObject({
+      data: [],
+      total: 0,
+    });
+  });
+
   it('justifiable-absences allowed with only attendance.justify (student without view)', async () => {
     const qb = {
       innerJoinAndSelect: jest.fn().mockReturnThis(),

@@ -13,6 +13,7 @@ import { ScheduleTimeSlot } from '../schedule/entities/schedule-time-slot.entity
 import { AbsenteeismController } from './controllers/absenteeism.controller';
 import { AttendanceCalendarExceptionsController } from './controllers/attendance-calendar-exceptions.controller';
 import { AttendanceController } from './controllers/attendance.controller';
+import { AttendanceRedeemController } from './controllers/attendance-redeem.controller';
 import { JustificationsController } from './controllers/justifications.controller';
 import { AbsenceJustification } from './entities/absence-justification.entity';
 import { AbsenteeismAlertNotification } from './entities/absenteeism-alert-notification.entity';
@@ -60,6 +61,7 @@ import { JustificationsService } from './services/justifications.service';
   ],
   controllers: [
     AttendanceController,
+    AttendanceRedeemController,
     JustificationsController,
     AttendanceCalendarExceptionsController,
     AbsenteeismController,

@@ -1,5 +1,6 @@
 import {
   INSTITUTIONAL_ROLE_ADMIN,
+  INSTITUTIONAL_ROLE_DIRECTOR,
   INSTITUTIONAL_ROLE_TEACHER,
 } from '../../../common/constants/institutional-roles.constant';
 import { Role } from '../../../common/enums/role.enum';
@@ -16,15 +17,17 @@ export function actorHasAdminRole(roles: readonly string[]): boolean {
   );
 }
 
+export function actorHasDirectorRole(roles: readonly string[]): boolean {
+  return roles.some((role) => roleMatches(role, INSTITUTIONAL_ROLE_DIRECTOR, 'Director'));
+}
+
 export function actorHasTeacherRole(roles: readonly string[]): boolean {
   return roles.some((role) =>
     roleMatches(role, INSTITUTIONAL_ROLE_TEACHER, Role.TEACHER, 'Docente', 'TEACHER'),
   );
 }
 
-/** Admins (and non-teachers) see full history; pure teachers see only the active year. */
+/** Only Administrador and Director see previous academic years/cycles. */
 export function actorSeesFullAcademicHistory(roles: readonly string[]): boolean {
-  if (actorHasAdminRole(roles)) return true;
-  if (actorHasTeacherRole(roles)) return false;
-  return true;
+  return actorHasAdminRole(roles) || actorHasDirectorRole(roles);
 }

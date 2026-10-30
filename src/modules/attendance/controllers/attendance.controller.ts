@@ -22,7 +22,6 @@ import { AttendanceHistoryFilterDto } from '../dto/attendance-history-filter.dto
 import { AttendanceAnalyticsFilterDto } from '../dto/attendance-analytics-filter.dto';
 import { CreateAttendanceSessionDto } from '../dto/create-attendance-session.dto';
 import { CreateAttendanceSessionFromScheduleDto } from '../dto/create-attendance-session-from-schedule.dto';
-import { RedeemAttendanceTokenDto } from '../dto/redeem-attendance-token.dto';
 import { UpsertAttendanceRecordsDto } from '../dto/upsert-attendance-records.dto';
 import { AttendanceAnalyticsService } from '../services/attendance-analytics.service';
 import { AttendanceExportService } from '../services/attendance-export.service';
@@ -213,14 +212,6 @@ export class AttendanceController {
     });
   }
 
-  @Post('redeem-token')
-  redeemTokenAlias(
-    @Body() dto: RedeemAttendanceTokenDto,
-    @CurrentUser() actor: AuthenticatedUser,
-  ) {
-    return this.tokens.redeemToken(dto, actor);
-  }
-
   @Post('sessions/from-schedule')
   @Permissions(PERMISSIONS.ATTENDANCE_REGISTER)
   createSessionFromSchedule(
@@ -228,14 +219,6 @@ export class AttendanceController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.sessions.createSessionFromSchedule(dto, actor);
-  }
-
-  @Post('sessions/redeem-token')
-  redeemToken(
-    @Body() dto: RedeemAttendanceTokenDto,
-    @CurrentUser() actor: AuthenticatedUser,
-  ) {
-    return this.tokens.redeemToken(dto, actor);
   }
 
   @Post('sessions')

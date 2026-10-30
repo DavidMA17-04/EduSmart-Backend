@@ -12,9 +12,11 @@ import {
   AttendanceHistorySortBy,
 } from '../dto/attendance-history-filter.dto';
 import { Attendance } from '../entities/attendance.entity';
+import { GuardianStudentLink } from '../entities/guardian-student-link.entity';
 import {
   hasAttendanceHistoryAccess,
   isOwnHistoryOnlyActor,
+  isRepresentedHistoryActor,
 } from '../utils/attendance-actor.util';
 import {
   formatUserFullName,
@@ -54,7 +56,21 @@ export type AttendanceHistoryPageView = {
   page: number;
   limit: number;
   totalPages: number;
+  /** Solo Encargado: representados vinculados (vacío = sin vínculos). */
+  represented?: AttendanceRepresentedStudentView[];
 };
+
+export type AttendanceRepresentedStudentView = { id: number; fullName: string };
+
+type HistoryScope =
+  | { kind: 'unrestricted' }
+  | { kind: 'own' }
+  | { kind: 'teacher' }
+  | {
+      kind: 'represented';
+      studentIds: number[];
+      students: AttendanceRepresentedStudentView[];
+    };
 
 export type AttendanceHistorySummaryView = {
   total: number;
@@ -74,6 +90,8 @@ export class AttendanceHistoryService {
     @InjectRepository(ScheduleTimeSlot)
     private readonly timeSlots: Repository<ScheduleTimeSlot>,
     private readonly sessionsService: AttendanceSessionsService,
+    @InjectRepository(GuardianStudentLink)
+    private readonly guardianLinks: Repository<GuardianStudentLink>,
   ) {}
 
   async search(
@@ -87,7 +105,8 @@ export class AttendanceHistoryService {
     const sortBy: AttendanceHistorySortBy = filters.sortBy ?? 'sessionDate';
     const sortOrder = filters.sortOrder ?? 'DESC';
 
-    const qb = this.createBaseQuery(actor, filters);
+    const scope = await this.resolveScope(actor, filters);
+    const qb = this.createBaseQuery(actor, filters, scope);
     this.applySort(qb, sortBy, sortOrder);
 
     const total = await qb.clone().getCount();
@@ -100,7 +119,14 @@ export class AttendanceHistoryService {
     const items = rows.map((row) => this.toItem(row, lessonTotal));
     const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
-    return { items, total, page, limit, totalPages };
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages,
+      ...(scope.kind === 'represented' ? { represented: scope.students } : {}),
+    };
   }
 
   async summarize(
@@ -108,6 +134,7 @@ export class AttendanceHistoryService {
     actor: AuthenticatedUser,
   ): Promise<AttendanceHistorySummaryView> {
     this.assertHistoryAccess(actor);
+    const scope = await this.resolveScope(actor, filters);
 
     const qb = this.attendance
       .createQueryBuilder('a')
@@ -115,7 +142,7 @@ export class AttendanceHistoryService {
       .innerJoin('session.teachingAssignment', 'ta')
       .innerJoin('a.student', 'student');
 
-    this.applyActorScope(qb, actor, filters);
+    this.applyActorScope(qb, actor, scope);
     this.applyFilters(qb, filters, actor);
 
     const rows = await qb
@@ -162,7 +189,8 @@ export class AttendanceHistoryService {
     maxRows = 5000,
   ): Promise<AttendanceHistoryItemView[]> {
     this.assertHistoryAccess(actor);
-    const qb = this.createBaseQuery(actor, filters);
+    const scope = await this.resolveScope(actor, filters);
+    const qb = this.createBaseQuery(actor, filters, scope);
     this.applySort(qb, filters.sortBy ?? 'sessionDate', filters.sortOrder ?? 'DESC');
     const rows = await qb.take(maxRows).getMany();
     const lessonTotal = await this.countClassLessons();
@@ -181,6 +209,7 @@ export class AttendanceHistoryService {
   private createBaseQuery(
     actor: AuthenticatedUser,
     filters: AttendanceHistoryFilterDto,
+    scope: HistoryScope,
   ): SelectQueryBuilder<Attendance> {
     const qb = this.attendance
       .createQueryBuilder('a')
@@ -196,29 +225,74 @@ export class AttendanceHistoryService {
       .leftJoinAndSelect('session.scheduleEntry', 'scheduleEntry')
       .leftJoinAndSelect('scheduleEntry.timeSlot', 'timeSlot');
 
-    this.applyActorScope(qb, actor, filters);
+    this.applyActorScope(qb, actor, scope);
     this.applyFilters(qb, filters, actor);
     return qb;
+  }
+
+  /**
+   * Resuelve el alcance del actor. El Encargado se limita a `guardian_student_links`;
+   * un `studentId` ajeno se rechaza sin revelar si el estudiante existe.
+   */
+  private async resolveScope(
+    actor: AuthenticatedUser,
+    filters: AttendanceHistoryFilterDto,
+  ): Promise<HistoryScope> {
+    if (this.sessionsService.isAdminActor(actor)) return { kind: 'unrestricted' };
+
+    if (isRepresentedHistoryActor(actor)) {
+      const links = await this.guardianLinks.find({
+        where: { guardianUserId: actor.id },
+        relations: { student: true },
+      });
+      const students = links.map((link) => ({
+        id: link.studentUserId,
+        fullName: formatUserFullName(link.student),
+      }));
+      const linkedIds = students.map((student) => student.id);
+      if (filters.studentId != null && !linkedIds.includes(filters.studentId)) {
+        throw new ForbiddenException({
+          code: 'ATTENDANCE_HISTORY_FORBIDDEN',
+          message: 'No tiene permiso para consultar el historial de asistencia',
+        });
+      }
+      return {
+        kind: 'represented',
+        studentIds: filters.studentId != null ? [filters.studentId] : linkedIds,
+        students,
+      };
+    }
+
+    if (isOwnHistoryOnlyActor(actor)) return { kind: 'own' };
+    return { kind: 'teacher' };
   }
 
   private applyActorScope(
     qb: SelectQueryBuilder<Attendance>,
     actor: AuthenticatedUser,
-    filters: AttendanceHistoryFilterDto,
+    scope: HistoryScope,
   ): void {
-    if (this.sessionsService.isAdminActor(actor)) {
-      return;
+    switch (scope.kind) {
+      case 'unrestricted':
+        return;
+      case 'own':
+        qb.andWhere('a.id_users_student = :ownStudentId', {
+          ownStudentId: actor.id,
+        });
+        return;
+      case 'represented':
+        if (scope.studentIds.length === 0) {
+          qb.andWhere('1 = 0');
+        } else {
+          qb.andWhere('a.id_users_student IN (:...representedIds)', {
+            representedIds: scope.studentIds,
+          });
+        }
+        return;
+      case 'teacher':
+        // Teachers / staff with attendance.view → own teaching assignments
+        qb.andWhere('ta.id_users = :teacherId', { teacherId: actor.id });
     }
-
-    if (isOwnHistoryOnlyActor(actor)) {
-      qb.andWhere('a.id_users_student = :ownStudentId', {
-        ownStudentId: actor.id,
-      });
-      return;
-    }
-
-    // Teachers / staff with attendance.view → own teaching assignments
-    qb.andWhere('ta.id_users = :teacherId', { teacherId: actor.id });
   }
 
   private applyFilters(

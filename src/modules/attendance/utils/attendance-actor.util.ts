@@ -13,6 +13,13 @@ export function isStudentActor(actor: AuthenticatedUser): boolean {
   );
 }
 
+/** Encargado / Padre de familia: consulta lo de sus representados, no lo propio. */
+export function isGuardianActor(actor: AuthenticatedUser): boolean {
+  return (actor.roles ?? []).some((role) =>
+    roleMatches(String(role), Role.GUARDIAN, 'Encargado', 'Padre de familia'),
+  );
+}
+
 /** Solo el Administrador revisa justificaciones de toda la institución. */
 export function isInstitutionWideReviewer(actor: AuthenticatedUser): boolean {
   return (actor.roles ?? []).some((role) =>
@@ -39,4 +46,12 @@ export function isOwnHistoryOnlyActor(actor: AuthenticatedUser): boolean {
     (actor.permissions ?? []).includes(PERMISSIONS.ATTENDANCE_VIEW_OWN) ||
     isStudentActor(actor)
   );
+}
+
+/**
+ * Encargado restringido a sus representados (sin `attendance.view`).
+ * Un actor que además es estudiante conserva el alcance propio.
+ */
+export function isRepresentedHistoryActor(actor: AuthenticatedUser): boolean {
+  return isOwnHistoryOnlyActor(actor) && isGuardianActor(actor) && !isStudentActor(actor);
 }

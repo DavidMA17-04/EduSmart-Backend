@@ -692,6 +692,7 @@ export class JustificationsService {
     if ((actor.roles ?? []).includes(Role.ADMIN)) return;
     const allowed = [
       PERMISSIONS.ATTENDANCE_READ,
+      PERMISSIONS.ATTENDANCE_VIEW_OWN,
       PERMISSIONS.ATTENDANCE_JUSTIFY,
       PERMISSIONS.ATTENDANCE_REVIEW,
     ].some((code) => this.hasPermission(actor, code));

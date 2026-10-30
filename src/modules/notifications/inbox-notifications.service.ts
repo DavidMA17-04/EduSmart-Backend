@@ -6,6 +6,7 @@ import {
 import { PERMISSIONS } from '../../common/constants/permissions.constant';
 import { INSTITUTIONAL_ROLE_ADMIN } from '../../common/constants/institutional-roles.constant';
 import { Role } from '../../common/enums/role.enum';
+import { institutionalRoleMatches } from '../../common/utils/institutional-role-match.util';
 import { JustificationStatus } from '../../common/enums/justification-status.enum';
 import { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 import { RequestClientMeta } from '../auth/utils/request-client-meta';
@@ -14,10 +15,11 @@ import { JustificationsService } from '../attendance/services/justifications.ser
 import { DisciplinaryNotificationsService } from '../disciplinary/services/disciplinary-notifications.service';
 import type { InboxItemDto, InboxMineDto } from './dto/inbox-item.dto';
 import {
-  INBOX_HREF,
+  GUARDIAN_DISCIPLINARY_INBOX_HREF,
   INBOX_LIMIT,
   InboxSource,
   disciplinaryKindLabel,
+  inboxHrefFor,
 } from './inbox.constants';
 
 @Injectable()
@@ -76,7 +78,7 @@ export class InboxNotificationsService {
           source: InboxSource.DISCIPLINARY,
           title: `${disciplinaryKindLabel(item.kind)} · ${item.studentName}`,
           body: item.caseNumber,
-          href: INBOX_HREF[InboxSource.DISCIPLINARY],
+          href: this.disciplinaryHref(actor),
           createdAt: item.issuedAt,
           readAt: null,
         }));
@@ -96,7 +98,7 @@ export class InboxNotificationsService {
         source: InboxSource.ABSENTEEISM,
         title: row.title,
         body: `${row.studentFullName} · ${row.body}`,
-        href: INBOX_HREF[InboxSource.ABSENTEEISM],
+        href: inboxHrefFor(InboxSource.ABSENTEEISM, actor.roles),
         createdAt: row.sentAt,
         readAt: null,
       }));
@@ -119,7 +121,7 @@ export class InboxNotificationsService {
         source: InboxSource.JUSTIFICATION_PENDING,
         title: `Justificación pendiente · ${row.student.fullName}`,
         body: `${row.sessionDate} · ${row.offering.name}`,
-        href: INBOX_HREF[InboxSource.JUSTIFICATION_PENDING],
+        href: inboxHrefFor(InboxSource.JUSTIFICATION_PENDING, actor.roles),
         createdAt: new Date(row.createdAt).toISOString(),
         readAt: null,
       }));
@@ -131,6 +133,14 @@ export class InboxNotificationsService {
   private emptyIfForbidden(error: unknown): InboxItemDto[] {
     if (error instanceof ForbiddenException) return [];
     throw error;
+  }
+
+  private disciplinaryHref(actor: AuthenticatedUser): string {
+    const roles = (actor.roles ?? []).map(String);
+    if (institutionalRoleMatches(roles, [Role.GUARDIAN])) {
+      return GUARDIAN_DISCIPLINARY_INBOX_HREF;
+    }
+    return inboxHrefFor(InboxSource.DISCIPLINARY, actor.roles);
   }
 
   private isAdmin(actor: AuthenticatedUser): boolean {

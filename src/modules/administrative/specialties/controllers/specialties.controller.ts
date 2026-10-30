@@ -17,6 +17,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
+import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
+import { Permissions } from '../../../../common/decorators/permissions.decorator';
 import { SpecialtyKind } from '../../../../common/enums/specialty-kind.enum';
 import { CreateSpecialtyDto } from '../dto/create-specialty.dto';
 import { ListSpecialtiesQueryDto } from '../dto/list-specialties-query.dto';
@@ -40,6 +42,7 @@ export class SpecialtiesController {
   }
 
   @Post('hub-covers/:kind')
+  @Permissions(PERMISSIONS.SPECIALTIES_EDIT)
   @ApiOperation({ summary: 'Subir imagen de cover del hub' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -69,12 +72,14 @@ export class SpecialtiesController {
   }
 
   @Delete('hub-covers/:kind')
+  @Permissions(PERMISSIONS.SPECIALTIES_EDIT)
   @ApiOperation({ summary: 'Quitar imagen de cover del hub' })
   clearHubCover(@Param('kind', new ParseEnumPipe(SpecialtyKind)) kind: SpecialtyKind) {
     return this.hubService.clearCover(kind);
   }
 
   @Post()
+  @Permissions(PERMISSIONS.SPECIALTIES_CREATE)
   @ApiOperation({ summary: 'Crear especialidad o taller' })
   create(@Body() dto: CreateSpecialtyDto) {
     return this.service.create(dto);
@@ -93,12 +98,14 @@ export class SpecialtiesController {
   }
 
   @Put(':id')
+  @Permissions(PERMISSIONS.SPECIALTIES_EDIT)
   @ApiOperation({ summary: 'Actualizar especialidad' })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateSpecialtyDto) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
+  @Permissions(PERMISSIONS.SPECIALTIES_EDIT)
   @ApiOperation({ summary: 'Inactivar especialidad (eliminación lógica)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);

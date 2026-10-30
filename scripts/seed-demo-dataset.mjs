@@ -157,8 +157,9 @@ async function main() {
     for (const sub of subjects) {
       await insertIgnore(connection, `
         INSERT INTO subjects (name, code, status, created_at, updated_at)
-        VALUES (?, ?, 'ACTIVE', NOW(), NOW())
-      `, [sub.name, sub.code]);
+        SELECT ?, ?, 'ACTIVE', NOW(), NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM subjects WHERE code=?)
+      `, [sub.name, sub.code, sub.code]);
     }
     const [subMath] = await connection.query(`SELECT id_subjects AS id FROM subjects WHERE name='Matemáticas' LIMIT 1`);
     const [subProg] = await connection.query(`SELECT id_subjects AS id FROM subjects WHERE name='Programación' LIMIT 1`);
@@ -171,6 +172,12 @@ async function main() {
     const [roles] = await connection.query(`SELECT id_roles AS id, name FROM roles`);
     const roleByName = Object.fromEntries(roles.map(r => [r.name, r.id]));
     
+    function resolveRoleId(roleName) {
+      if (roleByName[roleName]) return roleByName[roleName];
+      if (roleName === 'Encargado') return roleByName['Padre de familia'] ?? null;
+      return null;
+    }
+
     async function ensureUser(nationalId, name, last, email, roleName) {
       let [u] = await connection.query(`SELECT id_users AS id FROM users WHERE national_id=? LIMIT 1`, [nationalId]);
       if (!u.length) {
@@ -187,12 +194,17 @@ async function main() {
         `, [name, last, email, passwordHash, u[0].id]);
       }
       
-      const roleId = roleByName[roleName];
-      if (roleId) {
-        await insertIgnore(connection, `
-          INSERT INTO user_roles (id_users, id_roles, assigned_at) VALUES (?, ?, NOW())
-        `, [u[0].id, roleId]);
+      const roleId = resolveRoleId(roleName);
+      if (!roleId) {
+        throw new Error(
+          roleName === 'Encargado'
+            ? 'Falta el rol Encargado o Padre de familia. Aplique la migración 027.'
+            : `Falta el rol ${roleName}`,
+        );
       }
+      await insertIgnore(connection, `
+        INSERT INTO user_roles (id_users, id_roles, assigned_at) VALUES (?, ?, NOW())
+      `, [u[0].id, roleId]);
       return u[0].id;
     }
 
@@ -209,11 +221,19 @@ async function main() {
     // 3.2 Asignaciones académicas
     async function assignTeacher(userId, groupId, periodId, isGuide, offeringKind, subjectId, specId) {
       const fingerprint = `${userId}:${groupId}:${offeringKind || ''}:${subjectId || 0}:${specId || 0}:${periodId}`;
+      const [existing] = await connection.query(`SELECT id_teaching_assignments AS id FROM teaching_assignments WHERE assignment_fingerprint=? LIMIT 1`, [fingerprint]);
+      if (existing.length) return existing[0].id;
+      const [[column]] = await connection.query(`
+        SELECT EXTRA FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='teaching_assignments'
+          AND COLUMN_NAME='assignment_fingerprint'
+      `);
+      const generated = String(column?.EXTRA ?? '').includes('GENERATED');
       await insertIgnore(connection, `
         INSERT INTO teaching_assignments 
-        (id_users, id_groups, id_academic_periods, is_guide_teacher, offering_kind, id_subjects, id_specialties, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-      `, [userId, groupId, periodId, isGuide ? 1 : 0, offeringKind, subjectId, specId]);
+        (id_users, id_groups, id_academic_periods, is_guide_teacher, offering_kind, id_subjects, id_specialties${generated ? '' : ', assignment_fingerprint'}, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?${generated ? '' : ', ?'}, NOW(), NOW())
+      `, [userId, groupId, periodId, isGuide ? 1 : 0, offeringKind, subjectId, specId, ...(generated ? [] : [fingerprint])]);
       
       const [ta] = await connection.query(`SELECT id_teaching_assignments AS id FROM teaching_assignments WHERE assignment_fingerprint=?`, [fingerprint]);
       if (!ta || ta.length === 0) {
@@ -230,8 +250,9 @@ async function main() {
     async function enrollStudent(userId, groupId, periodId) {
       await insertIgnore(connection, `
         INSERT INTO group_enrollments (id_users, id_groups, id_academic_periods, starts_on, status, created_at, updated_at)
-        VALUES (?, ?, ?, '2026-02-01', 'ACTIVE', NOW(), NOW())
-      `, [userId, groupId, periodId]);
+        SELECT ?, ?, ?, '2026-02-01', 'ACTIVE', NOW(), NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM group_enrollments WHERE id_users=? AND id_groups=? AND status='ACTIVE')
+      `, [userId, groupId, periodId, userId, groupId]);
     }
     await enrollStudent(estRegId, grp101[0].id, periodId);
     await enrollStudent(estJustId, grp101[0].id, periodId);
@@ -248,12 +269,14 @@ async function main() {
     // 3.4 Vínculos encargado
     await insertIgnore(connection, `
       INSERT INTO guardian_student_links (id_users_guardian, id_users_student, relationship, created_at)
-      VALUES (?, ?, 'FATHER', NOW())
-    `, [encargadoId, estRegId]);
+      SELECT ?, ?, 'FATHER', NOW()
+      WHERE NOT EXISTS (SELECT 1 FROM guardian_student_links WHERE id_users_guardian=? AND id_users_student=?)
+    `, [encargadoId, estRegId, encargadoId, estRegId]);
     await insertIgnore(connection, `
       INSERT INTO guardian_student_links (id_users_guardian, id_users_student, relationship, created_at)
-      VALUES (?, ?, 'FATHER', NOW())
-    `, [encargadoId, estRiesgoId]);
+      SELECT ?, ?, 'FATHER', NOW()
+      WHERE NOT EXISTS (SELECT 1 FROM guardian_student_links WHERE id_users_guardian=? AND id_users_student=?)
+    `, [encargadoId, estRiesgoId, encargadoId, estRiesgoId]);
 
     console.log('[✓] Usuarios, Roles y Matrículas sembradas.');
 
@@ -261,26 +284,21 @@ async function main() {
 
     // 4.1 Horarios
     const [slots] = await connection.query(`SELECT id_schedule_time_slots AS id FROM schedule_time_slots LIMIT 5`);
-    if (slots.length >= 2) {
+    async function ensureLesson(assignmentId, slotId, day) {
+      await insertIgnore(connection, `INSERT INTO schedule_entries
+        (id_teaching_assignments,id_schedule_time_slots,day_of_week,created_at,updated_at)
+        SELECT ?,?,?,NOW(),NOW() WHERE NOT EXISTS (SELECT 1 FROM schedule_entries
+          WHERE id_teaching_assignments=? AND id_schedule_time_slots=? AND day_of_week=?)`,
+        [assignmentId,slotId,day,assignmentId,slotId,day]);
+    }
+    if (slots.length > 0) {
       // 2 lecciones para taMath101
-      await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
-        VALUES (?, ?, 1, NOW(), NOW())
-      `, [taMath101, slots[0].id]);
-      await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
-        VALUES (?, ?, 2, NOW(), NOW())
-      `, [taMath101, slots[1].id]);
+      await ensureLesson(taMath101, slots[0].id, 1);
+      await ensureLesson(taMath101, slots[1] ? slots[1].id : slots[0].id, 2);
       
       // 2 lecciones para taProg11
-      await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
-        VALUES (?, ?, 3, NOW(), NOW())
-      `, [taProg11, slots[0].id]);
-      await insertIgnore(connection, `
-        INSERT INTO schedule_entries (id_teaching_assignments, id_schedule_time_slots, day_of_week, created_at, updated_at)
-        VALUES (?, ?, 4, NOW(), NOW())
-      `, [taProg11, slots[1].id]);
+      await ensureLesson(taProg11, slots[0].id, 3);
+      await ensureLesson(taProg11, slots[1] ? slots[1].id : slots[0].id, 4);
     }
     
     // Obtener un entry para la asistencia
@@ -295,16 +313,18 @@ async function main() {
     // Crear sesión cerrada
     await insertIgnore(connection, `
       INSERT INTO attendance_sessions (id_teaching_assignments, id_schedule_entries, session_date, started_at, closed_at, status, id_users_created_by, created_at, updated_at)
-      VALUES (?, ?, ?, NOW(), NOW(), 'CLOSED', ?, NOW(), NOW())
-    `, [taMath101, mathEntryId, lastWeek.toISOString().split('T')[0], docGuiaId]);
-    const [sessions] = await connection.query(`SELECT id_attendance_sessions AS id FROM attendance_sessions WHERE id_teaching_assignments=? ORDER BY id_attendance_sessions DESC LIMIT 1`, [taMath101]);
+      SELECT ?, ?, ?, NOW(), NOW(), 'CLOSED', ?, NOW(), NOW()
+      WHERE NOT EXISTS (SELECT 1 FROM attendance_sessions WHERE id_teaching_assignments=? AND session_date=? AND id_schedule_entries <=> ?)
+    `, [taMath101, mathEntryId, lastWeek.toISOString().split('T')[0], docGuiaId, taMath101, lastWeek.toISOString().split('T')[0], mathEntryId]);
+    const [sessions] = await connection.query(`SELECT id_attendance_sessions AS id FROM attendance_sessions WHERE id_teaching_assignments=? AND session_date=? AND id_schedule_entries <=> ? ORDER BY id_attendance_sessions LIMIT 1`, [taMath101, lastWeek.toISOString().split('T')[0], mathEntryId]);
     const sessionId = sessions[0].id;
 
     async function markAttendance(studentId, status, justStatus) {
       await insertIgnore(connection, `
         INSERT INTO attendance (id_attendance_sessions, id_users_student, status, justification_status, registration_method, registered_at, id_users_registered_by, updated_at)
-        VALUES (?, ?, ?, ?, 'MANUAL', NOW(), ?, NOW())
-      `, [sessionId, studentId, status, justStatus, docGuiaId]);
+        SELECT ?, ?, ?, ?, 'MANUAL', NOW(), ?, NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM attendance WHERE id_attendance_sessions=? AND id_users_student=?)
+      `, [sessionId, studentId, status, justStatus, docGuiaId, sessionId, studentId]);
       const [att] = await connection.query(`SELECT id_attendance AS id FROM attendance WHERE id_attendance_sessions=? AND id_users_student=?`, [sessionId, studentId]);
       return att[0].id;
     }
@@ -316,21 +336,24 @@ async function main() {
     // 4.3 Justificaciones
     await insertIgnore(connection, `
       INSERT INTO absence_justifications (id_attendance, reason, status, id_users_reviewed_by, reviewed_at, id_users_created_by, created_at)
-      VALUES (?, 'Cita médica (Demo)', 'APPROVED', ?, NOW(), ?, NOW())
-    `, [attJustId, docGuiaId, estJustId]);
+      SELECT ?, 'Cita médica (Demo)', 'APPROVED', ?, NOW(), ?, NOW()
+      WHERE NOT EXISTS (SELECT 1 FROM absence_justifications WHERE id_attendance=?)
+    `, [attJustId, docGuiaId, estJustId, attJustId]);
     const [justs] = await connection.query(`SELECT id_absence_justifications AS id FROM absence_justifications WHERE id_attendance=?`, [attJustId]);
     
     await insertIgnore(connection, `
       INSERT INTO justification_evidences (id_absence_justifications, file_name, storage_path, mime_type, file_size_bytes, id_users_uploaded_by, created_at)
-      VALUES (?, 'receta_demo.pdf', 's3://demo/receta_demo.pdf', 'application/pdf', 1024, ?, NOW())
-    `, [justs[0].id, estJustId]);
+      SELECT ?, 'receta_demo.pdf', 's3://demo/receta_demo.pdf', 'application/pdf', 1024, ?, NOW()
+      WHERE NOT EXISTS (SELECT 1 FROM justification_evidences WHERE id_absence_justifications=? AND file_name='receta_demo.pdf')
+    `, [justs[0].id, estJustId, justs[0].id]);
 
     // 4.4 Alertas de ausentismo
     const alertIdempotency = `demo_alert_${estRiesgoId}_${periodId}`;
     await insertIgnore(connection, `
       INSERT INTO absenteeism_alerts (id_users_student, id_groups, risk_level, status, rule_codes, unjustified_absences_month, absences_period, consecutive_absences, attendance_percent, window_start, window_end, idempotency_key, triggered_at, updated_at)
-      VALUES (?, ?, 'MEDIUM', 'NEW', '["CONSECUTIVE_ABSENCES"]', 3, 5, 3, 85.5, '2026-02-01', '2026-02-28', ?, NOW(), NOW())
-    `, [estRiesgoId, grp101[0].id, alertIdempotency]);
+      SELECT ?, ?, 'MEDIUM', 'NEW', '["CONSECUTIVE_ABSENCES"]', 3, 5, 3, 85.5, '2026-02-01', '2026-02-28', ?, NOW(), NOW()
+      WHERE NOT EXISTS (SELECT 1 FROM absenteeism_alerts WHERE idempotency_key=?)
+    `, [estRiesgoId, grp101[0].id, alertIdempotency, alertIdempotency]);
 
     console.log('[✓] Horarios, Asistencias y Alertas sembradas.');
 

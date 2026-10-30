@@ -90,41 +90,34 @@ describe('ScheduleEntriesService — student my-schedule (E1)', () => {
     expect(entryRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
 
-  it('6. periodId → findLatestForPeriod + group scope', async () => {
-    groupEnrollments.findLatestForPeriod.mockResolvedValue({ groupId: 3 });
+  it('6. periodId del cliente se ignora; usa matrícula vigente', async () => {
+    groupEnrollments.findGroupAsOf.mockResolvedValue({ groupId: 3 });
     await service.listOwnForStudent(521, { periodId: 1 });
-    expect(groupEnrollments.findLatestForPeriod).toHaveBeenCalledWith(521, 1);
-    expect(groupEnrollments.findGroupAsOf).not.toHaveBeenCalled();
+    expect(groupEnrollments.findGroupAsOf).toHaveBeenCalled();
+    expect(groupEnrollments.findLatestForPeriod).not.toHaveBeenCalled();
     expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(true);
-    expect(andWhereCalls.some((c) => c.params?.periodId === 1)).toBe(true);
+    expect(andWhereCalls.some((c) => c.params?.periodId === 1)).toBe(false);
   });
 
-  it('7. periodId histórico ENDED enrollment se resuelve', async () => {
-    groupEnrollments.findLatestForPeriod.mockResolvedValue({
-      groupId: 3,
-      status: 'ENDED',
-    });
-    await service.listOwnForStudent(521, { periodId: 1 });
+  it('9. periodId ajeno no abre otro ciclo', async () => {
+    groupEnrollments.findGroupAsOf.mockResolvedValue({ groupId: 3 });
+    await service.listOwnForStudent(521, { periodId: 99 });
+    expect(groupEnrollments.findLatestForPeriod).not.toHaveBeenCalled();
     expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(true);
+    expect(andWhereCalls.some((c) => c.params?.periodId === 99)).toBe(false);
   });
 
-  it('8. múltiples enrollments → latest group from findLatestForPeriod', async () => {
-    groupEnrollments.findLatestForPeriod.mockResolvedValue({ groupId: 9 });
-    await service.listOwnForStudent(521, { periodId: 1 });
-    expect(andWhereCalls.some((c) => c.params?.studentGroupId === 9)).toBe(true);
-  });
-
-  it('9. periodId sin enrollment → []', async () => {
-    groupEnrollments.findLatestForPeriod.mockResolvedValue(null);
+  it('9b. sin matrícula vigente → []', async () => {
+    groupEnrollments.findGroupAsOf.mockResolvedValue(null);
     await expect(service.listOwnForStudent(521, { periodId: 99 })).resolves.toEqual([]);
     expect(entryRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
 
-  it('10–11. dayOfWeek / period+day AND con group scope', async () => {
-    groupEnrollments.findLatestForPeriod.mockResolvedValue({ groupId: 3 });
+  it('10–11. dayOfWeek AND con group scope; periodId no entra', async () => {
+    groupEnrollments.findGroupAsOf.mockResolvedValue({ groupId: 3 });
     await service.listOwnForStudent(521, { periodId: 1, dayOfWeek: 2 });
     expect(andWhereCalls.some((c) => c.params?.studentGroupId === 3)).toBe(true);
-    expect(andWhereCalls.some((c) => c.params?.periodId === 1)).toBe(true);
+    expect(andWhereCalls.some((c) => c.params?.periodId === 1)).toBe(false);
     expect(andWhereCalls.some((c) => c.params?.dayOfWeek === 2)).toBe(true);
   });
 
@@ -138,7 +131,7 @@ describe('ScheduleEntriesService — student my-schedule (E1)', () => {
   it('getMySchedule Estudiante usa listOwnForStudent', async () => {
     const spy = jest.spyOn(service, 'listOwnForStudent').mockResolvedValue([]);
     await service.getMySchedule({ id: 521, roles: ['Estudiante'] }, { periodId: 1 });
-    expect(spy).toHaveBeenCalledWith(521, { periodId: 1 });
+    expect(spy).toHaveBeenCalledWith(521, { dayOfWeek: undefined });
   });
 
   it('unsupported roles → entries [] sin listOwn', async () => {

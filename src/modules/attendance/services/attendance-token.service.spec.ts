@@ -164,9 +164,47 @@ describe('AttendanceTokenService', () => {
   });
 
   it('forbids non-students from redeeming', async () => {
+    const guardian = {
+      ...teacher,
+      id: 70,
+      roles: ['Encargado'] as unknown as Role[],
+      permissions: [],
+    };
+    const admin = {
+      ...teacher,
+      id: 1,
+      roles: [Role.ADMIN],
+    };
     await expect(
       service.redeemToken({ token: 'ABCD1234' }, teacher),
     ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.redeemToken({ code: 'ABCD1234' }, guardian),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.redeemToken({ code: 'ABCD1234' }, admin),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('ignores extra studentUserId and marks the JWT actor', async () => {
+    const expiresAt = new Date(Date.now() + 60_000);
+    sessionRepo.findOne.mockResolvedValue({
+      ...openSession,
+      attendanceToken: 'ABCD1234',
+      attendanceTokenExpiresAt: expiresAt,
+    });
+    attendanceRepo.findOne.mockResolvedValue(null);
+    recordsService.loadRosterUsers.mockResolvedValue([{ id: 501 }]);
+
+    const result = await service.redeemToken(
+      { code: 'ABCD1234', studentUserId: 999 } as never,
+      student,
+    );
+
+    expect(result.studentUserId).toBe(501);
+    expect(attendanceRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ studentUserId: 501 }),
+    );
   });
 
   it('accepts institutional Estudiante role name for redeem', async () => {

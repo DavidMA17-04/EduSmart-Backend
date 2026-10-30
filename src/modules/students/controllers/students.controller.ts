@@ -41,7 +41,11 @@ export class StudentsController {
   }
 
   @Post(':id/guardians')
-  @ApiOperation({ summary: 'Asociar encargado (stub)' })
+  @ApiOperation({
+    deprecated: true,
+    summary: 'Asociar encargado (stub UUID, no usar)',
+    description: 'Use POST /users/:userId/guardian-links sobre guardian_student_links.',
+  })
   assignGuardian(@Param('id') id: string, @Body() dto: AssignGuardianDto) {
     return this.guardiansService.assignToStudent(id, dto);
   }
