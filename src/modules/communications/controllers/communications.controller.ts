@@ -23,7 +23,7 @@ import { Permissions } from '../../../common/decorators/permissions.decorator';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
 import { CommunicationStatus } from '../entities/communication.entity';
-import { institutionalRoleMatches } from '../../../common/utils/institutional-role-match.util';
+import { canPublishCommunications } from '../utils/communication-access.util';
 
 @ApiTags('Communications')
 @ApiBearerAuth()
@@ -76,8 +76,7 @@ export class CommunicationsController {
     @Body() dto: CreateCommunicationDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    if (dto.status === CommunicationStatus.PUBLISHED && !user.permissions.includes(PERMISSIONS.COMMUNICATIONS_PUBLISH) &&
-      !institutionalRoleMatches(user.roles, ['ADMIN'])) {
+    if (dto.status === CommunicationStatus.PUBLISHED && !canPublishCommunications(user)) {
       throw new ForbiddenException('No tienes permiso para publicar comunicados');
     }
     return this.communicationsService.create(dto, user.id);
@@ -152,7 +151,7 @@ export class CommunicationsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.readingConfirmationService.markAsRead(id, user.id);
+    return this.readingConfirmationService.markAsRead(id, user);
   }
 
   @Post(':id/acknowledge')
@@ -162,7 +161,7 @@ export class CommunicationsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.readingConfirmationService.confirmRead(id, user.id);
+    return this.readingConfirmationService.confirmRead(id, user);
   }
 
   @Get(':id/stats')

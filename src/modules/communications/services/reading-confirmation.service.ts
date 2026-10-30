@@ -5,6 +5,10 @@ import { CommunicationRead } from '../entities/communication-read.entity';
 import { CommunicationsRepository } from '../repositories/communications.repository';
 import { CommunicationTargetingService } from './communication-targeting.service';
 import { CommunicationStatus } from '../entities/communication.entity';
+import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
+import { canManageCommunications } from '../utils/communication-access.util';
+
+type CommunicationActor = Pick<AuthenticatedUser, 'id' | 'roles' | 'permissions'>;
 
 @Injectable()
 export class ReadingConfirmationService {
@@ -15,20 +19,22 @@ export class ReadingConfirmationService {
     private readonly targeting: CommunicationTargetingService,
   ) {}
 
-  private async assertReadable(communicationId: string, userId: number) {
+  /** Same audience as the feed; authors and managers may read any published item. */
+  private async assertReadable(communicationId: string, actor: CommunicationActor) {
     const comm = await this.repository.findById(communicationId);
     if (!comm || comm.status !== CommunicationStatus.PUBLISHED) {
       throw new NotFoundException('Comunicado no encontrado');
     }
-    const context = await this.targeting.getUserTargetContext(userId, []);
-    if (comm.authorId !== userId && !(await this.repository.userCanManage(userId)) &&
-      !(await this.repository.isFeedVisible(communicationId, { userId, ...context }))) {
+    if (comm.authorId === actor.id || canManageCommunications(actor)) return;
+    const context = await this.targeting.getUserTargetContext(actor.id, actor.roles);
+    if (!(await this.repository.isFeedVisible(communicationId, { userId: actor.id, ...context }))) {
       throw new NotFoundException('Comunicado no encontrado');
     }
   }
 
-  async markAsRead(communicationId: string, userId: number): Promise<CommunicationRead> {
-    await this.assertReadable(communicationId, userId);
+  async markAsRead(communicationId: string, actor: CommunicationActor): Promise<CommunicationRead> {
+    await this.assertReadable(communicationId, actor);
+    const userId = actor.id;
 
     let read = await this.readRepo.findOne({
       where: { communicationId, userId },
@@ -47,8 +53,9 @@ export class ReadingConfirmationService {
     return read;
   }
 
-  async confirmRead(communicationId: string, userId: number): Promise<CommunicationRead> {
-    await this.assertReadable(communicationId, userId);
+  async confirmRead(communicationId: string, actor: CommunicationActor): Promise<CommunicationRead> {
+    await this.assertReadable(communicationId, actor);
+    const userId = actor.id;
 
     let read = await this.readRepo.findOne({
       where: { communicationId, userId },

@@ -217,7 +217,7 @@ describe('CommunicationsService', () => {
       });
       const result = await service.findOne('comm-123', mockUser);
 
-      expect(mockReading.markAsRead).toHaveBeenCalledWith('comm-123', mockUser.id);
+      expect(mockReading.markAsRead).toHaveBeenCalledWith('comm-123', mockUser);
       expect(result.isRead).toBe(true);
     });
 
@@ -284,6 +284,15 @@ describe('CommunicationsService', () => {
     mockRepo.findById.mockResolvedValue({ authorId: mockUser.id, status: CommunicationStatus.DRAFT });
     await expect(service.update('comm', { status: CommunicationStatus.PUBLISHED }, { ...mockUser, permissions: ['communications.create'] })).rejects.toThrow(ForbiddenException);
     expect(mockRepo.save).not.toHaveBeenCalled();
+  });
+  it('sin publish, el autor puede editar un comunicado ya publicado sin volver a publicarlo', async () => {
+    mockRepo.findById.mockResolvedValue({ authorId: mockUser.id, status: CommunicationStatus.PUBLISHED, publishDate: new Date() });
+    await service.update('comm', { title: 'Corrección', status: CommunicationStatus.PUBLISHED }, { ...mockUser, permissions: ['communications.create'] });
+    expect(mockRepo.save).toHaveBeenCalled();
+  });
+  it('un id inexistente responde 404 antes de evaluar la publicación', async () => {
+    mockRepo.findById.mockResolvedValue(null);
+    await expect(service.update('nope', { status: CommunicationStatus.PUBLISHED }, { ...mockUser, permissions: ['communications.create'] })).rejects.toThrow(NotFoundException);
   });
   it('métricas ajenas no quedan abiertas a otro autor', async () => {
     mockRepo.findById.mockResolvedValue({ authorId: 99 });
