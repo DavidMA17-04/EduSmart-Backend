@@ -54,6 +54,11 @@ export const PERMISSIONS = {
   APPEALS_CREATE: 'appeals.create',
   APPEALS_REVIEW: 'appeals.edit',
   APPEALS_RESOLVE: 'appeals.configure',
+  DEPARTURES_VALIDATE: 'departures.validate',
+  DEPARTURES_CREATE: 'departures.create',
+  DEPARTURES_VIEW_HISTORY: 'departures.view_history',
+  DEPARTURES_EXPORT: 'departures.export',
+  DEPARTURES_MANAGE_PERMITS: 'departures.manage_permits',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS] | string;

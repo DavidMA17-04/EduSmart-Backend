@@ -17,6 +17,13 @@
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:s4-e2e": "node scripts/s4-disciplinary-e2e-suite.mjs",
+    "test:s6-departures": "node scripts/s6-departures-qa-suite.mjs",
+    "db:up": "docker compose up -d --wait mysql",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f mysql",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:status": "node scripts/db-migrate.mjs --status",
+    "db:setup": "docker compose up -d --wait mysql && node scripts/db-migrate.mjs --wait",
     "db:repair-encoding": "node scripts/repair-utf8-data.mjs",
     "db:seed:demo": "node scripts/seed-demo-dataset.mjs"
   },

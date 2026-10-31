@@ -11,4 +11,5 @@ export enum PermissionModule {
   SPECIALTIES = 'SPECIALTIES',
   SECTIONS = 'SECTIONS',
   SCHEDULES = 'SCHEDULES',
+  DEPARTURES = 'DEPARTURES',
 }

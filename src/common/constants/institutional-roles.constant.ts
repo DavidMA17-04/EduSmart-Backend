@@ -5,3 +5,4 @@ export const INSTITUTIONAL_ROLE_COUNSELOR = 'Orientador';
 export const INSTITUTIONAL_ROLE_DIRECTOR = 'Director';
 export const INSTITUTIONAL_ROLE_GUARDIAN = 'Encargado';
 export const INSTITUTIONAL_ROLE_PARENT = 'Padre de familia';
+export const INSTITUTIONAL_ROLE_SECURITY_GUARD = 'Guarda de Seguridad';

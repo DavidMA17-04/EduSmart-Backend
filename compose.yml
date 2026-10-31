@@ -6,8 +6,10 @@ services:
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-EduSmart}
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-changeme}
+    # Puerto del host: 3307 por defecto para no chocar con un MySQL local en 3306.
+    # Para que el backend use este contenedor, ponga DB_PORT=3307 en backend/.env.
     ports:
-      - "${DB_PORT:-3307}:3306"
+      - "${DOCKER_DB_PORT:-3307}:3306"
     volumes:
       - edusmart_mysql_data:/var/lib/mysql
     command:

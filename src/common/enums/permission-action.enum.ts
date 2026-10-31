@@ -15,4 +15,5 @@ export enum PermissionAction {
   PUBLISH = 'PUBLISH',
   MANAGE = 'MANAGE',
   STATS = 'STATS',
+  VALIDATE = 'VALIDATE',
 }

@@ -217,6 +217,11 @@ async function main() {
     const estRiesgoId = await ensureUser('300000022', 'Kevin', 'Salazar', 'ksalazar@edusmart.test', 'Estudiante');
     
     const encargadoId = await ensureUser('300000030', 'Roberto', 'Rojas', 'rrojas@edusmart.test', 'Encargado');
+    // Guarda de caseta (módulo de salidas, migración 032). Solo si el rol existe.
+    const hasGuardRole = Boolean(roleByName['Guarda de Seguridad']);
+    if (hasGuardRole) {
+      await ensureUser('300000040', 'Jorge', 'Solís', 'jsolis@edusmart.test', 'Guarda de Seguridad');
+    }
 
     // 3.2 Asignaciones académicas
     async function assignTeacher(userId, groupId, periodId, isGuide, offeringKind, subjectId, specId) {
@@ -367,7 +372,10 @@ async function main() {
       { Rol: 'Estudiante Regular', Nombre: 'Diego Rojas', Cédula: '300000020', Email: 'drojas@edusmart.test' },
       { Rol: 'Estudiante (Justificado)', Nombre: 'Laura Vargas', Cédula: '300000021', Email: 'lvargas@edusmart.test' },
       { Rol: 'Estudiante (En Riesgo)', Nombre: 'Kevin Salazar', Cédula: '300000022', Email: 'ksalazar@edusmart.test' },
-      { Rol: 'Encargado (Padre)', Nombre: 'Roberto Rojas', Cédula: '300000030', Email: 'rrojas@edusmart.test' }
+      { Rol: 'Encargado (Padre)', Nombre: 'Roberto Rojas', Cédula: '300000030', Email: 'rrojas@edusmart.test' },
+      ...(hasGuardRole
+        ? [{ Rol: 'Guarda de Seguridad', Nombre: 'Jorge Solís', Cédula: '300000040', Email: 'jsolis@edusmart.test' }]
+        : []),
     ]);
     console.log('======================================================\\n');
   } catch (e) {
