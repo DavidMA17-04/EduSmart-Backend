@@ -104,7 +104,7 @@ describe('PasswordRecoveryService', () => {
 
     const result = await service.resetPassword({
       token: 'raw-reset-token',
-      newPassword: 'NuevaClave123',
+      newPassword: 'NuevaClave123!',
     });
 
     expect(result.message).toMatch(/restablecida/i);
@@ -119,7 +119,7 @@ describe('PasswordRecoveryService', () => {
     tokensRepository.findActiveByHash.mockResolvedValue(null);
 
     await expect(
-      service.resetPassword({ token: 'expired', newPassword: 'NuevaClave123' }),
+      service.resetPassword({ token: 'expired', newPassword: 'NuevaClave123!' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

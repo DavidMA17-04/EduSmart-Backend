@@ -16,6 +16,10 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import {
+  STRONG_PASSWORD_MESSAGE,
+  STRONG_PASSWORD_REGEX,
+} from '../../../../common/utils/password-policy.util';
 
 const NATIONAL_ID_PATTERN = /^[0-9]{9,12}$/;
 
@@ -65,12 +69,13 @@ export class CreateUserDto {
     minLength: 8,
     maxLength: 72,
     description:
-      'Contraseña inicial. Si se omite, el servicio genera un hash aleatorio (la cuenta no queda usable con una contraseña conocida). En el registro manual del admin se envía siempre una contraseña temporal.',
+      'Contraseña inicial fuerte (mayúscula, minúscula, número y especial). Si se omite, el servicio genera un hash aleatorio. En el registro manual del admin se envía siempre una contraseña temporal.',
   })
   @IsOptional()
   @IsString()
   @MinLength(8)
   @MaxLength(72)
+  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
   password?: string;
 
   @ApiPropertyOptional({ enum: UserStatus, default: UserStatus.ACTIVE })

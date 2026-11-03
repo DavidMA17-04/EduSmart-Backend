@@ -9,11 +9,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
 import { DataSource, QueryFailedError } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { GroupStatus } from '../../../../common/enums/group-status.enum';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { generateCompliantPassword } from '../../../../common/utils/password-policy.util';
 import { MailService } from '../../../../integrations/mail/mail.service';
 import { tryLoadInstitutionLogoAttachment } from '../../../../integrations/mail/optional-logo.attachment';
 import { buildWelcomeCredentialsMail } from '../../../../integrations/mail/templates/welcome-credentials.mail';
@@ -90,9 +90,9 @@ export class BulkImportService {
     private readonly groupEnrollments: GroupEnrollmentsService,
   ) {}
 
-  /** Contraseña temporal criptográficamente segura (PO-02-03). */
+  /** Contraseña temporal que cumple la política institucional. */
   generateTemporaryPassword(): string {
-    return randomBytes(8).toString('base64url');
+    return generateCompliantPassword(12);
   }
 
   private normalizeKey(key: string): string {

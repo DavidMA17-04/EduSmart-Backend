@@ -202,7 +202,7 @@ describe('AuthService', () => {
 
     const result = await service.changePassword(
       { id: 1, email: activeUser.email, roles: [], permissions: [], mustChangePassword: false },
-      { currentPassword: 'Admin1234', newPassword: 'NuevaClave99' },
+      { currentPassword: 'Admin1234', newPassword: 'NuevaClave99!' },
     );
 
     expect(result.message).toMatch(/Contraseña actualizada/);
@@ -218,7 +218,7 @@ describe('AuthService', () => {
     await expect(
       service.changePassword(
         { id: 1, email: activeUser.email, roles: [], permissions: [], mustChangePassword: false },
-        { currentPassword: 'wrong-pass', newPassword: 'NuevaClave99' },
+        { currentPassword: 'wrong-pass', newPassword: 'NuevaClave99!' },
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });

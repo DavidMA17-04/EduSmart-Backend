@@ -127,12 +127,16 @@ describe('BulkImportService (PBI-05)', () => {
     };
   }
 
-  it('generates unique temporary passwords (not the legacy shared secret)', () => {
+  it('generates unique temporary passwords that meet the institutional policy', () => {
     const a = service.generateTemporaryPassword();
     const b = service.generateTemporaryPassword();
     expect(a).not.toEqual(b);
     expect(a).not.toBe('EduSmart2026*');
     expect(a.length).toBeGreaterThanOrEqual(8);
+    expect(a).toMatch(/[a-z]/);
+    expect(a).toMatch(/[A-Z]/);
+    expect(a).toMatch(/\d/);
+    expect(a).toMatch(/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/);
   });
 
   it('hashes per-user passwords and emails credentials after commit', async () => {
