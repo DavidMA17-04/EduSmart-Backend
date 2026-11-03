@@ -19,7 +19,7 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   @Matches(NATIONAL_ID_PATTERN, {
-    message: 'identifier must be a national ID with 9 to 12 digits',
+    message: 'La cédula debe tener entre 9 y 12 dígitos, sin guiones ni espacios.',
   })
   identifier!: string;
 

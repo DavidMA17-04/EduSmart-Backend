@@ -18,6 +18,7 @@ import { AuthBootstrapService } from './services/auth-bootstrap.service';
 import { AuthService } from './services/auth.service';
 import { PasswordRecoveryService } from './services/password-recovery.service';
 import { SessionsService } from './services/sessions.service';
+import { LoginAttemptsService } from './services/login-attempts.service';
 import { TokenService } from './services/token.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
@@ -47,6 +48,7 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
     TokenService,
     PasswordRecoveryService,
     SessionsService,
+    LoginAttemptsService,
     AuthRepository,
     PasswordResetTokensRepository,
     UserSessionsRepository,

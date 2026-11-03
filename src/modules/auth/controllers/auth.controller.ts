@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Post,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -31,6 +32,7 @@ import { VerifyAccountDto } from '../dto/verify-account.dto';
 import { RefreshTokenGuard } from '../guards/refresh-token.guard';
 import { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
 import { AuthService } from '../services/auth.service';
+import { LoginAttemptsService } from '../services/login-attempts.service';
 import { PasswordRecoveryService } from '../services/password-recovery.service';
 import { SessionsService } from '../services/sessions.service';
 import { requestClientMeta } from '../utils/request-client-meta';
@@ -43,6 +45,7 @@ export class AuthController {
     private readonly passwordRecoveryService: PasswordRecoveryService,
     private readonly accountVerificationService: AccountVerificationService,
     private readonly sessionsService: SessionsService,
+    private readonly loginAttempts: LoginAttemptsService,
   ) {}
 
   @Public()
@@ -56,8 +59,21 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Credenciales inválidas' })
   @ApiForbiddenResponse({ description: 'Cuenta inactiva o bloqueada' })
   @ApiResponse({ status: 200, description: 'Login exitoso con tokens y perfil' })
-  login(@Body() dto: LoginDto, @Req() req: Request) {
-    return this.authService.login(dto, requestClientMeta(req));
+  @ApiResponse({ status: 429, description: 'Demasiados intentos fallidos; esperar e intentar de nuevo' })
+  async login(@Body() dto: LoginDto, @Req() req: Request) {
+    const meta = requestClientMeta(req);
+    const identifier = dto.identifier.trim().replace(/-/g, '');
+    this.loginAttempts.assertAllowed(identifier, meta.ipAddress);
+    try {
+      const result = await this.authService.login(dto, meta);
+      this.loginAttempts.registerSuccess(identifier);
+      return result;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        this.loginAttempts.registerFailure(identifier, meta.ipAddress);
+      }
+      throw error;
+    }
   }
 
   @Get('me')

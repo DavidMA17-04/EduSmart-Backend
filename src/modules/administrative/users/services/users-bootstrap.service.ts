@@ -19,9 +19,12 @@ import { RolesRepository } from '../../roles/repositories/roles.repository';
 import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
 import { UsersRepository } from '../repositories/users.repository';
 import { Utf8RepairService } from '../../../../database/services/utf8-repair.service';
+import {
+  adminPasswordProblem,
+  DEV_ADMIN_PASSWORD,
+} from '../../../../config/environment.validation';
 
 const DEFAULT_ADMIN_EMAIL = 'admin@ctphojancha.ed.cr';
-const DEFAULT_ADMIN_PASSWORD = 'Admin1234';
 const DEFAULT_ADMIN_NATIONAL_ID = '100000000';
 
 @Injectable()
@@ -192,13 +195,41 @@ export class UsersBootstrapService implements OnModuleInit {
   private async ensureAdminUser(roleId: number) {
     const email = (process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL).trim().toLowerCase();
 
-    const password = process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD;
-
     const existing = await this.usersRepository.findByEmail(email);
+    const production = process.env.NODE_ENV === 'production';
+    const configured = process.env.ADMIN_PASSWORD?.trim() ?? '';
 
     if (existing) {
+      // La migración 001 siembra el administrador con la contraseña de ejemplo. En
+      // producción esa contraseña se reemplaza por ADMIN_PASSWORD y se exige cambiarla.
+      if (production && (await bcrypt.compare(DEV_ADMIN_PASSWORD, existing.password_hash))) {
+        const problem = configured
+          ? adminPasswordProblem(configured)
+          : 'Defina ADMIN_PASSWORD en el .env: el administrador todavía usa la contraseña de ejemplo.';
+        if (problem) {
+          throw new Error(`Administrador inicial inseguro: ${problem}`);
+        }
+        existing.password_hash = await bcrypt.hash(configured, 10);
+        existing.mustChangePassword = true;
+        await this.usersRepository.save(existing);
+        this.logger.warn(
+          `La contraseña de ejemplo del administrador ${email} se reemplazó por ADMIN_PASSWORD; deberá cambiarla al ingresar.`,
+        );
+      }
       return;
     }
+
+    // En producción el administrador inicial nunca se crea con la contraseña de ejemplo
+    // y debe cambiarla en su primer ingreso.
+    if (production) {
+      const problem = configured
+        ? adminPasswordProblem(configured)
+        : 'Defina ADMIN_PASSWORD en el .env para crear el administrador inicial.';
+      if (problem) {
+        throw new Error(`No se creó el administrador inicial: ${problem}`);
+      }
+    }
+    const password = configured || DEV_ADMIN_PASSWORD;
 
     const user = await this.usersRepository.save(
       this.usersRepository.create({
@@ -209,7 +240,7 @@ export class UsersBootstrapService implements OnModuleInit {
         email,
         password_hash: await bcrypt.hash(password, 10),
         status: UserStatus.ACTIVE,
-        mustChangePassword: false,
+        mustChangePassword: production,
       }),
     );
 

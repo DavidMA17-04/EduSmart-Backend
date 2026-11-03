@@ -23,6 +23,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
+import { dbSslFromEnv } from './lib/db-ssl.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(scriptDir, '..', '.env'), quiet: true });
@@ -48,6 +49,7 @@ const config = {
   user: process.env.DB_USERNAME || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_DATABASE || 'EduSmart',
+  ssl: dbSslFromEnv(),
 };
 
 function migrationFiles() {
@@ -107,8 +109,11 @@ async function ensureTracking(db) {
       PRIMARY KEY (name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+  // Llave primaria `id`: Aiven y otras bases en la nube exigen PK en toda tabla
+  // (sql_require_primary_key=ON). TypeORM inserta por nombre de columna, no le afecta.
   await db.query(`
     CREATE TABLE IF NOT EXISTS typeorm_metadata (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       type varchar(255) NOT NULL,
       \`database\` varchar(255) DEFAULT NULL,
       \`schema\` varchar(255) DEFAULT NULL,

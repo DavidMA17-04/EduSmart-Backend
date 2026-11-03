@@ -1,5 +1,7 @@
 import { Controller, Get, Header, Query, StreamableFile } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
+import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
+import { Permissions } from '../../../../common/decorators/permissions.decorator';
 import { SkipResponseWrap } from '../../../../common/decorators/skip-response-wrap.decorator';
 import { AcademicPeriodReportFilterDto } from '../dto/academic-period-report-filter.dto';
 import { AcademicStructureReportFilterDto } from '../dto/academic-structure-report-filter.dto';
@@ -16,6 +18,7 @@ import { AdministrativeReportsService } from '../services/administrative-reports
 @ApiTags('Administrative - Reports')
 @ApiBearerAuth()
 @Controller('administrative-reports')
+@Permissions(PERMISSIONS.ADMINISTRATOR_VIEW)
 export class AdministrativeReportsController {
   constructor(
     private readonly service: AdministrativeReportsService,

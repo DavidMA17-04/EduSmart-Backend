@@ -5,11 +5,13 @@ import { GroupEnrollmentsModule } from '../administrative/group-enrollments/grou
 import { TeachingAssignment } from '../administrative/teaching-assignments/entities/teaching-assignment.entity';
 import { AttendanceSession } from '../attendance/entities/attendance-session.entity';
 import { ScheduleEntriesController } from './controllers/schedule-entries.controller';
+import { ScheduleExportController } from './controllers/schedule-export.controller';
 import { ScheduleMyScheduleController } from './controllers/schedule-my-schedule.controller';
 import { ScheduleTimeSlotsController } from './controllers/schedule-time-slots.controller';
 import { ScheduleEntry } from './entities/schedule-entry.entity';
 import { ScheduleTimeSlot } from './entities/schedule-time-slot.entity';
 import { ScheduleEntriesService } from './services/schedule-entries.service';
+import { ScheduleExportService } from './services/schedule-export.service';
 import { ScheduleTimeSlotsService } from './services/schedule-time-slots.service';
 
 @Module({
@@ -27,8 +29,9 @@ import { ScheduleTimeSlotsService } from './services/schedule-time-slots.service
     ScheduleTimeSlotsController,
     ScheduleEntriesController,
     ScheduleMyScheduleController,
+    ScheduleExportController,
   ],
-  providers: [ScheduleTimeSlotsService, ScheduleEntriesService],
+  providers: [ScheduleTimeSlotsService, ScheduleEntriesService, ScheduleExportService],
   exports: [ScheduleTimeSlotsService, ScheduleEntriesService],
 })
 export class ScheduleModule {}

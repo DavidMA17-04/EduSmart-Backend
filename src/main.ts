@@ -8,6 +8,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { spanishValidationExceptionFactory } from './common/utils/validation-messages.util';
 import { isJustificationUploadPath } from './common/utils/protected-uploads.util';
 
 async function bootstrap() {
@@ -35,6 +36,10 @@ async function bootstrap() {
   });
   app.useStaticAssets(uploadsRoot, { prefix: '/uploads/' });
 
+  // Render (y Vercel al reenviar /api) ponen al visitante en X-Forwarded-For.
+  // Confiar en esos proxies permite que el límite de intentos de login vea la IP real.
+  app.set('trust proxy', true);
+
   app.setGlobalPrefix('api/v1');
 
   const configuredCorsOrigin = configService.get<string>('app.corsOrigin') ?? '*';
@@ -55,6 +60,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: spanishValidationExceptionFactory,
     }),
   );
 
@@ -65,8 +71,12 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  // La documentación de la API solo se publica fuera de producción
+  // (o en producción si se pide explícitamente con SWAGGER_ENABLED=true).
+  if (isDev || process.env.SWAGGER_ENABLED === 'true') {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = configService.get<number>('app.port') ?? 3000;
   await app.listen(port);

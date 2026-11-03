@@ -9,6 +9,15 @@ export interface ExcelColumn {
   wrapText?: boolean;
 }
 
+export interface ExcelCellStyle {
+  fill?: string;
+  bold?: boolean;
+  italic?: boolean;
+  color?: string;
+  size?: number;
+  align?: 'left' | 'center' | 'right';
+}
+
 export interface ExcelReportSpec {
   sheetName: string;
   title: string;
@@ -17,6 +26,30 @@ export interface ExcelReportSpec {
   appliedFilters: string;
   columns: ExcelColumn[];
   rows: Array<Array<string | number>>;
+  /** Texto del conteo en el encabezado. Por defecto "Registros exportados". */
+  countLabel?: string;
+  /** Filas alternas sombreadas. Por defecto true. */
+  zebra?: boolean;
+  /** Autofiltro en la fila de encabezados. Por defecto true. */
+  autoFilter?: boolean;
+  /** Inmoviliza la primera columna además del encabezado. */
+  freezeFirstColumn?: boolean;
+  /** Página horizontal, ajustada a una página de ancho al imprimir. */
+  landscape?: boolean;
+  /** Con `landscape`: imprime todo en una sola página (ancho y alto). */
+  fitToOnePage?: boolean;
+  /** Primera línea de la celda en negrita (p. ej. la materia sobre el detalle). */
+  boldFirstLine?: (rowIndex: number, columnIndex: number, value: string | number) => boolean;
+  /** Alto de una fila de datos (por defecto 20). */
+  rowHeight?: (rowIndex: number, values: Array<string | number>) => number | undefined;
+  /** Estilo propio de una celda de datos; reemplaza el sombreado alterno. */
+  cellStyle?: (
+    rowIndex: number,
+    columnIndex: number,
+    value: string | number,
+  ) => ExcelCellStyle | undefined;
+  /** Combina columnas de una fila de datos (índices desde 1, inclusivos). */
+  rowMerge?: (rowIndex: number, values: Array<string | number>) => [number, number] | undefined;
 }
 
 const LOGO_FILENAME = 'ctp-hojancha-logo.png';
@@ -72,7 +105,8 @@ export async function buildExcelBuffer(spec: ExcelReportSpec): Promise<Buffer> {
       {
         state: 'frozen',
         ySplit: HEADER_ROW,
-        topLeftCell: `A${DATA_START_ROW}`,
+        xSplit: spec.freezeFirstColumn ? 1 : 0,
+        topLeftCell: spec.freezeFirstColumn ? `B${DATA_START_ROW}` : `A${DATA_START_ROW}`,
         activeCell: `A${DATA_START_ROW}`,
         showGridLines: false,
       },
@@ -85,6 +119,16 @@ export async function buildExcelBuffer(spec: ExcelReportSpec): Promise<Buffer> {
   tryAddLogo(workbook, worksheet);
   drawTable(worksheet, spec);
   drawFooter(worksheet, spec, columnCount);
+  if (spec.landscape) {
+    worksheet.pageSetup = {
+      orientation: 'landscape',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: spec.fitToOnePage ? 1 : 0,
+      horizontalCentered: true,
+      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+    };
+  }
 
   const output = await workbook.xlsx.writeBuffer();
   return Buffer.from(output);
@@ -149,10 +193,14 @@ function drawInstitutionalHeader(
     size: 10,
     color: MUTED_COLOR,
   });
-  styleTextCell(worksheet.getCell(7, 1), `Registros exportados: ${spec.recordCount}`, {
-    size: 10,
-    color: MUTED_COLOR,
-  });
+  styleTextCell(
+    worksheet.getCell(7, 1),
+    `${spec.countLabel ?? 'Registros exportados'}: ${spec.recordCount}`,
+    {
+      size: 10,
+      color: MUTED_COLOR,
+    },
+  );
   styleTextCell(worksheet.getCell(8, 1), `Filtros aplicados: ${spec.appliedFilters}`, {
     size: 10,
     color: MUTED_COLOR,
@@ -212,15 +260,17 @@ function drawTable(worksheet: Worksheet, spec: ExcelReportSpec): void {
 
   const lastDataRow = spec.rows.length === 0 ? HEADER_ROW : HEADER_ROW + spec.rows.length;
 
-  worksheet.autoFilter = {
-    from: { row: HEADER_ROW, column: 1 },
-    to: { row: lastDataRow, column: spec.columns.length },
-  };
+  if (spec.autoFilter !== false) {
+    worksheet.autoFilter = {
+      from: { row: HEADER_ROW, column: 1 },
+      to: { row: lastDataRow, column: spec.columns.length },
+    };
+  }
 
   spec.rows.forEach((values, rowIndex) => {
     const excelRow = worksheet.getRow(DATA_START_ROW + rowIndex);
-    excelRow.height = 20;
-    const zebra = rowIndex % 2 === 1;
+    excelRow.height = spec.rowHeight?.(rowIndex, values) ?? 20;
+    const zebra = spec.zebra !== false && rowIndex % 2 === 1;
 
     spec.columns.forEach((column, columnIndex) => {
       const cell = excelRow.getCell(columnIndex + 1);
@@ -238,10 +288,32 @@ function drawTable(worksheet: Worksheet, spec: ExcelReportSpec): void {
       };
       cell.border = THIN_BORDER;
 
+      const custom = spec.cellStyle?.(rowIndex, columnIndex, value);
+      if (custom) {
+        cell.font = {
+          name: 'Calibri',
+          size: custom.size ?? 10,
+          bold: custom.bold === true,
+          italic: custom.italic === true,
+          color: { argb: custom.color ?? TEXT_COLOR },
+        };
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: custom.align ?? column.align ?? 'left',
+          wrapText: column.wrapText === true,
+        };
+      }
+
       const statusFill =
         column.header === 'Estado' && typeof value === 'string' ? STATUS_FILLS[value] : undefined;
 
-      if (statusFill) {
+      if (custom?.fill) {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: custom.fill },
+        };
+      } else if (statusFill) {
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
@@ -255,6 +327,27 @@ function drawTable(worksheet: Worksheet, spec: ExcelReportSpec): void {
         };
       }
     });
+
+    spec.columns.forEach((_column, columnIndex) => {
+      const value = values[columnIndex] ?? '';
+      if (typeof value !== 'string' || !spec.boldFirstLine?.(rowIndex, columnIndex, value)) return;
+      const cell = excelRow.getCell(columnIndex + 1);
+      const [first, ...rest] = value.split('\n');
+      const font = cell.font ?? {};
+      cell.value = {
+        richText: [
+          { text: first, font: { ...font, bold: true } },
+          ...(rest.length
+            ? [{ text: `\n${rest.join('\n')}`, font: { ...font, bold: false } }]
+            : []),
+        ],
+      };
+    });
+
+    const merge = spec.rowMerge?.(rowIndex, values);
+    if (merge && merge[1] > merge[0]) {
+      worksheet.mergeCells(excelRow.number, merge[0], excelRow.number, merge[1]);
+    }
   });
 }
 

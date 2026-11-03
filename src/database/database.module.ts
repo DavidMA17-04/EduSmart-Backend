@@ -26,6 +26,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
           charset: 'utf8mb4',
           timezone: 'Z',
           dateStrings: ['DATE'],
+          ssl: configService.get<{ ca?: string; rejectUnauthorized: boolean }>('database.ssl'),
           extra: {
             charset: 'utf8mb4',
           },
