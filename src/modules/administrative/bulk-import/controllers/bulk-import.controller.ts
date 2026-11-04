@@ -130,20 +130,4 @@ export class BulkImportController {
   findResult(@Param('jobId', ParseIntPipe) jobId: number) {
     return this.service.findResult(jobId);
   }
-
-  @Post('results')
-  @ApiOperation({
-    summary: 'Registrar resultado de importación (PBI-06)',
-    description:
-      'Guarda el contrato de resultado. No procesa Excel; el origen futuro será el motor de importación.',
-  })
-  registerResult(@Body() dto: RegisterImportResultDto) {
-    return this.service.registerResult(dto);
-  }
-
-  @Get(':jobId')
-  @ApiOperation({ summary: 'Consultar resultado de importación (WF-16)' })
-  findResult(@Param('jobId', ParseUUIDPipe) jobId: string) {
-    return this.service.findResult(jobId);
-  }
 }
