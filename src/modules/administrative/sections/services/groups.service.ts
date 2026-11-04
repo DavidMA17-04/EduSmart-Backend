@@ -1,8 +1,16 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { INSTITUTIONAL_ROLE_TEACHER } from '../../../../common/constants/institutional-roles.constant';
+import { GroupStatus } from '../../../../common/enums/group-status.enum';
+import { RoleStatus } from '../../../../common/enums/role-status.enum';
+import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { AcademicPeriodsRepository } from '../../academic-periods/repositories/academic-periods.repository';
+import { AcademicYearsRepository } from '../../academic-years/repositories/academic-years.repository';
+import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
 import { AssignGuideTeacherDto } from '../dto/assign-guide-teacher.dto';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
@@ -15,34 +23,55 @@ export class GroupsService {
   constructor(
     private readonly repository: GroupsRepository,
     private readonly sectionsService: SectionsService,
+    private readonly specialtiesRepository: SpecialtiesRepository,
+    private readonly academicPeriodsRepository: AcademicPeriodsRepository,
+    private readonly academicYearsRepository: AcademicYearsRepository,
   ) {}
 
   async create(dto: CreateGroupDto): Promise<GroupEntity> {
-    await this.sectionsService.findOne(dto.sectionId);
+    const section = await this.sectionsService.findOne(dto.sectionId);
     await this.ensureUniqueName(dto.sectionId, dto.name);
+    await this.ensureSpecialty(dto.specialtyId);
     if (dto.guideTeacherId) await this.ensureGuideTeacher(dto.guideTeacherId);
 
-    const group = this.repository.create({
-      name: dto.name,
-      studentCount: dto.studentCount ?? 0,
-      sectionId: dto.sectionId,
-      guideTeacherId: dto.guideTeacherId ?? null,
-    });
+    // Cascarón vacío: sin auto-promoción masiva de alumnos al crear sección.
+    const group = await this.repository.save(
+      this.repository.create({
+        name: dto.name,
+        studentCount: 0,
+        maxCapacity: dto.maxCapacity,
+        sectionId: dto.sectionId,
+        specialtyId: dto.specialtyId ?? null,
+        academicPeriodId: dto.academicPeriodId ?? section.academicPeriodId,
+        status: dto.status ?? GroupStatus.ACTIVE,
+      }),
+    );
 
-    return this.repository.save(group);
+    if (dto.guideTeacherId) {
+      await this.repository.assignGuideTeacher(group, dto.guideTeacherId);
+    }
+
+    return this.findOne(group.id);
   }
 
   async findAll(): Promise<GroupEntity[]> {
     return this.repository.findAll();
   }
 
-  async findOne(id: string): Promise<GroupEntity> {
+  async findVisibleForTeacher(): Promise<GroupEntity[]> {
+    const periodIds = await this.activePeriodIds();
+    if (periodIds.length === 0) return [];
+    const all = await this.repository.findAll();
+    return all.filter((group) => periodIds.includes(group.academicPeriodId));
+  }
+
+  async findOne(id: number): Promise<GroupEntity> {
     const group = await this.repository.findById(id);
     if (!group) throw new NotFoundException(`Group ${id} not found`);
     return group;
   }
 
-  async update(id: string, dto: UpdateGroupDto): Promise<GroupEntity> {
+  async update(id: number, dto: UpdateGroupDto): Promise<GroupEntity> {
     const group = await this.findOne(id);
     const sectionId = dto.sectionId ?? group.sectionId;
     const name = dto.name ?? group.name;
@@ -53,63 +82,97 @@ export class GroupsService {
     if (sectionId !== group.sectionId || name !== group.name) {
       await this.ensureUniqueName(sectionId, name, id);
     }
-    if (dto.guideTeacherId && dto.guideTeacherId !== group.guideTeacherId) {
-      await this.ensureGuideTeacher(dto.guideTeacherId);
+
+    if (dto.sectionId !== undefined) group.sectionId = dto.sectionId;
+    if (dto.name !== undefined) group.name = dto.name;
+    if (dto.studentCount !== undefined) group.studentCount = dto.studentCount;
+    if (dto.maxCapacity !== undefined) {
+      if (dto.maxCapacity < group.studentCount) {
+        throw new BadRequestException(
+          `El cupo máximo (${dto.maxCapacity}) no puede ser menor que los alumnos inscritos (${group.studentCount}).`,
+        );
+      }
+      group.maxCapacity = dto.maxCapacity;
+    }
+    if (dto.specialtyId !== undefined) {
+      await this.ensureSpecialty(dto.specialtyId);
+      group.specialtyId = dto.specialtyId ?? null;
+    }
+    if (dto.status !== undefined) group.status = dto.status;
+    if (dto.academicPeriodId !== undefined) {
+      group.academicPeriodId = dto.academicPeriodId;
+    } else if (dto.sectionId && dto.sectionId !== group.sectionId) {
+      const section = await this.sectionsService.findOne(dto.sectionId);
+      group.academicPeriodId = section.academicPeriodId;
     }
 
-    group.sectionId = sectionId;
-    group.name = name;
-    if (dto.studentCount !== undefined) group.studentCount = dto.studentCount;
+    await this.repository.save(group);
 
     if (dto.guideTeacherId !== undefined) {
       if (dto.guideTeacherId) await this.ensureGuideTeacher(dto.guideTeacherId);
-      await this.repository.updateGuideTeacher(id, dto.guideTeacherId);
-    }
-
-    if (dto.sectionId !== undefined || dto.name !== undefined || dto.studentCount !== undefined) {
-      await this.repository.save({
-        id: group.id,
-        sectionId,
-        name,
-        studentCount: dto.studentCount !== undefined ? dto.studentCount : group.studentCount,
-      } as GroupEntity);
+      await this.repository.assignGuideTeacher(group, dto.guideTeacherId ?? null);
     }
 
     return this.findOne(id);
   }
 
-  async assignGuideTeacher(
-    id: string,
-    dto: AssignGuideTeacherDto,
-  ): Promise<GroupEntity> {
-    await this.findOne(id);
+  async assignGuideTeacher(id: number, dto: AssignGuideTeacherDto): Promise<GroupEntity> {
+    const group = await this.findOne(id);
     if (dto.guideTeacherId) {
       await this.ensureGuideTeacher(dto.guideTeacherId);
     }
-    await this.repository.updateGuideTeacher(id, dto.guideTeacherId ?? null);
+    await this.repository.assignGuideTeacher(group, dto.guideTeacherId ?? null);
     return this.findOne(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     await this.repository.remove(await this.findOne(id));
   }
 
+  private async activePeriodIds(): Promise<number[]> {
+    const activeYear = await this.academicYearsRepository.findActive();
+    if (activeYear) {
+      const periods = await this.academicPeriodsRepository.findByAcademicYearId(activeYear.id);
+      return periods.map((p) => p.id);
+    }
+    const activePeriods = await this.academicPeriodsRepository.findActive();
+    return activePeriods.map((p) => p.id);
+  }
+
   private async ensureUniqueName(
-    sectionId: string,
+    sectionId: number,
     name: string,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
     const existing = await this.repository.findBySectionAndName(sectionId, name);
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException(
-        `Group name "${name}" already exists in this section`,
-      );
+      throw new ConflictException(`Group name "${name}" already exists in this section`);
     }
   }
 
-  private async ensureGuideTeacher(id: string): Promise<void> {
-    if (!(await this.repository.findUserById(id))) {
+  private async ensureSpecialty(id?: number | null): Promise<void> {
+    if (id == null) return;
+    const specialty = await this.specialtiesRepository.findById(id);
+    if (!specialty) {
+      throw new NotFoundException(`Specialty ${id} not found`);
+    }
+  }
+
+  private async ensureGuideTeacher(id: number): Promise<void> {
+    const user = await this.repository.findUserById(id);
+    if (!user) {
       throw new NotFoundException(`Guide teacher ${id} not found`);
+    }
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new BadRequestException('El docente debe tener una cuenta activa.');
+    }
+    const isTeacher = user.roles.some(
+      (role) => role.name === INSTITUTIONAL_ROLE_TEACHER && role.status === RoleStatus.ACTIVE,
+    );
+    if (!isTeacher) {
+      throw new BadRequestException(
+        'Solo usuarios con rol Docente pueden asignarse como docente guía.',
+      );
     }
   }
 }

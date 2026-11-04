@@ -2,6 +2,8 @@
 /dist
 /coverage
 /build
+/uploads
+/storage
 
 # Environment
 .env
@@ -23,3 +25,6 @@ Thumbs.db
 # TypeScript / build caches
 *.tsbuildinfo
 .eslintcache
+
+# Local DB dumps (never commit)
+src/database/backups/

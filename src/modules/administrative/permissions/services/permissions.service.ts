@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PermissionAction } from '../../../../common/enums/permission-action.enum';
 import { PermissionModule } from '../../../../common/enums/permission-module.enum';
 import { CreatePermissionDto } from '../dto/create-permission.dto';
@@ -34,7 +30,7 @@ export class PermissionsService {
     return this.repository.findAll();
   }
 
-  async findOne(id: string): Promise<PermissionEntity> {
+  async findOne(id: number): Promise<PermissionEntity> {
     const permission = await this.repository.findById(id);
     if (!permission) {
       throw new NotFoundException(`Permission ${id} not found`);
@@ -42,28 +38,20 @@ export class PermissionsService {
     return permission;
   }
 
-  async update(
-    id: string,
-    dto: UpdatePermissionDto,
-  ): Promise<PermissionEntity> {
+  async update(id: number, dto: UpdatePermissionDto): Promise<PermissionEntity> {
     const permission = await this.findOne(id);
 
     const nextModule = dto.module ?? permission.module;
     const nextAction = dto.action ?? permission.action;
     const nextCode =
       dto.code ??
-      (dto.module || dto.action
-        ? this.buildCode(nextModule, nextAction)
-        : permission.code);
+      (dto.module || dto.action ? this.buildCode(nextModule, nextAction) : permission.code);
 
     if (nextCode !== permission.code) {
       await this.ensureUniqueCode(nextCode, id);
     }
 
-    if (
-      nextModule !== permission.module ||
-      nextAction !== permission.action
-    ) {
+    if (nextModule !== permission.module || nextAction !== permission.action) {
       await this.ensureUniqueModuleAction(nextModule, nextAction, id);
     }
 
@@ -77,7 +65,7 @@ export class PermissionsService {
     return this.repository.save(permission);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const permission = await this.findOne(id);
     const usage = await this.repository.countRolesUsingPermission(id);
 
@@ -90,32 +78,37 @@ export class PermissionsService {
     await this.repository.remove(permission);
   }
 
-  async findByIdsOrFail(ids: string[]): Promise<PermissionEntity[]> {
+  async findByIdsOrFail(ids: number[]): Promise<PermissionEntity[]> {
     const uniqueIds = [...new Set(ids)];
     const permissions = await this.repository.findByIds(uniqueIds);
 
     if (permissions.length !== uniqueIds.length) {
       const found = new Set(permissions.map((item) => item.id));
       const missing = uniqueIds.filter((id) => !found.has(id));
-      throw new NotFoundException(
-        `Permissions not found: ${missing.join(', ')}`,
-      );
+      throw new NotFoundException(`Permissions not found: ${missing.join(', ')}`);
     }
 
     return permissions;
   }
 
-  private buildCode(
-    module: PermissionModule,
-    action: PermissionAction,
-  ): string {
+  async findByCodesOrFail(codes: string[]): Promise<PermissionEntity[]> {
+    const uniqueCodes = [...new Set(codes)];
+    const permissions = await this.repository.findByCodes(uniqueCodes);
+
+    if (permissions.length !== uniqueCodes.length) {
+      const found = new Set(permissions.map((item) => item.code));
+      const missing = uniqueCodes.filter((code) => !found.has(code));
+      throw new NotFoundException(`Permissions not found by code: ${missing.join(', ')}`);
+    }
+
+    return permissions;
+  }
+
+  private buildCode(module: PermissionModule, action: PermissionAction): string {
     return `${module.toLowerCase()}.${action.toLowerCase()}`;
   }
 
-  private async ensureUniqueCode(
-    code: string,
-    excludeId?: string,
-  ): Promise<void> {
+  private async ensureUniqueCode(code: string, excludeId?: number): Promise<void> {
     const existing = await this.repository.findByCode(code);
     if (existing && existing.id !== excludeId) {
       throw new ConflictException(`Permission code "${code}" already exists`);
@@ -125,12 +118,9 @@ export class PermissionsService {
   private async ensureUniqueModuleAction(
     module: PermissionModule,
     action: PermissionAction,
-    excludeId?: string,
+    excludeId?: number,
   ): Promise<void> {
-    const existing = await this.repository.findByModuleAndAction(
-      module,
-      action,
-    );
+    const existing = await this.repository.findByModuleAndAction(module, action);
     if (existing && existing.id !== excludeId) {
       throw new ConflictException(
         `Permission for module "${module}" and action "${action}" already exists`,

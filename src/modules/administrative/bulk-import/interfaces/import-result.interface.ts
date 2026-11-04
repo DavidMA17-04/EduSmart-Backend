@@ -4,7 +4,7 @@ import { ImportSummaryDto } from '../dto/import-summary.dto';
 
 /** Contrato que consume PBI-06. Independiente del origen (Excel u otro). */
 export interface ImportResult {
-  jobId: string;
+  jobId: number;
   type: string;
   successfulRecords: ImportSuccessRecordDto[];
   errorRecords: ImportErrorRecordDto[];

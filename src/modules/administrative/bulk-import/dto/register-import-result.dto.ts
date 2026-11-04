@@ -1,11 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsOptional,
-  IsString,
-  ValidateNested,
-} from 'class-validator';
+import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { ImportErrorRecordDto } from './import-error-record.dto';
 import { ImportSuccessRecordDto } from './import-success-record.dto';
 import { ImportSummaryDto } from './import-summary.dto';

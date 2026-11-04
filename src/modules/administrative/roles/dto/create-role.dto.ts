@@ -3,12 +3,13 @@ import {
   ArrayUnique,
   IsArray,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { RoleStatus } from '../../../../common/enums/role-status.enum';
 
 export class CreateRoleDto {
@@ -30,13 +31,13 @@ export class CreateRoleDto {
   status?: RoleStatus;
 
   @ApiPropertyOptional({
-    type: [String],
-    format: 'uuid',
+    type: [Number],
     description: 'IDs de permisos a asignar al crear el rol',
   })
   @IsOptional()
   @IsArray()
   @ArrayUnique()
-  @IsUUID('4', { each: true })
-  permissionIds?: string[];
+  @Type(() => Number)
+  @IsInt({ each: true })
+  permissionIds?: number[];
 }

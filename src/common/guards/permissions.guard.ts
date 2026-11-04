@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Permission } from '../constants/permissions.constant';
 import { PERMISSIONS_KEY } from '../constants/metadata.constant';
+import { Role } from '../enums/role.enum';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -18,10 +19,14 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<{
-      user?: { permissions?: Permission[] };
+      user?: { permissions?: Permission[]; roles?: Role[] };
     }>();
-    const userPermissions = request.user?.permissions ?? [];
+    const userRoles = request.user?.roles ?? [];
+    if (userRoles.includes(Role.ADMIN)) {
+      return true;
+    }
 
+    const userPermissions = request.user?.permissions ?? [];
     return requiredPermissions.every((permission) => userPermissions.includes(permission));
   }
 }

@@ -21,20 +21,16 @@ export class SectionsRepository {
 
   async findAll(): Promise<SectionEntity[]> {
     return this.repository.find({
-      relations: { groups: true },
-      order: { code: 'ASC' },
+      relations: { groups: true, specialty: true, academicPeriod: true },
+      order: { gradeLevel: 'ASC', name: 'ASC' },
     });
   }
 
-  async findById(id: string): Promise<SectionEntity | null> {
+  async findById(id: number): Promise<SectionEntity | null> {
     return this.repository.findOne({
       where: { id },
-      relations: { groups: true },
+      relations: { groups: true, specialty: true, academicPeriod: true },
     });
-  }
-
-  async findByCode(code: string): Promise<SectionEntity | null> {
-    return this.repository.findOne({ where: { code } });
   }
 
   async deactivate(entity: SectionEntity): Promise<SectionEntity> {

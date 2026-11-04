@@ -1,0 +1,193 @@
+import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { CreateUserDto } from '../dto/create-user.dto';
+import { UsersService } from './users.service';
+
+describe('UsersService.create verification side effects', () => {
+  let repository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    replaceRoles: jest.Mock;
+    findById: jest.Mock;
+    findByNationalId: jest.Mock;
+    findByEmail: jest.Mock;
+  };
+  let rolesRepository: { findById: jest.Mock };
+  let auditLogService: { record: jest.Mock };
+  let accountVerificationService: { issueAndSend: jest.Mock };
+  let mailService: { sendMail: jest.Mock };
+  let departmentsService: { getByIdOrFail: jest.Mock };
+  let teacherProfiles: {
+    findOne: jest.Mock;
+    delete: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+  };
+  let service: UsersService;
+
+  const basePersisted = {
+    id: 42,
+    national_id: '109870543',
+    nationalId: '109870543',
+    name: 'María',
+    first_lastname: 'Vargas',
+    second_lastname: 'Soto',
+    email: 'maria.pending@ctphojancha.ed.cr',
+    phone: null,
+    password_hash: 'hash',
+    mustChangePassword: true,
+    roles: [{ id: 1, name: 'Docente', status: 'ACTIVE' }],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(() => {
+    repository = {
+      create: jest.fn((data) => ({ ...data })),
+      save: jest.fn(async (user) => ({ ...user, id: 42 })),
+      replaceRoles: jest.fn().mockResolvedValue(undefined),
+      findById: jest.fn(),
+      findByNationalId: jest.fn().mockResolvedValue(null),
+      findByEmail: jest.fn().mockResolvedValue(null),
+    };
+    rolesRepository = {
+      findById: jest.fn().mockResolvedValue({ id: 1, name: 'Docente', status: 'ACTIVE' }),
+    };
+    auditLogService = { record: jest.fn().mockResolvedValue(undefined) };
+    accountVerificationService = {
+      issueAndSend: jest.fn().mockResolvedValue(undefined),
+    };
+    mailService = { sendMail: jest.fn().mockResolvedValue(undefined) };
+    departmentsService = {
+      getByIdOrFail: jest.fn().mockResolvedValue({ id: 1, code: 'CIENCIAS', name: 'Ciencias' }),
+    };
+    teacherProfiles = {
+      findOne: jest.fn().mockResolvedValue(null),
+      delete: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn(async (row) => row),
+      create: jest.fn((row) => row),
+    };
+
+    service = new UsersService(
+      repository as never,
+      rolesRepository as never,
+      auditLogService as never,
+      accountVerificationService as never,
+      departmentsService as never,
+      {} as never,
+      teacherProfiles as never,
+      { createQueryBuilder: jest.fn() } as never,
+      mailService as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+      {} as never,
+      {} as never,
+    );
+  });
+
+  it('create PENDING issues verification code (PBI-16)', async () => {
+    repository.findById.mockResolvedValue({
+      ...basePersisted,
+      status: UserStatus.PENDING,
+    });
+
+    const dto: CreateUserDto = {
+      nationalId: '109870543',
+      name: 'María',
+      first_lastname: 'Vargas',
+      second_lastname: 'Soto',
+      email: 'maria.pending@ctphojancha.ed.cr',
+      status: UserStatus.PENDING,
+      roleIds: [1],
+      departmentId: 1,
+      password: 'Temporal1!',
+    };
+
+    const view = await service.create(dto, 7);
+
+    expect(view.status).toBe(UserStatus.PENDING);
+    expect(accountVerificationService.issueAndSend).toHaveBeenCalledWith(42, 7);
+    expect(auditLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'USER_CREATED',
+        entityId: '42',
+      }),
+    );
+  });
+
+  it('create ACTIVE does not issue verification', async () => {
+    repository.findById.mockResolvedValue({
+      ...basePersisted,
+      status: UserStatus.ACTIVE,
+      email: 'maria.active@ctphojancha.ed.cr',
+    });
+
+    const dto: CreateUserDto = {
+      nationalId: '109870543',
+      name: 'María',
+      first_lastname: 'Vargas',
+      email: 'maria.active@ctphojancha.ed.cr',
+      status: UserStatus.ACTIVE,
+      roleIds: [1],
+      departmentId: 1,
+      password: 'Temporal1!',
+    };
+
+    const view = await service.create(dto, 7);
+
+    expect(view.status).toBe(UserStatus.ACTIVE);
+    expect(accountVerificationService.issueAndSend).not.toHaveBeenCalled();
+    expect(mailService.sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'maria.active@ctphojancha.ed.cr',
+        text: expect.stringContaining('Temporal1!'),
+      }),
+    );
+  });
+
+  it('create ACTIVE without password emails a generated temporary password', async () => {
+    repository.findById.mockResolvedValue({
+      ...basePersisted,
+      status: UserStatus.ACTIVE,
+      email: 'maria.active@ctphojancha.ed.cr',
+    });
+
+    await service.create(
+      {
+        nationalId: '109870543',
+        name: 'María',
+        first_lastname: 'Vargas',
+        email: 'maria.active@ctphojancha.ed.cr',
+        status: UserStatus.ACTIVE,
+        roleIds: [1],
+        departmentId: 1,
+      },
+      7,
+    );
+
+    expect(mailService.sendMail).toHaveBeenCalledTimes(1);
+    expect(mailService.sendMail.mock.calls[0][0].text).toMatch(/[A-Za-z0-9_-]{11}/);
+  });
+
+  it('create ACTIVE still succeeds when mail fails', async () => {
+    repository.findById.mockResolvedValue({
+      ...basePersisted,
+      status: UserStatus.ACTIVE,
+    });
+    mailService.sendMail.mockRejectedValue(new Error('SMTP down'));
+
+    const view = await service.create(
+      {
+        nationalId: '109870543',
+        name: 'María',
+        first_lastname: 'Vargas',
+        email: 'maria.pending@ctphojancha.ed.cr',
+        status: UserStatus.ACTIVE,
+        roleIds: [1],
+        departmentId: 1,
+        password: 'Temporal1!',
+      },
+      7,
+    );
+
+    expect(view.status).toBe(UserStatus.ACTIVE);
+  });
+});

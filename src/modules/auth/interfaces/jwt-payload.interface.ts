@@ -1,6 +1,8 @@
 export interface JwtPayload {
-  sub: string;
+  sub: number;
   email: string;
   roles: string[];
   permissions?: string[];
+  sid?: number;
+  mustChangePassword: boolean;
 }

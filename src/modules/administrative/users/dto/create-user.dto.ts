@@ -1,17 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsEmail,
   IsEnum,
+  IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
-  IsUUID,
   Matches,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UserStatus } from '../../../../common/enums/user-status.enum';
+import {
+  STRONG_PASSWORD_MESSAGE,
+  STRONG_PASSWORD_REGEX,
+} from '../../../../common/utils/password-policy.util';
 
 const NATIONAL_ID_PATTERN = /^[0-9]{9,12}$/;
 
@@ -23,17 +31,28 @@ export class CreateUserDto {
   })
   nationalId!: string;
 
-  @ApiProperty({ example: 'María' })
+  @ApiPropertyOptional({ example: '109870543' })
+  @IsOptional()
   @IsString()
-  @MinLength(2)
-  @MaxLength(80)
-  firstName!: string;
+  national_id?: string;
 
-  @ApiProperty({ example: 'Vargas Soto' })
+  @ApiProperty({ example: 'María', description: 'Nombres de pila' })
   @IsString()
-  @MinLength(2)
-  @MaxLength(120)
-  lastName!: string;
+  @IsNotEmpty()
+  @MaxLength(100)
+  name!: string;
+
+  @ApiProperty({ example: 'Vargas', description: 'Primer apellido' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  first_lastname!: string;
+
+  @ApiPropertyOptional({ example: 'Soto', description: 'Segundo apellido (opcional)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  second_lastname?: string;
 
   @ApiProperty({ example: 'maria.vargas@ctphojancha.ed.cr' })
   @IsEmail()
@@ -48,12 +67,15 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({
     minLength: 8,
-    description: 'Contraseña inicial. Si se omite, la cuenta queda sin hash de acceso.',
+    maxLength: 72,
+    description:
+      'Contraseña inicial fuerte (mayúscula, minúscula, número y especial). Si se omite, el servicio genera un hash aleatorio. En el registro manual del admin se envía siempre una contraseña temporal.',
   })
   @IsOptional()
   @IsString()
   @MinLength(8)
   @MaxLength(72)
+  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
   password?: string;
 
   @ApiPropertyOptional({ enum: UserStatus, default: UserStatus.ACTIVE })
@@ -61,23 +83,35 @@ export class CreateUserDto {
   @IsEnum(UserStatus)
   status?: UserStatus;
 
-  @ApiPropertyOptional({
-    type: [String],
-    format: 'uuid',
-    description: 'IDs de roles institucionales (una persona puede tener más de un rol)',
+  @ApiProperty({
+    type: [Number],
+    description: 'IDs de roles institucionales (obligatorio; al menos uno)',
   })
-  @IsOptional()
   @IsArray()
+  @ArrayMinSize(1, { message: 'Debe asignar al menos un rol' })
   @ArrayUnique()
-  @IsUUID('4', { each: true })
-  roleIds?: string[];
+  @Type(() => Number)
+  @IsInt({ each: true })
+  roleIds!: number[];
 
   @ApiPropertyOptional({
-    description: 'Nombre de visualización. Si se omite se arma con nombre y apellidos.',
+    example: 1,
+    description:
+      'Departamento académico. Obligatorio cuando el usuario tiene rol Docente.',
   })
   @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(150)
-  name?: string;
+  @Type(() => Number)
+  @IsInt()
+  departmentId?: number;
+
+  @ApiPropertyOptional({
+    example: 12,
+    description:
+      'Sección (grupo) a matricular. Obligatorio cuando el usuario tiene rol Estudiante y estado ACTIVE.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  groupId?: number;
 }

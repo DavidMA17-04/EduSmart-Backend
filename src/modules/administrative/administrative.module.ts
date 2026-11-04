@@ -1,30 +1,51 @@
 import { Module } from '@nestjs/common';
+import { DepartmentsModule } from './departments/departments.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { SpecialtiesModule } from './specialties/specialties.module';
+import { SubjectsModule } from './subjects/subjects.module';
 import { SectionsModule } from './sections/sections.module';
 import { AcademicPeriodsModule } from './academic-periods/academic-periods.module';
+import { AcademicYearsModule } from './academic-years/academic-years.module';
+import { AcademicOfferingsModule } from './academic-offerings/academic-offerings.module';
+import { TeachingAssignmentsModule } from './teaching-assignments/teaching-assignments.module';
+import { GroupEnrollmentsModule } from './group-enrollments/group-enrollments.module';
 import { BulkImportModule } from './bulk-import/bulk-import.module';
+import { AdministrativeReportsModule } from './reports/administrative-reports.module';
 
 @Module({
   imports: [
+    DepartmentsModule,
     UsersModule,
     RolesModule,
     PermissionsModule,
     SpecialtiesModule,
+    SubjectsModule,
     SectionsModule,
+    AcademicYearsModule,
     AcademicPeriodsModule,
+    AcademicOfferingsModule,
+    TeachingAssignmentsModule,
+    GroupEnrollmentsModule,
     BulkImportModule,
+    AdministrativeReportsModule,
   ],
   exports: [
+    DepartmentsModule,
     UsersModule,
     RolesModule,
     PermissionsModule,
     SpecialtiesModule,
+    SubjectsModule,
     SectionsModule,
+    AcademicYearsModule,
     AcademicPeriodsModule,
+    AcademicOfferingsModule,
+    TeachingAssignmentsModule,
+    GroupEnrollmentsModule,
     BulkImportModule,
+    AdministrativeReportsModule,
   ],
 })
 export class AdministrativeModule {}

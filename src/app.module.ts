@@ -9,9 +9,14 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AdministrativeModule } from './modules/administrative/administrative.module';
 import { StudentsModule } from './modules/students/students.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ScheduleModule } from './modules/schedule/schedule.module';
 import { DisciplinaryModule } from './modules/disciplinary/disciplinary.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { AppealsModule } from './modules/appeals/appeals.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PublicModule } from './modules/public/public.module';
+import { StudentDeparturesModule } from './modules/student-departures/student-departures.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -32,9 +37,14 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     AdministrativeModule,
     StudentsModule,
     AttendanceModule,
+    ScheduleModule,
     DisciplinaryModule,
     CommunicationsModule,
     AppealsModule,
+    DashboardModule,
+    NotificationsModule,
+    PublicModule,
+    StudentDeparturesModule,
   ],
   providers: [
     {

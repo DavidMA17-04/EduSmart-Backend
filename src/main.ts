@@ -1,19 +1,51 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json, urlencoded } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import { AppModule } from './app.module';
+import { spanishValidationExceptionFactory } from './common/utils/validation-messages.util';
+import { isJustificationUploadPath } from './common/utils/protected-uploads.util';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Desactivar body parser por defecto (~100kb) para aplicar límites 50mb
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
   const configService = app.get(ConfigService);
+
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
+
+  const uploadsRoot = join(process.cwd(), 'uploads');
+  if (!existsSync(uploadsRoot)) {
+    mkdirSync(uploadsRoot, { recursive: true });
+  }
+  // Evidencias PBI-27 contienen datos sensibles: solo se entregan por
+  // GET /api/v1/attendance/justifications/:id/evidence/:evidenceId.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (isJustificationUploadPath(req.path)) {
+      res.status(404).end();
+      return;
+    }
+    next();
+  });
+  app.useStaticAssets(uploadsRoot, { prefix: '/uploads/' });
+
+  // Render (y Vercel al reenviar /api) ponen al visitante en X-Forwarded-For.
+  // Confiar en esos proxies permite que el límite de intentos de login vea la IP real.
+  app.set('trust proxy', true);
 
   app.setGlobalPrefix('api/v1');
 
-  const configuredCorsOrigin =
-    configService.get<string>('app.corsOrigin') ?? '*';
+  const configuredCorsOrigin = configService.get<string>('app.corsOrigin') ?? '*';
+  const isDev = (configService.get<string>('app.nodeEnv') ?? 'development') !== 'production';
   const corsOrigins =
-    configuredCorsOrigin === '*'
+    configuredCorsOrigin === '*' || isDev
       ? true
       : configuredCorsOrigin.split(',').map((origin) => origin.trim());
 
@@ -28,6 +60,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: spanishValidationExceptionFactory,
     }),
   );
 
@@ -38,8 +71,12 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  // La documentación de la API solo se publica fuera de producción
+  // (o en producción si se pide explícitamente con SWAGGER_ENABLED=true).
+  if (isDev || process.env.SWAGGER_ENABLED === 'true') {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = configService.get<number>('app.port') ?? 3000;
   await app.listen(port);

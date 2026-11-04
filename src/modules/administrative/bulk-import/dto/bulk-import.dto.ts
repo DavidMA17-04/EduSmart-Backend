@@ -1,8 +1,264 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
+import { UserStatus } from '../../../../common/enums/user-status.enum';
 
-export class BulkImportDto {
-  @ApiProperty({ description: 'Identificador del tipo de carga masiva' })
+export enum UserRoleEnum {
+  ESTUDIANTE = 'ESTUDIANTE',
+  DOCENTE = 'DOCENTE',
+  ADMINISTRATIVO = 'ADMINISTRATIVO',
+  DIRECTIVO = 'DIRECTIVO',
+}
+
+export type RowValidationStatus = 'VALID' | 'WARNING' | 'ERROR';
+
+export class ResolvedGroupDto {
+  @ApiProperty({ example: 12 })
+  groupId!: number;
+
+  @ApiProperty({ example: '10-1' })
+  groupName!: string;
+
+  @ApiProperty({ example: 3 })
+  academicPeriodId!: number;
+
+  @ApiProperty({ example: 'Curso lectivo 2026' })
+  academicPeriodName!: string;
+}
+
+export class ImportedUserRowDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  row?: number;
+
+  @ApiPropertyOptional({ example: 'tmp-1' })
+  @IsOptional()
   @IsString()
-  type!: string;
+  tempId?: string;
+
+  @ApiPropertyOptional({ enum: ['VALID', 'WARNING', 'ERROR'], example: 'VALID' })
+  @IsOptional()
+  @IsString()
+  status?: RowValidationStatus;
+
+  @ApiProperty({ example: '504120893' })
+  @IsString()
+  @IsNotEmpty()
+  national_id!: string;
+
+  @ApiProperty({ example: 'Aaron José' })
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @ApiProperty({ example: 'Solano' })
+  @IsString()
+  @IsNotEmpty()
+  first_lastname!: string;
+
+  @ApiPropertyOptional({ example: 'Mendoza' })
+  @IsOptional()
+  @IsString()
+  second_lastname?: string | null;
+
+  @ApiProperty({ example: 'asolano@ctphojancha.ed.cr' })
+  @IsEmail()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiProperty({ example: 'ESTUDIANTE' })
+  @IsString()
+  @IsNotEmpty()
+  role!: string;
+
+  @ApiPropertyOptional({ example: '11-B' })
+  @IsOptional()
+  @IsString()
+  section?: string | null;
+
+  @ApiPropertyOptional({ example: '8744-1234' })
+  @IsOptional()
+  @IsString()
+  phone?: string | null;
+
+  @ApiPropertyOptional({ enum: UserStatus, example: UserStatus.ACTIVE })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  user_status?: UserStatus;
+
+  @ApiPropertyOptional({
+    type: ResolvedGroupDto,
+    nullable: true,
+    description:
+      'Grupo resuelto desde la sección (solo informativo; la confirmación lo recalcula en el servidor)',
+  })
+  @IsOptional()
+  @IsObject()
+  resolvedGroup?: ResolvedGroupDto | null;
+
+  @ApiPropertyOptional({ type: [String], example: ['Sin observaciones'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  observations?: string[];
+
+  @ApiPropertyOptional({ type: [String], example: ['national_id'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  invalidFields?: string[];
+
+  @ApiPropertyOptional({ type: [String], example: ['Cédula duplicada en archivo'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  errorMessages?: string[];
+
+  @ApiPropertyOptional({ type: [String], example: ['Estudiante sin sección'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  warningMessages?: string[];
+}
+
+export class BulkImportBreakdownDto {
+  @ApiProperty({ example: 4 })
+  duplicateNationalId!: number;
+
+  @ApiProperty({ example: 3 })
+  duplicateEmail!: number;
+
+  @ApiProperty({ example: 3 })
+  requiredFieldsMissing!: number;
+
+  @ApiProperty({ example: 2 })
+  invalidEmail!: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Roles no permitidos en importación masiva (distintos de ESTUDIANTE)',
+  })
+  invalidRole!: number;
+}
+
+export class KPISummaryDto {
+  @ApiProperty({ example: 248 })
+  totalRows!: number;
+
+  @ApiProperty({ example: 218 })
+  validRows!: number;
+
+  @ApiProperty({ example: 87.9 })
+  validPercentage!: number;
+
+  @ApiProperty({ example: 18 })
+  warningRows!: number;
+
+  @ApiProperty({ example: 7.3 })
+  warningPercentage!: number;
+
+  @ApiProperty({ example: 12 })
+  errorRows!: number;
+
+  @ApiProperty({ example: 4.8 })
+  errorPercentage!: number;
+}
+
+export class ValidateBulkImportResponseDto {
+  @ApiProperty({ example: 248 })
+  total!: number;
+
+  @ApiProperty({ example: 218 })
+  valid!: number;
+
+  @ApiProperty({ example: 87.9 })
+  validPercentage!: number;
+
+  @ApiProperty({ example: 18 })
+  warnings!: number;
+
+  @ApiProperty({ example: 7.3 })
+  warningsPercentage!: number;
+
+  @ApiProperty({ example: 12 })
+  errors!: number;
+
+  @ApiProperty({ example: 4.8 })
+  errorsPercentage!: number;
+
+  @ApiProperty({ type: BulkImportBreakdownDto })
+  breakdown!: BulkImportBreakdownDto;
+
+  @ApiProperty({ type: [ImportedUserRowDto] })
+  records!: ImportedUserRowDto[];
+
+  @ApiPropertyOptional({ type: KPISummaryDto })
+  kpis?: KPISummaryDto;
+
+  @ApiPropertyOptional({ type: [ImportedUserRowDto] })
+  rows?: ImportedUserRowDto[];
+}
+
+export class ConfirmBulkImportDto {
+  @ApiPropertyOptional({ type: [ImportedUserRowDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ImportedUserRowDto)
+  validRecords?: ImportedUserRowDto[];
+
+  @ApiPropertyOptional({ type: [ImportedUserRowDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ImportedUserRowDto)
+  users?: ImportedUserRowDto[];
+}
+
+export class NotEnrolledRowDto {
+  @ApiProperty({ example: 4 })
+  row!: number;
+
+  @ApiProperty({ example: 'ana@ctphojancha.ed.cr' })
+  email!: string;
+
+  @ApiProperty({ example: 'Sección "11-Z" no encontrada en un curso lectivo activo.' })
+  reason!: string;
+}
+
+export class ConfirmBulkImportResponseDto {
+  @ApiProperty({ example: 218 })
+  importedCount!: number;
+
+  @ApiProperty({ example: 210, description: 'Estudiantes matriculados en su sección' })
+  enrolledCount!: number;
+
+  @ApiProperty({ type: [NotEnrolledRowDto] })
+  notEnrolled!: NotEnrolledRowDto[];
+
+  @ApiProperty({ example: 'Se han importado 218 usuarios exitosamente.' })
+  message!: string;
+}
+
+/** Detalle por fila cuando la confirmación es rechazada (400/409). */
+export class BulkImportRejectedRowDto {
+  @ApiProperty({ example: 4 })
+  row!: number;
+
+  @ApiProperty({ type: [String], example: ['email'] })
+  invalidFields!: string[];
+
+  @ApiProperty({ type: [String], example: ['El correo ya se encuentra registrado.'] })
+  errorMessages!: string[];
 }

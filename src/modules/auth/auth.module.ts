@@ -2,22 +2,32 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailModule } from '../../integrations/mail/mail.module';
+import { User } from '../administrative/users/entities/user.entity';
+import { UsersModule } from '../administrative/users/users.module';
 import { AuthController } from './controllers/auth.controller';
-import { AuthService } from './services/auth.service';
-import { AuthBootstrapService } from './services/auth-bootstrap.service';
-import { TokenService } from './services/token.service';
-import { PasswordRecoveryService } from './services/password-recovery.service';
-import { AuthRepository } from './repositories/auth.repository';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { UserSession } from './entities/user-session.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthUser } from './entities/auth-user.entity';
+import { AuthRepository } from './repositories/auth.repository';
+import { PasswordResetTokensRepository } from './repositories/password-reset-tokens.repository';
+import { UserSessionsRepository } from './repositories/user-sessions.repository';
+import { AuthBootstrapService } from './services/auth-bootstrap.service';
+import { AuthService } from './services/auth.service';
+import { PasswordRecoveryService } from './services/password-recovery.service';
+import { SessionsService } from './services/sessions.service';
+import { LoginAttemptsService } from './services/login-attempts.service';
+import { TokenService } from './services/token.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AuthUser]),
+    TypeOrmModule.forFeature([User, PasswordResetToken, UserSession]),
+    UsersModule,
+    MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -37,12 +47,16 @@ import { AuthUser } from './entities/auth-user.entity';
     AuthBootstrapService,
     TokenService,
     PasswordRecoveryService,
+    SessionsService,
+    LoginAttemptsService,
     AuthRepository,
+    PasswordResetTokensRepository,
+    UserSessionsRepository,
     JwtStrategy,
     RefreshTokenStrategy,
     JwtAuthGuard,
     RefreshTokenGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, PassportModule, JwtModule],
+  exports: [AuthService, AuthRepository, JwtAuthGuard, PassportModule, JwtModule],
 })
 export class AuthModule {}

@@ -1,0 +1,225 @@
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { UserStatus } from '../../../common/enums/user-status.enum';
+import { AuthService } from './auth.service';
+
+describe('AuthService', () => {
+  const passwordHash = '$2b$10$abcdefghijklmnopqrstuv';
+  const activeUser = {
+    id: 1,
+    email: 'admin@ctphojancha.ed.cr',
+    national_id: '100000000',
+    name: 'Admin',
+    first_lastname: 'Sistema',
+    second_lastname: null,
+    status: UserStatus.ACTIVE,
+    passwordHash,
+    mustChangePassword: false,
+    roles: [{ name: 'Administrador', permissions: [{ code: 'administrator.view' }] }],
+  };
+
+  let authRepository: {
+    findByIdentifier: jest.Mock;
+    findById: jest.Mock;
+    touchLastLogin: jest.Mock;
+    save: jest.Mock;
+  };
+  let tokenService: { issueSessionTokens: jest.Mock };
+  let configService: { getOrThrow: jest.Mock };
+  let sessionsService: {
+    revokeCurrent: jest.Mock;
+    revokeAllForUser: jest.Mock;
+    getActiveMatchingRefresh: jest.Mock;
+  };
+  let auditLogService: { record: jest.Mock };
+  let service: AuthService;
+
+  beforeEach(() => {
+    authRepository = {
+      findByIdentifier: jest.fn(),
+      findById: jest.fn(),
+      touchLastLogin: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn(async (user) => user),
+    };
+    tokenService = {
+      issueSessionTokens: jest.fn().mockResolvedValue({
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        session: { id: 99 },
+      }),
+    };
+    configService = {
+      getOrThrow: jest.fn((key: string) => (key === 'jwt.refreshExpiresIn' ? '7d' : '8h')),
+    };
+    sessionsService = {
+      revokeCurrent: jest.fn().mockResolvedValue({ message: 'Sesión cerrada.' }),
+      revokeAllForUser: jest.fn().mockResolvedValue(undefined),
+      getActiveMatchingRefresh: jest.fn(),
+    };
+    auditLogService = { record: jest.fn().mockResolvedValue(undefined) };
+
+    service = new AuthService(
+      authRepository as never,
+      tokenService as never,
+      configService as never,
+      sessionsService as never,
+      auditLogService as never,
+    );
+
+    jest
+      .spyOn(service, 'comparePassword')
+      .mockImplementation(async (plain) => plain === 'Admin1234');
+    jest.spyOn(service, 'hashPassword').mockResolvedValue('new-hash');
+  });
+
+  it('rejects pending accounts with a verification message', async () => {
+    authRepository.findByIdentifier.mockResolvedValue({
+      ...activeUser,
+      status: UserStatus.PENDING,
+    });
+
+    await expect(
+      service.login({ identifier: activeUser.national_id, password: 'Admin1234' }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        message: expect.stringMatching(/pendiente de verificación/i),
+        reason: 'ACCOUNT_PENDING',
+      }),
+    });
+    expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();
+  });
+
+  it('issues session tokens and records LOGIN_SUCCESS for active users by national_id', async () => {
+    authRepository.findByIdentifier.mockResolvedValue({ ...activeUser });
+
+    const result = await service.login({
+      identifier: activeUser.national_id,
+      password: 'Admin1234',
+    });
+
+    expect(authRepository.findByIdentifier).toHaveBeenCalledWith(activeUser.national_id);
+    expect(result.accessToken).toBe('access');
+    expect(result.refreshToken).toBe('refresh');
+    expect(result.user.email).toBe(activeUser.email);
+    expect(auditLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'LOGIN_SUCCESS' }),
+    );
+  });
+
+  it('does not authenticate when repository finds no user for an email-like identifier', async () => {
+    authRepository.findByIdentifier.mockResolvedValue(null);
+
+    await expect(
+      service.login({ identifier: activeUser.email, password: 'Admin1234' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();
+  });
+
+  it('rejects inactive accounts before password comparison', async () => {
+    authRepository.findByIdentifier.mockResolvedValue({
+      ...activeUser,
+      status: UserStatus.INACTIVE,
+    });
+
+    await expect(
+      service.login({ identifier: activeUser.national_id, password: 'wrong-pass' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(service.comparePassword).not.toHaveBeenCalled();
+    expect(tokenService.issueSessionTokens).not.toHaveBeenCalled();
+  });
+
+  const studentTemplatePermissions = [
+    { code: 'attendance.view_own' },
+    { code: 'attendance.justify' },
+    { code: 'schedules.view_own' },
+    { code: 'communications.view' },
+    { code: 'appeals.create' },
+    { code: 'disciplinary.view_own' },
+  ];
+
+  const newStudent = {
+    id: 88,
+    email: 'solanoaaron853@gmail.com',
+    national_id: '118760543',
+    name: 'Aaron',
+    first_lastname: 'Solano',
+    second_lastname: 'Cordero',
+    status: UserStatus.ACTIVE,
+    passwordHash,
+    mustChangePassword: false,
+    roles: [{ name: 'Estudiante', permissions: studentTemplatePermissions }],
+  };
+
+  it('login de Estudiante no-seed hidrata view_own desde role_permissions y no students.view', async () => {
+    authRepository.findByIdentifier.mockResolvedValue({ ...newStudent });
+
+    const result = await service.login({
+      identifier: newStudent.national_id,
+      password: 'Admin1234',
+    });
+
+    expect(result.user.roles).toContain('Estudiante');
+    expect(result.user.permissions).toEqual(
+      expect.arrayContaining([
+        'attendance.view_own',
+        'schedules.view_own',
+        'disciplinary.view_own',
+      ]),
+    );
+    expect(result.user.permissions).not.toContain('students.view');
+    expect(tokenService.issueSessionTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        permissions: expect.arrayContaining(['attendance.view_own']),
+      }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('GET /auth/me refresca la misma plantilla para un alumno creado después del seed', async () => {
+    authRepository.findById.mockResolvedValue({ ...newStudent });
+
+    const profile = await service.getMe({
+      id: 88,
+      email: newStudent.email,
+      roles: [],
+      permissions: [],
+      mustChangePassword: false,
+    });
+
+    expect(profile.roles).toContain('Estudiante');
+    expect(profile.permissions).toEqual(
+      expect.arrayContaining([
+        'attendance.view_own',
+        'schedules.view_own',
+        'disciplinary.view_own',
+      ]),
+    );
+    expect(profile.permissions).not.toContain('students.view');
+  });
+
+  it('changePassword requires the current password and revokes every session', async () => {
+    authRepository.findById.mockResolvedValue({ ...activeUser });
+
+    const result = await service.changePassword(
+      { id: 1, email: activeUser.email, roles: [], permissions: [], mustChangePassword: false },
+      { currentPassword: 'Admin1234', newPassword: 'NuevaClave99!' },
+    );
+
+    expect(result.message).toMatch(/Contraseña actualizada/);
+    expect(sessionsService.revokeAllForUser).toHaveBeenCalledWith(1);
+    expect(auditLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'PASSWORD_CHANGED' }),
+    );
+  });
+
+  it('changePassword rejects an incorrect current password', async () => {
+    authRepository.findById.mockResolvedValue({ ...activeUser });
+
+    await expect(
+      service.changePassword(
+        { id: 1, email: activeUser.email, roles: [], permissions: [], mustChangePassword: false },
+        { currentPassword: 'wrong-pass', newPassword: 'NuevaClave99!' },
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});

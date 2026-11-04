@@ -1,35 +1,335 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AttendanceService } from '../services/attendance.service';
-import { AbsencesService } from '../services/absences.service';
-import { RegisterAttendanceDto } from '../dto/register-attendance.dto';
-import { RegisterAbsenceDto } from '../dto/register-absence.dto';
-import { AttendanceFilterDto } from '../dto/attendance-filter.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+  Query,
+  StreamableFile,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiProduces, ApiTags } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, Min } from 'class-validator';
+import { PERMISSIONS } from '../../../common/constants/permissions.constant';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { Permissions } from '../../../common/decorators/permissions.decorator';
+import { SkipResponseWrap } from '../../../common/decorators/skip-response-wrap.decorator';
+import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
+import { AttendanceHistoryFilterDto } from '../dto/attendance-history-filter.dto';
+import { AttendanceAnalyticsFilterDto } from '../dto/attendance-analytics-filter.dto';
+import { CreateAttendanceSessionDto } from '../dto/create-attendance-session.dto';
+import { CreateAttendanceSessionFromScheduleDto } from '../dto/create-attendance-session-from-schedule.dto';
+import { UpsertAttendanceRecordsDto } from '../dto/upsert-attendance-records.dto';
+import { AttendanceAnalyticsService } from '../services/attendance-analytics.service';
+import { AttendanceExportService } from '../services/attendance-export.service';
+import { AttendanceHistoryService } from '../services/attendance-history.service';
+import { AttendanceRangeExportService } from '../services/attendance-range-export.service';
+import { AttendanceRecordsService } from '../services/attendance-records.service';
+import { AttendanceSessionsService } from '../services/attendance-sessions.service';
+import { AttendanceTokenService } from '../services/attendance-token.service';
 
-@ApiTags('Attendance')
+class AttendanceScheduleContextQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  periodId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  groupId?: number;
+}
+
+@ApiTags('attendance')
 @ApiBearerAuth()
 @Controller('attendance')
 export class AttendanceController {
   constructor(
-    private readonly attendanceService: AttendanceService,
-    private readonly absencesService: AbsencesService,
+    private readonly sessions: AttendanceSessionsService,
+    private readonly records: AttendanceRecordsService,
+    private readonly history: AttendanceHistoryService,
+    private readonly tokens: AttendanceTokenService,
+    private readonly exports: AttendanceExportService,
+    private readonly analytics: AttendanceAnalyticsService,
+    private readonly rangeExports: AttendanceRangeExportService,
   ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Registrar asistencia (stub)' })
-  register(@Body() dto: RegisterAttendanceDto) {
-    return this.attendanceService.register(dto);
+  /** PermissionsGuard requires ALL listed codes — one permission per handler.
+   * History endpoints authorize inside the service (view OR view_own / student).
+   */
+
+  @Get('history')
+  searchHistory(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.history.search(query, actor);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Consultar asistencia (stub)' })
-  findAll(@Query() filter: AttendanceFilterDto) {
-    return this.attendanceService.findAll(filter);
+  @Get('history/summary')
+  summarizeHistory(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.history.summarize(query, actor);
   }
 
-  @Post('absences')
-  @ApiOperation({ summary: 'Registrar ausencia (stub)' })
-  registerAbsence(@Body() dto: RegisterAbsenceDto) {
-    return this.absencesService.register(dto);
+  @Get('history/export/pdf')
+  @SkipResponseWrap()
+  @Header('Content-Type', 'application/pdf')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="historial-asistencia.pdf"',
+  )
+  @ApiProduces('application/pdf')
+  async exportHistoryPdf(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportHistoryPdf(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: 'attachment; filename="historial-asistencia.pdf"',
+    });
+  }
+
+  @Get('history/export/excel')
+  @SkipResponseWrap()
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="historial-asistencia.xlsx"',
+  )
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async exportHistoryExcel(
+    @Query() query: AttendanceHistoryFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportHistoryExcel(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="historial-asistencia.xlsx"',
+    });
+  }
+
+  @Get('analytics/dashboard-kpis')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getDashboardKpis(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.analytics.getDashboardKpis(query, actor);
+  }
+
+  @Get('analytics/summary')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getAnalyticsSummary(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.analytics.getSummary(query, actor);
+  }
+
+  @Get('reports/export/excel')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="reporte-asistencia.xlsx"',
+  )
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async exportRangeExcel(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.rangeExports.exportExcel(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="reporte-asistencia.xlsx"',
+    });
+  }
+
+  @Get('reports/export/pdf')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
+  @Header('Content-Type', 'application/pdf')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="reporte-asistencia.pdf"',
+  )
+  @ApiProduces('application/pdf')
+  async exportRangePdf(
+    @Query() query: AttendanceAnalyticsFilterDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.rangeExports.exportPdf(query, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: 'attachment; filename="reporte-asistencia.pdf"',
+    });
+  }
+
+  @Get('groups')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  listAttendanceGroups(@CurrentUser() actor: AuthenticatedUser) {
+    return this.sessions.listAttendanceGroups(actor);
+  }
+
+  @Get('groups/:groupId/available-offerings')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  listAvailableOfferings(
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.sessions.listAvailableOfferings(groupId, actor);
+  }
+
+  @Get('schedule-context')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getScheduleContext(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query() query: AttendanceScheduleContextQueryDto,
+  ) {
+    return this.sessions.getScheduleContext(actor, {
+      periodId: query.periodId,
+      groupId: query.groupId,
+    });
+  }
+
+  @Post('sessions/from-schedule')
+  @Permissions(PERMISSIONS.ATTENDANCE_REGISTER)
+  createSessionFromSchedule(
+    @Body() dto: CreateAttendanceSessionFromScheduleDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.sessions.createSessionFromSchedule(dto, actor);
+  }
+
+  @Post('sessions')
+  @Permissions(PERMISSIONS.ATTENDANCE_REGISTER)
+  createSession(@Body() dto: CreateAttendanceSessionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.sessions.createSession(dto, actor);
+  }
+
+  @Get('sessions/:id')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getSessionDetail(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.sessions.getSessionDetail(id, actor);
+  }
+
+  @Post('sessions/:id/token')
+  @Permissions(PERMISSIONS.ATTENDANCE_EDIT)
+  generateSessionToken(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.tokens.generateToken(id, actor);
+  }
+
+  @Post('sessions/:id/close')
+  @Permissions(PERMISSIONS.ATTENDANCE_EDIT)
+  closeSession(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.sessions.closeSession(id, actor);
+  }
+
+  @Get('sessions/:sessionId/roster')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getRoster(
+    @Param('sessionId', ParseIntPipe) sessionId: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.records.getRoster(sessionId, actor);
+  }
+
+  /** Alias: lista de estudiantes matriculados + estado de asistencia. */
+  @Get('sessions/:sessionId/students')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  getStudents(
+    @Param('sessionId', ParseIntPipe) sessionId: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.records.getRoster(sessionId, actor);
+  }
+
+  @Put('sessions/:sessionId/records')
+  @Permissions(PERMISSIONS.ATTENDANCE_EDIT)
+  upsertRecords(
+    @Param('sessionId', ParseIntPipe) sessionId: number,
+    @Body() dto: UpsertAttendanceRecordsDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.records.upsertRecords(sessionId, dto, actor);
+  }
+
+  /** Alias de guardado masivo (mismo contrato que PUT .../records). */
+  @Post('sessions/:sessionId/save-records')
+  @Permissions(PERMISSIONS.ATTENDANCE_EDIT)
+  saveRecords(
+    @Param('sessionId', ParseIntPipe) sessionId: number,
+    @Body() dto: UpsertAttendanceRecordsDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.records.upsertRecords(sessionId, dto, actor);
+  }
+
+  @Get('sessions/:sessionId/export/pdf')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
+  @Header('Content-Type', 'application/pdf')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="reporte-asistencia.pdf"',
+  )
+  @ApiProduces('application/pdf')
+  async exportPdf(
+    @Param('sessionId', ParseIntPipe) sessionId: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportPdf(sessionId, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: 'attachment; filename="reporte-asistencia.pdf"',
+    });
+  }
+
+  @Get('sessions/:sessionId/export/excel')
+  @Permissions(PERMISSIONS.ATTENDANCE_READ)
+  @SkipResponseWrap()
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="reporte-asistencia.xlsx"',
+  )
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async exportExcel(
+    @Param('sessionId', ParseIntPipe) sessionId: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const buffer = await this.exports.exportExcel(sessionId, actor);
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="reporte-asistencia.xlsx"',
+    });
   }
 }

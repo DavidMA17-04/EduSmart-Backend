@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { AuditLog } from '../entities/audit-log.entity';
 
 export interface AuditLogEntry {
-  actorId?: string | null;
+  actorId?: number | null;
   action: string;
   entity: string;
   entityId: string;
@@ -22,5 +22,12 @@ export class AuditLogRepository {
   async append(entry: AuditLogEntry): Promise<AuditLog> {
     const log = this.repository.create(entry);
     return this.repository.save(log);
+  }
+
+  async findByEntity(entity: string, entityId: string): Promise<AuditLog[]> {
+    return this.repository.find({
+      where: { entity, entityId },
+      order: { createdAt: 'DESC' },
+    });
   }
 }

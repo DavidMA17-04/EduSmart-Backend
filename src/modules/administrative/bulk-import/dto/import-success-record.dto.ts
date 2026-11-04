@@ -16,15 +16,20 @@ export class ImportSuccessRecordDto {
   @IsString()
   nationalId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Nombres de pila' })
   @IsOptional()
   @IsString()
-  firstName?: string;
+  name?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Primer apellido' })
   @IsOptional()
   @IsString()
-  lastName?: string;
+  first_lastname?: string;
+
+  @ApiPropertyOptional({ description: 'Segundo apellido' })
+  @IsOptional()
+  @IsString()
+  second_lastname?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -36,7 +41,9 @@ export class ImportSuccessRecordDto {
   @IsString()
   role?: string;
 
-  @ApiPropertyOptional({ description: 'ID del usuario creado, cuando el motor de importación lo persista' })
+  @ApiPropertyOptional({
+    description: 'ID del usuario creado, cuando el motor de importación lo persista',
+  })
   @IsOptional()
   @IsString()
   userId?: string;

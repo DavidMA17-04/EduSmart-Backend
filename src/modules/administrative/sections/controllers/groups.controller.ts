@@ -6,11 +6,16 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PERMISSIONS } from '../../../../common/constants/permissions.constant';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { Permissions } from '../../../../common/decorators/permissions.decorator';
+import { AuthenticatedUser } from '../../../auth/interfaces/authenticated-user.interface';
+import { actorSeesFullAcademicHistory } from '../../shared/academic-visibility.util';
 import { AssignGuideTeacherDto } from '../dto/assign-guide-teacher.dto';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
@@ -23,45 +28,48 @@ export class GroupsController {
   constructor(private readonly service: GroupsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Crear grupo' })
+  @Permissions(PERMISSIONS.SECTIONS_CREATE)
+  @ApiOperation({ summary: 'Crear sección (cascarón con cupo máximo)' })
   create(@Body() dto: CreateGroupDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar grupos' })
-  findAll() {
-    return this.service.findAll();
+  @ApiOperation({
+    summary: 'Listar secciones (Admin/Director: historial; resto: año activo)',
+  })
+  findAll(@CurrentUser() actor: AuthenticatedUser) {
+    if (actorSeesFullAcademicHistory(actor?.roles ?? [])) {
+      return this.service.findAll();
+    }
+    return this.service.findVisibleForTeacher();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener grupo por ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  @ApiOperation({ summary: 'Obtener sección por ID' })
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }
 
   @Put(':id/guide-teacher')
-  @ApiOperation({ summary: 'Asignar docente gu�a al grupo' })
-  assignGuideTeacher(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: AssignGuideTeacherDto,
-  ) {
+  @Permissions(PERMISSIONS.SECTIONS_EDIT)
+  @ApiOperation({ summary: 'Asignar docente guía a la sección' })
+  assignGuideTeacher(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignGuideTeacherDto) {
     return this.service.assignGuideTeacher(id, dto);
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Actualizar grupo' })
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateGroupDto,
-  ) {
+  @Permissions(PERMISSIONS.SECTIONS_EDIT)
+  @ApiOperation({ summary: 'Actualizar sección' })
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateGroupDto) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar grupo' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+  @Permissions(PERMISSIONS.SECTIONS_EDIT)
+  @ApiOperation({ summary: 'Eliminar sección' })
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     await this.service.remove(id);
   }
 }

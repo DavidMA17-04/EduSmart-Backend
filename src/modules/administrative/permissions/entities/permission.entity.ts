@@ -3,21 +3,20 @@ import {
   CreateDateColumn,
   Entity,
   Index,
-  ManyToMany,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { PermissionAction } from '../../../../common/enums/permission-action.enum';
 import { PermissionModule } from '../../../../common/enums/permission-module.enum';
-import { RoleEntity } from '../../roles/entities/role.entity';
+import { RolePermissionEntity } from '../../roles/entities/role-permission.entity';
 
 @Entity({ name: 'permissions' })
 @Index(['module', 'action'], { unique: true })
 export class PermissionEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'id_permissions' })
+  id!: number;
 
-  /** Código estable para guards, ej. `attendance.view` */
   @Column({ type: 'varchar', length: 120, unique: true })
   code!: string;
 
@@ -30,8 +29,8 @@ export class PermissionEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   description?: string | null;
 
-  @ManyToMany(() => RoleEntity, (role) => role.permissions)
-  roles!: RoleEntity[];
+  @OneToMany(() => RolePermissionEntity, (row) => row.permission)
+  rolePermissions?: RolePermissionEntity[];
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date;
