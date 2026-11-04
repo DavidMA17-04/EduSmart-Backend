@@ -648,4 +648,44 @@ export class BulkImportService {
         })) as ImportSummaryDto,
     };
   }
+
+  async registerResult(dto: RegisterImportResultDto): Promise<ImportResult> {
+    const summary = this.resolveSummary(dto);
+    const job = this.importJobsRepository.create({
+      type: dto.type?.trim() || 'users',
+      successfulRecords: dto.successfulRecords,
+      errorRecords: dto.errorRecords,
+      summary,
+    });
+    const saved = await this.importJobsRepository.save(job);
+    return this.toResult(saved);
+  }
+
+  async findResult(jobId: string): Promise<ImportResult> {
+    const job = await this.importJobsRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundException(`Import job ${jobId} not found`);
+    }
+    return this.toResult(job);
+  }
+
+  private resolveSummary(dto: RegisterImportResultDto): ImportSummaryDto {
+    const successfulRecords = dto.successfulRecords.length;
+    const errorRecords = dto.errorRecords.length;
+    return {
+      totalRecords: dto.summary?.totalRecords ?? successfulRecords + errorRecords,
+      successfulRecords: dto.summary?.successfulRecords ?? successfulRecords,
+      errorRecords: dto.summary?.errorRecords ?? errorRecords,
+    };
+  }
+
+  private toResult(job: ImportJob): ImportResult {
+    return {
+      jobId: job.id,
+      type: job.type,
+      successfulRecords: job.successfulRecords ?? [],
+      errorRecords: job.errorRecords ?? [],
+      summary: job.summary,
+    };
+  }
 }

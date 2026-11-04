@@ -58,6 +58,12 @@ export class UsersController {
     return this.service.createGuideTeacher(dto);
   }
 
+  @Post()
+  @ApiOperation({ summary: 'Registro manual de usuario (WF-17)' })
+  create(@Body() dto: CreateUserDto) {
+    return this.service.create(dto);
+  }
+
   @Get('guide-teachers')
   @Permissions(PERMISSIONS.ADMINISTRATOR_VIEW)
   @ApiOperation({ summary: 'Listar docentes guía disponibles' })
