@@ -24,10 +24,15 @@ const SEEDED_ADMIN_DEFAULTS: Pick<
   userRoles: [{ roleId: 1, role: { name: 'Administrador' } }],
 };
 
-function buildService(
-  existingAdmin: Seeded | null = null,
-  options: { resolveByNationalId?: boolean } = {},
-) {
+type BuildOptions = {
+  resolveByNationalId?: boolean;
+  /** Simula findByEmail sin eager load de userRoles (comportamiento real del repositorio). */
+  emailWithoutRelations?: boolean;
+  findByIdReturnsNull?: boolean;
+  findByIdWithoutAdminRole?: boolean;
+};
+
+function buildService(existingAdmin: Seeded | null = null, options: BuildOptions = {}) {
   const created: Seeded[] = [];
   if (existingAdmin) {
     Object.assign(existingAdmin, { ...SEEDED_ADMIN_DEFAULTS, ...existingAdmin });
@@ -35,7 +40,14 @@ function buildService(
   const seededFull: Seeded | null = existingAdmin;
 
   const usersRepository = {
-    findByEmail: jest.fn(async () => (options.resolveByNationalId ? null : seededFull)),
+    findByEmail: jest.fn(async () => {
+      if (options.resolveByNationalId || !seededFull) return null;
+      if (options.emailWithoutRelations) {
+        const { userRoles: _roles, ...withoutRoles } = seededFull;
+        return withoutRoles;
+      }
+      return seededFull;
+    }),
     findByNationalId: jest.fn(async (nationalId: string) => {
       if (!options.resolveByNationalId || !seededFull || nationalId !== '100000000') {
         return null;
@@ -43,8 +55,13 @@ function buildService(
       return { id: seededFull.id ?? 1, national_id: nationalId };
     }),
     findById: jest.fn(async (id: number) => {
-      if (!options.resolveByNationalId || !seededFull || id !== (seededFull.id ?? 1)) {
-        return null;
+      if (options.findByIdReturnsNull) return null;
+      if (!seededFull || id !== (seededFull.id ?? 1)) return null;
+      if (options.findByIdWithoutAdminRole) {
+        return {
+          ...seededFull,
+          userRoles: [{ roleId: 99, role: { name: 'Docente' } }],
+        };
       }
       return seededFull;
     }),
@@ -187,6 +204,44 @@ describe('UsersBootstrapService · administrador inicial', () => {
     };
     const { ensureAdminUser, usersRepository } = buildService(admin, { resolveByNationalId: true });
     await expect(ensureAdminUser(1)).rejects.toThrow(/no tiene asignado el rol Administrador/);
+    expect(usersRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('producción: findByEmail sin relaciones y findById con rol Administrador — no inserta duplicado', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ADMIN_PASSWORD = 'UnaClaveLarga#2026';
+    const admin = { password_hash: await bcrypt.hash('Admin1234', 4), mustChangePassword: false };
+    const { created, ensureAdminUser, usersRepository } = buildService(admin, {
+      emailWithoutRelations: true,
+    });
+    await ensureAdminUser(1);
+    expect(usersRepository.findById).toHaveBeenCalledWith(1);
+    expect(usersRepository.create).not.toHaveBeenCalled();
+    expect(usersRepository.replaceRoles).not.toHaveBeenCalled();
+    expect(created).toHaveLength(1);
+  });
+
+  it('producción: findByEmail sin relaciones y findById sin rol Administrador — inconsistencia', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ADMIN_PASSWORD = 'UnaClaveLarga#2026';
+    const admin = { password_hash: await bcrypt.hash('Admin1234', 4), mustChangePassword: false };
+    const { ensureAdminUser, usersRepository } = buildService(admin, {
+      emailWithoutRelations: true,
+      findByIdWithoutAdminRole: true,
+    });
+    await expect(ensureAdminUser(1)).rejects.toThrow(/no tiene asignado el rol Administrador/);
+    expect(usersRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('producción: findById devuelve null — error explícito sin crear usuario', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ADMIN_PASSWORD = 'UnaClaveLarga#2026';
+    const admin = { password_hash: await bcrypt.hash('Admin1234', 4), mustChangePassword: false };
+    const { ensureAdminUser, usersRepository } = buildService(admin, {
+      emailWithoutRelations: true,
+      findByIdReturnsNull: true,
+    });
+    await expect(ensureAdminUser(1)).rejects.toThrow(/No se pudo cargar el administrador sembrado/);
     expect(usersRepository.create).not.toHaveBeenCalled();
   });
 });

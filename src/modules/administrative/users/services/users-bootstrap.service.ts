@@ -205,7 +205,7 @@ export class UsersBootstrapService implements OnModuleInit {
     if (!existing) {
       const byNationalId = await this.usersRepository.findByNationalId(DEFAULT_ADMIN_NATIONAL_ID);
       if (byNationalId) {
-        existing = (await this.usersRepository.findById(byNationalId.id)) ?? byNationalId;
+        existing = byNationalId;
         matchedByNationalId = true;
       }
     }
@@ -215,6 +215,13 @@ export class UsersBootstrapService implements OnModuleInit {
 
     if (existing) {
       if (existing.national_id === DEFAULT_ADMIN_NATIONAL_ID) {
+        const loaded = await this.usersRepository.findById(existing.id);
+        if (!loaded) {
+          throw new Error(
+            `No se pudo cargar el administrador sembrado (id=${existing.id}) con sus roles asignados.`,
+          );
+        }
+        existing = loaded;
         this.validateSeededAdminRecord(existing, roleId);
         if (matchedByNationalId && existing.email !== email) {
           this.logger.warn(
