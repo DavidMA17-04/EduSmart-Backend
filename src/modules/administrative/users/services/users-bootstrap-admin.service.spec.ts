@@ -1,12 +1,53 @@
 import * as bcrypt from 'bcrypt';
 import { UsersBootstrapService } from './users-bootstrap.service';
 
-type Seeded = { password_hash: string; mustChangePassword: boolean };
+type Seeded = {
+  password_hash: string;
+  mustChangePassword: boolean;
+  id?: number;
+  national_id?: string;
+  email?: string;
+  name?: string;
+  first_lastname?: string;
+  userRoles?: Array<{ roleId: number; role?: { name: string } }>;
+};
 
-function buildService(existingAdmin: Seeded | null = null) {
+const SEEDED_ADMIN_DEFAULTS: Pick<
+  Seeded,
+  'national_id' | 'email' | 'name' | 'first_lastname' | 'userRoles' | 'id'
+> = {
+  id: 1,
+  national_id: '100000000',
+  email: 'admin@ctphojancha.ed.cr',
+  name: 'Administrador',
+  first_lastname: 'CTP Hojancha',
+  userRoles: [{ roleId: 1, role: { name: 'Administrador' } }],
+};
+
+function buildService(
+  existingAdmin: Seeded | null = null,
+  options: { resolveByNationalId?: boolean } = {},
+) {
   const created: Seeded[] = [];
+  if (existingAdmin) {
+    Object.assign(existingAdmin, { ...SEEDED_ADMIN_DEFAULTS, ...existingAdmin });
+  }
+  const seededFull: Seeded | null = existingAdmin;
+
   const usersRepository = {
-    findByEmail: jest.fn(async () => existingAdmin),
+    findByEmail: jest.fn(async () => (options.resolveByNationalId ? null : seededFull)),
+    findByNationalId: jest.fn(async (nationalId: string) => {
+      if (!options.resolveByNationalId || !seededFull || nationalId !== '100000000') {
+        return null;
+      }
+      return { id: seededFull.id ?? 1, national_id: nationalId };
+    }),
+    findById: jest.fn(async (id: number) => {
+      if (!options.resolveByNationalId || !seededFull || id !== (seededFull.id ?? 1)) {
+        return null;
+      }
+      return seededFull;
+    }),
     create: jest.fn((value: Seeded) => value),
     save: jest.fn(async (value: Seeded) => {
       created.push(value);
@@ -106,5 +147,46 @@ describe('UsersBootstrapService · administrador inicial', () => {
     await ensureAdminUser(1);
     expect(created).toHaveLength(0);
     expect(admin.mustChangePassword).toBe(false);
+  });
+
+  it('producción: ADMIN_EMAIL distinto pero cédula sembrada — reutiliza sin insertar ni cambiar roles', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ADMIN_EMAIL = 'director@ctphojancha.ed.cr';
+    process.env.ADMIN_PASSWORD = 'UnaClaveLarga#2026';
+    const admin = { password_hash: await bcrypt.hash('Admin1234', 4), mustChangePassword: false };
+    const { created, ensureAdminUser, usersRepository } = buildService(admin, {
+      resolveByNationalId: true,
+    });
+    await ensureAdminUser(1);
+    expect(usersRepository.create).not.toHaveBeenCalled();
+    expect(usersRepository.replaceRoles).not.toHaveBeenCalled();
+    expect(created).toHaveLength(1);
+    expect(admin.mustChangePassword).toBe(true);
+  });
+
+  it('producción: cédula sembrada con nombre distinto — detiene el arranque', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ADMIN_PASSWORD = 'UnaClaveLarga#2026';
+    const admin = {
+      password_hash: await bcrypt.hash('Admin1234', 4),
+      mustChangePassword: false,
+      name: 'Otro nombre',
+    };
+    const { ensureAdminUser, usersRepository } = buildService(admin, { resolveByNationalId: true });
+    await expect(ensureAdminUser(1)).rejects.toThrow(/Inconsistencia/);
+    expect(usersRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('producción: cédula sembrada sin rol Administrador — detiene el arranque', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ADMIN_PASSWORD = 'UnaClaveLarga#2026';
+    const admin = {
+      password_hash: await bcrypt.hash('Admin1234', 4),
+      mustChangePassword: false,
+      userRoles: [{ roleId: 99, role: { name: 'Docente' } }],
+    };
+    const { ensureAdminUser, usersRepository } = buildService(admin, { resolveByNationalId: true });
+    await expect(ensureAdminUser(1)).rejects.toThrow(/no tiene asignado el rol Administrador/);
+    expect(usersRepository.create).not.toHaveBeenCalled();
   });
 });

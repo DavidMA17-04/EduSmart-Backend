@@ -17,6 +17,7 @@ import { AcademicPeriodsRepository } from '../../academic-periods/repositories/a
 import { PermissionsRepository } from '../../permissions/repositories/permissions.repository';
 import { RolesRepository } from '../../roles/repositories/roles.repository';
 import { SpecialtiesRepository } from '../../specialties/repositories/specialties.repository';
+import { User } from '../entities/user.entity';
 import { UsersRepository } from '../repositories/users.repository';
 import { Utf8RepairService } from '../../../../database/services/utf8-repair.service';
 import {
@@ -26,6 +27,9 @@ import {
 
 const DEFAULT_ADMIN_EMAIL = 'admin@ctphojancha.ed.cr';
 const DEFAULT_ADMIN_NATIONAL_ID = '100000000';
+/** Valores fijos de `001_initial_admin_schema.sql` para validar el admin sembrado. */
+const SEEDED_ADMIN_NAME = 'Administrador';
+const SEEDED_ADMIN_FIRST_LASTNAME = 'CTP Hojancha';
 
 @Injectable()
 export class UsersBootstrapService implements OnModuleInit {
@@ -195,11 +199,30 @@ export class UsersBootstrapService implements OnModuleInit {
   private async ensureAdminUser(roleId: number) {
     const email = (process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL).trim().toLowerCase();
 
-    const existing = await this.usersRepository.findByEmail(email);
+    let existing = await this.usersRepository.findByEmail(email);
+    let matchedByNationalId = false;
+
+    if (!existing) {
+      const byNationalId = await this.usersRepository.findByNationalId(DEFAULT_ADMIN_NATIONAL_ID);
+      if (byNationalId) {
+        existing = (await this.usersRepository.findById(byNationalId.id)) ?? byNationalId;
+        matchedByNationalId = true;
+      }
+    }
+
     const production = process.env.NODE_ENV === 'production';
     const configured = process.env.ADMIN_PASSWORD?.trim() ?? '';
 
     if (existing) {
+      if (existing.national_id === DEFAULT_ADMIN_NATIONAL_ID) {
+        this.validateSeededAdminRecord(existing, roleId);
+        if (matchedByNationalId && existing.email !== email) {
+          this.logger.warn(
+            `ADMIN_EMAIL (${email}) no coincide con el correo del administrador sembrado (${existing.email}); se reutiliza el registro existente sin modificar datos de identidad.`,
+          );
+        }
+      }
+
       // La migración 001 siembra el administrador con la contraseña de ejemplo. En
       // producción esa contraseña se reemplaza por ADMIN_PASSWORD y se exige cambiarla.
       if (production && (await bcrypt.compare(DEV_ADMIN_PASSWORD, existing.password_hash))) {
@@ -213,7 +236,7 @@ export class UsersBootstrapService implements OnModuleInit {
         existing.mustChangePassword = true;
         await this.usersRepository.save(existing);
         this.logger.warn(
-          `La contraseña de ejemplo del administrador ${email} se reemplazó por ADMIN_PASSWORD; deberá cambiarla al ingresar.`,
+          `La contraseña de ejemplo del administrador ${existing.email} se reemplazó por ADMIN_PASSWORD; deberá cambiarla al ingresar.`,
         );
       }
       return;
@@ -247,6 +270,24 @@ export class UsersBootstrapService implements OnModuleInit {
     await this.usersRepository.replaceRoles(user.id, [{ id: roleId }]);
 
     this.logger.log(`Admin user seeded: ${email}`);
+  }
+
+  /** Comprueba que la cédula reservada sigue siendo el admin de migración 001. */
+  private validateSeededAdminRecord(user: User, adminRoleId: number): void {
+    if (user.name !== SEEDED_ADMIN_NAME || user.first_lastname !== SEEDED_ADMIN_FIRST_LASTNAME) {
+      throw new Error(
+        `Inconsistencia: la cédula ${DEFAULT_ADMIN_NATIONAL_ID} no corresponde al administrador sembrado por migración (nombre o apellido distintos).`,
+      );
+    }
+
+    const hasAdminRole = (user.userRoles ?? []).some(
+      (row) => row.roleId === adminRoleId || row.role?.name === INSTITUTIONAL_ROLE_ADMIN,
+    );
+    if (!hasAdminRole) {
+      throw new Error(
+        `Inconsistencia: la cédula ${DEFAULT_ADMIN_NATIONAL_ID} no tiene asignado el rol ${INSTITUTIONAL_ROLE_ADMIN}.`,
+      );
+    }
   }
 
   private async ensureAcademicPeriod() {
