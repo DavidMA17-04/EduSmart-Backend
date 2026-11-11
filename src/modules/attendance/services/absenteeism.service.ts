@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -14,6 +15,8 @@ import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.inte
 import { GroupEnrollment } from '../../administrative/group-enrollments/entities/group-enrollment.entity';
 import { TeachingAssignment } from '../../administrative/teaching-assignments/entities/teaching-assignment.entity';
 import { User } from '../../administrative/users/entities/user.entity';
+import { RealtimePublisher } from '../../realtime/realtime.publisher';
+import { REALTIME_ROOM } from '../../realtime/realtime.types';
 import { AbsenteeismAlertNotification } from '../entities/absenteeism-alert-notification.entity';
 import { AbsenteeismAlertRule } from '../entities/absenteeism-alert-rule.entity';
 import { AbsenteeismAlert } from '../entities/absenteeism-alert.entity';
@@ -90,6 +93,7 @@ export class AbsenteeismService {
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly sessionsService: AttendanceSessionsService,
+    @Optional() private readonly realtime?: RealtimePublisher,
   ) {}
 
   async getDashboard(actor: AuthenticatedUser): Promise<AbsenteeismDashboardView> {
@@ -514,6 +518,8 @@ export class AbsenteeismService {
             recipientUserId: null,
           }),
         );
+        this.realtime?.notifyRoom(REALTIME_ROOM.STAFF_ATTENDANCE, 'alert.absenteeism');
+        this.realtime?.notifyRoom(REALTIME_ROOM.STAFF_ATTENDANCE, 'inbox.changed');
       }
     }
 

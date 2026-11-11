@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   CommunicationsRepository,
@@ -23,6 +24,7 @@ import {
 } from '../entities/communication.entity';
 import { RecipientType } from '../entities/communication-recipient.entity';
 import { canManageCommunications, canPublishCommunications } from '../utils/communication-access.util';
+import { RealtimePublisher } from '../../realtime/realtime.publisher';
 
 /** Normaliza destinatarios: descarta vacíos y exige targetId fuera de ALL. */
 function normalizeRecipients(
@@ -61,6 +63,7 @@ export class CommunicationsService {
     private readonly repository: CommunicationsRepository,
     private readonly targetingService: CommunicationTargetingService,
     private readonly readingService: ReadingConfirmationService,
+    @Optional() private readonly realtime?: RealtimePublisher,
   ) {}
 
   private async loadView(id: string): Promise<CommunicationView> {
@@ -70,6 +73,27 @@ export class CommunicationsService {
     }
     const [view] = await this.repository.attachGroupLabels([toCommunicationView(comm)]);
     return view;
+  }
+
+  /** Empuja inbox.changed a la audiencia al publicar (falla de push no revierte). */
+  private async notifyAudienceOnPublish(communicationId: string): Promise<void> {
+    if (!this.realtime) return;
+    try {
+      const comm = await this.repository.findById(communicationId);
+      if (!comm || comm.status !== CommunicationStatus.PUBLISHED) return;
+      const recipients = (comm.recipients ?? []).map((r) => ({
+        recipientType: r.recipientType,
+        targetId: r.targetId ?? null,
+      }));
+      const audience = await this.repository.resolveAudienceUserIds(
+        recipients.length > 0 ? recipients : [{ recipientType: RecipientType.ALL, targetId: null }],
+      );
+      for (const userId of audience) {
+        this.realtime.inboxChanged(userId);
+      }
+    } catch {
+      // Push es best-effort; la publicación ya quedó persistida.
+    }
   }
 
   async create(dto: CreateCommunicationDto, authorId: number): Promise<CommunicationView> {
@@ -98,6 +122,10 @@ export class CommunicationsService {
 
     await this.targetingService.setTargets(communication.id, recipients);
 
+    if (isPublished) {
+      await this.notifyAudienceOnPublish(communication.id);
+    }
+
     return this.loadView(communication.id);
   }
 
@@ -113,6 +141,11 @@ export class CommunicationsService {
   async findAdminList(filter: CommunicationFilterDto, user: AuthenticatedUser) {
     const authorLimit = canManageCommunications(user) ? undefined : user.id;
     return this.repository.findAdminList(filter, authorLimit);
+  }
+
+  async getModuleDashboard(user: AuthenticatedUser) {
+    const authorLimit = canManageCommunications(user) ? undefined : user.id;
+    return this.repository.getModuleDashboard(authorLimit);
   }
 
   async getStats(id: string, user: AuthenticatedUser) {
@@ -170,7 +203,9 @@ export class CommunicationsService {
       throw new NotFoundException('Comunicado no encontrado');
     }
 
-    if (dto.status === CommunicationStatus.PUBLISHED && comm.status !== CommunicationStatus.PUBLISHED &&
+    const wasPublished = comm.status === CommunicationStatus.PUBLISHED;
+
+    if (dto.status === CommunicationStatus.PUBLISHED && !wasPublished &&
       !canPublishCommunications(user)) {
       throw new ForbiddenException('No tienes permiso para publicar comunicados');
     }
@@ -206,6 +241,12 @@ export class CommunicationsService {
 
     if (dto.recipients) {
       await this.targetingService.setTargets(comm.id, normalizeRecipients(dto.recipients));
+    }
+
+    const becamePublished =
+      !wasPublished && comm.status === CommunicationStatus.PUBLISHED;
+    if (becamePublished) {
+      await this.notifyAudienceOnPublish(id);
     }
 
     return this.loadView(id);

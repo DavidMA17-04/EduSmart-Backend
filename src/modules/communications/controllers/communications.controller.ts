@@ -55,6 +55,13 @@ export class CommunicationsController {
     return this.communicationsService.findAdminList(filter, user);
   }
 
+  @Get('dashboard')
+  @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
+  @ApiOperation({ summary: 'Tablero del módulo: ledger de acuses y mix de estados' })
+  getModuleDashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.communicationsService.getModuleDashboard(user);
+  }
+
   @Get('target-options')
   @Permissions(PERMISSIONS.COMMUNICATIONS_CREATE)
   @ApiOperation({ summary: 'Obtener opciones de roles y secciones para selector de audiencia' })

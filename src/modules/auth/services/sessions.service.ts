@@ -1,11 +1,15 @@
 import {
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { SESSION_MESSAGES } from '../../../common/constants/auth-security.constant';
 import { AuditLogService } from '../../administrative/users/services/audit-log.service';
+import { RealtimePublisher } from '../../realtime/realtime.publisher';
 import { UserSession } from '../entities/user-session.entity';
 import { UserSessionsRepository } from '../repositories/user-sessions.repository';
 import { TokenService } from './token.service';
@@ -26,6 +30,9 @@ export class SessionsService {
     private readonly repository: UserSessionsRepository,
     private readonly tokenService: TokenService,
     private readonly auditLogService: AuditLogService,
+    @Optional()
+    @Inject(forwardRef(() => RealtimePublisher))
+    private readonly realtime?: RealtimePublisher,
   ) {}
 
   async isActive(sessionId: number, userId: number): Promise<boolean> {
@@ -84,6 +91,7 @@ export class SessionsService {
       entity: 'UserSession',
       entityId: String(sessionId),
     });
+    this.realtime?.sessionRevoked(userId, sessionId);
     return { message: SESSION_MESSAGES.REVOKED };
   }
 
@@ -97,6 +105,7 @@ export class SessionsService {
     }
     if (!session.revokedAt) {
       await this.repository.revoke(sessionId);
+      this.realtime?.sessionRevoked(session.userId, sessionId);
     }
     return { message: SESSION_MESSAGES.LOGGED_OUT };
   }
@@ -112,10 +121,12 @@ export class SessionsService {
       entity: 'User',
       entityId: String(userId),
     });
+    this.realtime?.sessionRevoked(userId);
     return { message: SESSION_MESSAGES.ALL_REVOKED };
   }
 
   async revokeAllForUser(userId: number): Promise<void> {
     await this.repository.revokeAllForUser(userId);
+    this.realtime?.sessionRevoked(userId);
   }
 }

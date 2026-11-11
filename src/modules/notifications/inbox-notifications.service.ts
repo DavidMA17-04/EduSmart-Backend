@@ -67,6 +67,37 @@ export class InboxNotificationsService {
     });
   }
 
+  async markAllRead(actor: AuthenticatedUser, meta: RequestClientMeta) {
+    const inbox = await this.mine(actor);
+    const readable = inbox.items.filter(
+      (item) =>
+        item.source === InboxSource.DISCIPLINARY ||
+        item.source === InboxSource.ABSENTEEISM,
+    );
+    let marked = 0;
+    const errors: Array<{ source: InboxSource; id: number; message: string }> = [];
+    for (const item of readable) {
+      try {
+        await this.markRead(actor, item.source, item.id, meta);
+        marked += 1;
+      } catch (error) {
+        errors.push({
+          source: item.source,
+          id: item.id,
+          message: error instanceof Error ? error.message : 'No se pudo marcar',
+        });
+      }
+    }
+    const refreshed = await this.mine(actor);
+    return {
+      marked,
+      skipped: inbox.items.length - readable.length,
+      failed: errors.length,
+      errors,
+      unreadCount: refreshed.unreadCount,
+    };
+  }
+
   private async disciplinaryItems(actor: AuthenticatedUser): Promise<InboxItemDto[]> {
     if (!this.hasPermission(actor, PERMISSIONS.DISCIPLINARY_RESPOND)) return [];
     try {
