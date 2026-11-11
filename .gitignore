@@ -9,6 +9,8 @@
 .env
 .env.local
 .env.*.local
+/certs/
+scripts/.manifest-presentacion-universitaria.json
 
 # Logs
 *.log

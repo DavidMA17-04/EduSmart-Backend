@@ -1,0 +1,86 @@
+# Carga controlada del dataset universitario contra Aiven (manual).
+# No se ejecuta en push ni PR. APPLY requiere confirmación explícita.
+name: EduSmart — Presentación datos (Aiven)
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Operación
+        required: true
+        type: choice
+        options:
+          - inspect
+          - dry-run
+          - apply
+      confirm_apply:
+        description: Para apply escriba exactamente APLICAR_PRESENTACION
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edusmart-presentacion-aiven
+  cancel-in-progress: false
+
+jobs:
+  aiven:
+    name: ${{ inputs.operation }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_DATABASE: ${{ secrets.DB_DATABASE }}
+      DB_SSL: 'true'
+      DB_SSL_CA: ${{ secrets.DB_SSL_CA }}
+      PRESENTACION_DEMO_PASSWORD: ${{ secrets.PRESENTACION_DEMO_PASSWORD }}
+      PRESENTACION_DEMO_LOGIN_READY: ${{ secrets.PRESENTACION_DEMO_LOGIN_READY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Bloquear apply accidental
+        if: inputs.operation == 'apply' && inputs.confirm_apply != 'APLICAR_PRESENTACION'
+        run: |
+          echo "Apply cancelado: confirm_apply debe ser APLICAR_PRESENTACION."
+          exit 1
+
+      - name: INSPECT — inventario read-only
+        if: inputs.operation == 'inspect'
+        run: node scripts/seed-presentacion-universitaria.mjs --inspect
+
+      - name: DRY-RUN — validación sin escrituras
+        if: inputs.operation == 'dry-run'
+        run: node scripts/seed-presentacion-universitaria.mjs --dry-run
+
+      - name: APPLY — carga autorizada (requiere confirmación)
+        if: inputs.operation == 'apply' && inputs.confirm_apply == 'APLICAR_PRESENTACION'
+        env:
+          CONFIRM_PRESENTACION_APPLY: APLICAR_PRESENTACION
+        run: node scripts/seed-presentacion-universitaria.mjs --apply
+
+      - name: Publicar manifiesto (solo apply)
+        if: inputs.operation == 'apply' && inputs.confirm_apply == 'APLICAR_PRESENTACION'
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-presentacion-${{ github.run_id }}
+          path: scripts/.manifest-presentacion-universitaria.json
+          retention-days: 90
+          if-no-files-found: error
