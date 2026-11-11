@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { MailService, SmtpNotConfiguredError } from '../../../integrations/mail/mail.service';
+import { RealtimePublisher } from '../../realtime/realtime.publisher';
 import { CommunicationKind, NotificationEmailStatus } from '../constants/disciplinary.enums';
 import {
   DisciplinaryCommunicationEntity,
@@ -39,6 +40,7 @@ export class DisciplinaryCommunicationsService {
     private readonly mail: MailService,
     @InjectRepository(DisciplinaryNotificationEntity)
     private readonly notifications: Repository<DisciplinaryNotificationEntity>,
+    @Optional() private readonly realtime?: RealtimePublisher,
   ) {}
 
   /**
@@ -74,6 +76,10 @@ export class DisciplinaryCommunicationsService {
           emailStatus: NotificationEmailStatus.SKIPPED,
         }),
       );
+      this.realtime?.notifyUser(Number(guardian.id), 'alert.disciplinary', {
+        itemId: notification.id,
+      });
+      this.realtime?.inboxChanged(Number(guardian.id));
       if (guardian.email) {
         pending.push({
           notificationId: notification.id,

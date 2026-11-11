@@ -436,11 +436,22 @@ export class CommunicationsRepository {
   async estimateAudience(
     recipients: { recipientType: RecipientType; targetId: string | null }[],
   ): Promise<number> {
+    const ids = await this.resolveAudienceUserIds(recipients);
+    return ids.length;
+  }
+
+  /**
+   * IDs de usuarios activos alcanzados por la segmentación (mismas reglas que el feed).
+   * Usado para empujar realtime al publicar.
+   */
+  async resolveAudienceUserIds(
+    recipients: { recipientType: RecipientType; targetId: string | null }[],
+  ): Promise<number[]> {
     if (recipients.length === 0 || recipients.some((r) => r.recipientType === RecipientType.ALL)) {
-      const [row] = await this.dataSource.query(
-        "SELECT COUNT(*) AS total FROM users WHERE status = 'ACTIVE'",
+      const rows: { id: number }[] = await this.dataSource.query(
+        "SELECT id_users AS id FROM users WHERE status = 'ACTIVE'",
       );
-      return Number(row?.total ?? 0);
+      return rows.map((r) => Number(r.id)).filter((n) => Number.isFinite(n));
     }
 
     const roleNames = recipients
@@ -480,15 +491,15 @@ export class CommunicationsRepository {
       params.push(userIds);
     }
 
-    if (conditions.length === 0) return 0;
+    if (conditions.length === 0) return [];
 
-    const [row] = await this.dataSource.query(
-      `SELECT COUNT(DISTINCT u.id_users) AS total
+    const rows: { id: number }[] = await this.dataSource.query(
+      `SELECT DISTINCT u.id_users AS id
        FROM users u
        WHERE u.status = 'ACTIVE' AND (${conditions.join(' OR ')})`,
       params,
     );
-    return Number(row?.total ?? 0);
+    return rows.map((r) => Number(r.id)).filter((n) => Number.isFinite(n));
   }
 
   async getDetailedStats(communicationId: string) {
@@ -544,6 +555,132 @@ export class CommunicationsRepository {
         readAt: r.read_at,
         acknowledgedAt: r.acknowledged_at,
       })),
+    };
+  }
+
+  /** Module hub: acknowledgment ledger + status mix (not vanity open rates). */
+  async getModuleDashboard(authorIdLimit?: number): Promise<{
+    countsByStatus: Record<CommunicationStatus, number>;
+    publishedRequiringAck: number;
+    avgAckRate: number;
+    avgReadRate: number;
+    pendingAckTotal: number;
+    pendingAckItems: Array<{
+      id: string;
+      title: string;
+      priority: CommunicationPriority;
+      totalEstimatedAudience: number;
+      totalAcknowledged: number;
+      pendingCount: number;
+      ackRate: number;
+      publishDate: Date | null;
+    }>;
+  }> {
+    const countQb = this.commRepo.createQueryBuilder('c');
+    if (authorIdLimit) {
+      countQb.andWhere('c.author_id = :authorIdLimit', { authorIdLimit });
+    }
+    const countRows: { status: CommunicationStatus; total: string }[] = await countQb
+      .select('c.status', 'status')
+      .addSelect('COUNT(*)', 'total')
+      .groupBy('c.status')
+      .getRawMany();
+
+    const countsByStatus: Record<CommunicationStatus, number> = {
+      [CommunicationStatus.DRAFT]: 0,
+      [CommunicationStatus.PUBLISHED]: 0,
+      [CommunicationStatus.ARCHIVED]: 0,
+    };
+    for (const row of countRows) {
+      countsByStatus[row.status] = Number(row.total || 0);
+    }
+
+    const publishedQb = this.commRepo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.recipients', 'recipients')
+      .where('c.status = :status', { status: CommunicationStatus.PUBLISHED })
+      .andWhere('c.requires_acknowledgment = :req', { req: true })
+      .orderBy('c.publish_date', 'DESC')
+      .take(40);
+    if (authorIdLimit) {
+      publishedQb.andWhere('c.author_id = :authorIdLimit', { authorIdLimit });
+    }
+    const requiringAck = await publishedQb.getMany();
+
+    const ids = requiringAck.map((item) => item.id);
+    const statsMap = new Map<string, { totalReads: number; totalAcknowledged: number }>();
+    if (ids.length > 0) {
+      const statsRaw: { comm_id: string; total_reads: string; total_ack: string }[] =
+        await this.dataSource.query(
+          `SELECT
+            cr.communication_id AS comm_id,
+            COUNT(DISTINCT cr.user_id) AS total_reads,
+            COUNT(DISTINCT CASE WHEN cr.acknowledged_at IS NOT NULL THEN cr.user_id END) AS total_ack
+          FROM communication_reads cr
+          WHERE cr.communication_id IN (?)
+          GROUP BY cr.communication_id`,
+          [ids],
+        );
+      for (const row of statsRaw) {
+        statsMap.set(row.comm_id, {
+          totalReads: Number(row.total_reads || 0),
+          totalAcknowledged: Number(row.total_ack || 0),
+        });
+      }
+    }
+
+    const audiences = await Promise.all(
+      requiringAck.map((item) => this.estimateAudience(item.recipients ?? [])),
+    );
+
+    let ackRateSum = 0;
+    let readRateSum = 0;
+    let rateCount = 0;
+    let pendingAckTotal = 0;
+    const pendingAckItems: Array<{
+      id: string;
+      title: string;
+      priority: CommunicationPriority;
+      totalEstimatedAudience: number;
+      totalAcknowledged: number;
+      pendingCount: number;
+      ackRate: number;
+      publishDate: Date | null;
+    }> = [];
+
+    requiringAck.forEach((item, index) => {
+      const stats = statsMap.get(item.id) ?? { totalReads: 0, totalAcknowledged: 0 };
+      const audience = audiences[index] || 0;
+      const ackRate = percentage(stats.totalAcknowledged, audience);
+      const readRate = percentage(stats.totalReads, audience);
+      const pendingCount = Math.max(0, audience - stats.totalAcknowledged);
+      pendingAckTotal += pendingCount;
+      ackRateSum += ackRate;
+      readRateSum += readRate;
+      rateCount += 1;
+      if (pendingCount > 0) {
+        pendingAckItems.push({
+          id: item.id,
+          title: item.title,
+          priority: item.priority,
+          totalEstimatedAudience: audience,
+          totalAcknowledged: stats.totalAcknowledged,
+          pendingCount,
+          ackRate,
+          publishDate: item.publishDate,
+        });
+      }
+    });
+
+    pendingAckItems.sort((a, b) => b.pendingCount - a.pendingCount);
+
+    return {
+      countsByStatus,
+      publishedRequiringAck: requiringAck.length,
+      avgAckRate: rateCount ? Math.round((ackRateSum / rateCount) * 100) / 100 : 0,
+      avgReadRate: rateCount ? Math.round((readRateSum / rateCount) * 100) / 100 : 0,
+      pendingAckTotal,
+      pendingAckItems: pendingAckItems.slice(0, 8),
     };
   }
 }

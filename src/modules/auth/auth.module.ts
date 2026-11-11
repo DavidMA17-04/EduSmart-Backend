@@ -57,6 +57,13 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
     JwtAuthGuard,
     RefreshTokenGuard,
   ],
-  exports: [AuthService, AuthRepository, JwtAuthGuard, PassportModule, JwtModule],
+  exports: [
+    AuthService,
+    AuthRepository,
+    SessionsService,
+    JwtAuthGuard,
+    PassportModule,
+    JwtModule,
+  ],
 })
 export class AuthModule {}

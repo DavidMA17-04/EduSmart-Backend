@@ -14,6 +14,7 @@ describe('CommunicationsService', () => {
   let mockRepo: any;
   let mockTargeting: any;
   let mockReading: any;
+  let mockRealtime: { inboxChanged: jest.Mock };
 
   const mockUser: AuthenticatedUser = {
     id: 10,
@@ -40,6 +41,7 @@ describe('CommunicationsService', () => {
       findFeedForUser: jest.fn().mockResolvedValue({ items: [], total: 0 }),
       findAdminList: jest.fn().mockResolvedValue({ items: [], total: 0 }),
       attachGroupLabels: jest.fn().mockImplementation((views) => Promise.resolve(views)),
+      resolveAudienceUserIds: jest.fn().mockResolvedValue([20, 21]),
     };
 
     mockTargeting = {
@@ -57,7 +59,16 @@ describe('CommunicationsService', () => {
       getStats: jest.fn().mockResolvedValue({ totalReads: 5, readRate: 50 }),
     };
 
-    service = new CommunicationsService(mockRepo, mockTargeting, mockReading);
+    mockRealtime = {
+      inboxChanged: jest.fn(),
+    };
+
+    service = new CommunicationsService(
+      mockRepo,
+      mockTargeting,
+      mockReading,
+      mockRealtime as any,
+    );
   });
 
   it('should be defined', () => {
@@ -102,7 +113,12 @@ describe('CommunicationsService', () => {
         priority: CommunicationPriority.URGENT,
       };
 
-      mockRepo.findById.mockResolvedValueOnce({ id: 'comm-urg', ...commData });
+      const published = {
+        id: 'comm-urg',
+        ...commData,
+        recipients: [{ recipientType: RecipientType.USER, targetId: '20' }],
+      };
+      mockRepo.findById.mockResolvedValue(published);
 
       await service.create(commData as any, mockUser.id);
 
@@ -112,6 +128,8 @@ describe('CommunicationsService', () => {
           publishDate: expect.any(Date),
         }),
       );
+      expect(mockRealtime.inboxChanged).toHaveBeenCalledWith(20);
+      expect(mockRealtime.inboxChanged).toHaveBeenCalledWith(21);
     });
   });
 
@@ -170,11 +188,23 @@ describe('CommunicationsService', () => {
 
   describe('publish & archive', () => {
     it('publish sets status to PUBLISHED', async () => {
-      mockRepo.findById.mockResolvedValue({
-        id: 'comm-123',
-        authorId: mockUser.id,
-        status: CommunicationStatus.DRAFT,
-      });
+      mockRepo.findById
+        .mockResolvedValueOnce({
+          id: 'comm-123',
+          authorId: mockUser.id,
+          status: CommunicationStatus.DRAFT,
+        })
+        .mockResolvedValueOnce({
+          id: 'comm-123',
+          authorId: mockUser.id,
+          status: CommunicationStatus.PUBLISHED,
+          recipients: [{ recipientType: RecipientType.USER, targetId: '20' }],
+        })
+        .mockResolvedValueOnce({
+          id: 'comm-123',
+          authorId: mockUser.id,
+          status: CommunicationStatus.PUBLISHED,
+        });
 
       await service.publish('comm-123', mockUser);
 
@@ -184,6 +214,9 @@ describe('CommunicationsService', () => {
           publishDate: expect.any(Date),
         }),
       );
+      expect(mockRepo.resolveAudienceUserIds).toHaveBeenCalled();
+      expect(mockRealtime.inboxChanged).toHaveBeenCalledWith(20);
+      expect(mockRealtime.inboxChanged).toHaveBeenCalledWith(21);
     });
 
     it('archive sets status to ARCHIVED', async () => {
@@ -200,6 +233,7 @@ describe('CommunicationsService', () => {
           status: CommunicationStatus.ARCHIVED,
         }),
       );
+      expect(mockRealtime.inboxChanged).not.toHaveBeenCalled();
     });
   });
 

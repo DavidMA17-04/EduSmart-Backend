@@ -19,6 +19,14 @@ export class NotificationsController {
     return this.inbox.mine(actor);
   }
 
+  @Post('read-all')
+  @ApiOperation({
+    summary: 'Marcar leídos todos los ítems de la bandeja cuya fuente lo soporte',
+  })
+  markAllRead(@CurrentUser() actor: AuthenticatedUser, @Req() request: Request) {
+    return this.inbox.markAllRead(actor, requestClientMeta(request));
+  }
+
   @Post(':source/:id/read')
   @ApiOperation({ summary: 'Marcar leído un ítem de la bandeja (fuentes que lo soportan)' })
   markRead(

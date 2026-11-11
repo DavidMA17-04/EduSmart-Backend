@@ -16,6 +16,7 @@ import { AppealsModule } from './modules/appeals/appeals.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PublicModule } from './modules/public/public.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { StudentDeparturesModule } from './modules/student-departures/student-departures.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -43,6 +44,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     AppealsModule,
     DashboardModule,
     NotificationsModule,
+    RealtimeModule,
     PublicModule,
     StudentDeparturesModule,
   ],

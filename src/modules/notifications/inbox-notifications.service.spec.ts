@@ -282,6 +282,47 @@ describe('bandeja unificada in-app', () => {
       build({}).markRead(reviewer(), InboxSource.JUSTIFICATION_PENDING, 44, meta()),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('marca en lote solo fuentes soportadas y deja justificaciones', async () => {
+    const disciplinary = {
+      mine: jest.fn().mockResolvedValue({
+        items: [disciplinaryItem({ id: 5, readAt: null })],
+      }),
+      confirmRead: jest.fn().mockResolvedValue({ id: 5, readAt: '2026-10-21T12:00:00.000Z' }),
+    };
+    const absenteeism = {
+      listUnreadForInbox: jest.fn().mockResolvedValue([
+        {
+          id: 9,
+          title: 'Alerta',
+          body: 'detalle',
+          studentFullName: 'Alumno',
+          sentAt: '2026-10-21T11:00:00.000Z',
+        },
+      ]),
+      markNotificationRead: jest.fn().mockResolvedValue({ id: 9, readAt: '2026-10-21T12:01:00.000Z' }),
+    };
+    const justifications = {
+      getJustifications: jest.fn().mockResolvedValue({
+        data: [
+          {
+            id: 44,
+            student: { fullName: 'Pendiente' },
+            sessionDate: '2026-10-20',
+            offering: { name: 'Matemática' },
+            createdAt: '2026-10-20T10:00:00.000Z',
+          },
+        ],
+      }),
+    };
+    const service = build({ disciplinary, absenteeism, justifications });
+    const actor = counselor();
+    const result = await service.markAllRead(actor, meta());
+    expect(result.marked).toBe(2);
+    expect(result.skipped).toBeGreaterThanOrEqual(1);
+    expect(disciplinary.confirmRead).toHaveBeenCalled();
+    expect(absenteeism.markNotificationRead).toHaveBeenCalledWith(actor, 9);
+  });
 });
 
 function build(partial: {

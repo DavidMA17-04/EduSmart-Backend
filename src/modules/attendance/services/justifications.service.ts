@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
@@ -16,6 +17,9 @@ import { JustificationStatus } from '../../../common/enums/justification-status.
 import { PERMISSIONS } from '../../../common/constants/permissions.constant';
 import { Role } from '../../../common/enums/role.enum';
 import { AuthenticatedUser } from '../../auth/interfaces/authenticated-user.interface';
+import { AuditLog } from '../../administrative/users/entities/audit-log.entity';
+import { RealtimePublisher } from '../../realtime/realtime.publisher';
+import { REALTIME_ROOM } from '../../realtime/realtime.types';
 import { CreateJustificationDto } from '../dto/create-justification.dto';
 import { JustifiableAbsencesQueryDto } from '../dto/justifiable-absences-query.dto';
 import { ListJustificationsQueryDto } from '../dto/list-justifications-query.dto';
@@ -27,7 +31,6 @@ import { AbsenceJustification } from '../entities/absence-justification.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { GuardianStudentLink } from '../entities/guardian-student-link.entity';
 import { JustificationEvidence } from '../entities/justification-evidence.entity';
-import { AuditLog } from '../../administrative/users/entities/audit-log.entity';
 import { isInstitutionWideReviewer } from '../utils/attendance-actor.util';
 import { formatUserFullName } from '../utils/attendance-labels.util';
 
@@ -101,6 +104,7 @@ export class JustificationsService {
     private readonly guardianLinks: Repository<GuardianStudentLink>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    @Optional() private readonly realtime?: RealtimePublisher,
   ) {
     this.ensureUploadDir();
   }
@@ -184,6 +188,13 @@ export class JustificationsService {
       });
       return saved.id;
     });
+
+    this.realtime?.notifyRoom(
+      REALTIME_ROOM.STAFF_ATTENDANCE_REVIEW,
+      'alert.justification_pending',
+      { itemId: savedId },
+    );
+    this.realtime?.notifyRoom(REALTIME_ROOM.STAFF_ATTENDANCE_REVIEW, 'inbox.changed');
 
     return this.toView(await this.loadJustificationOrFail(savedId));
   }
